@@ -142,14 +142,234 @@ instances with appropriate error codes.
 Fixes #78
 ```
 
+## Pull Request Guidelines
+
+### Branch Naming Convention
+
+Use descriptive branch names that follow this pattern:
+```
+<type>/<short-description>
+```
+
+**Examples:**
+```bash
+feat/add-document-conversion
+fix/authentication-token-refresh
+docs/update-api-reference
+refactor/simplify-error-handling
+test/add-workflow-tests
+```
+
+**Branch Types:**
+- `feat/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation changes
+- `refactor/` - Code refactoring
+- `test/` - Adding or updating tests
+- `perf/` - Performance improvements
+- `chore/` - Maintenance tasks
+
+### Pull Request Workflow
+
+#### 1. Fork and Clone
+```bash
+# Fork the repository on GitHub, then clone your fork
+git clone https://github.com/YOUR_USERNAME/nutrient-dws-typescript-client.git
+cd nutrient-dws-typescript-client
+
+# Add upstream remote
+git remote add upstream https://github.com/jdrhyne/nutrient-dws-typescript-client.git
+```
+
+#### 2. Create Feature Branch
+```bash
+# Ensure you're on main and up to date
+git checkout main
+git pull upstream main
+
+# Create your feature branch
+git checkout -b feat/your-feature-name
+```
+
+#### 3. Development Process
+Follow our atomic commit standards:
+
+```bash
+# Make small, focused changes
+# Each commit should be a complete, logical unit
+
+# Stage and commit using conventional commits
+git add src/errors.ts
+git commit -m "feat(errors): add NutrientError base class"
+
+git add src/errors.ts
+git commit -m "feat(errors): add ValidationError class"
+
+git add tests/errors.test.ts
+git commit -m "test(errors): add unit tests for error classes"
+```
+
+#### 4. Keep Branch Updated
+```bash
+# Regularly sync with upstream main
+git fetch upstream
+git rebase upstream/main
+```
+
+#### 5. Pre-submission Checklist
+
+Before creating your PR, ensure:
+
+- [ ] **All commits follow conventional format**
+- [ ] **Each commit is atomic (one logical change)**
+- [ ] **All tests pass**: `npm test`
+- [ ] **Code is properly formatted**: `npm run format`
+- [ ] **No linting errors**: `npm run lint`
+- [ ] **TypeScript compiles**: `npm run typecheck`
+- [ ] **Build succeeds**: `npm run build`
+- [ ] **New features have tests**
+- [ ] **Public APIs have JSDoc comments**
+- [ ] **Breaking changes are documented**
+
+#### 6. Create Pull Request
+
+**PR Title Format:**
+Use the same format as commit messages:
+```
+<type>[optional scope]: <description>
+```
+
+**Examples:**
+```
+feat(client): add document conversion methods
+fix(http): resolve authentication token refresh issue
+docs: update API usage examples
+```
+
+**PR Description Template:**
+
+```markdown
+## Summary
+Brief description of what this PR does and why.
+
+## Type of Change
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+
+## Changes Made
+- List the specific changes
+- Use bullet points for clarity
+- Reference relevant files
+
+## Testing
+- [ ] Unit tests added/updated
+- [ ] All existing tests pass
+- [ ] Manual testing performed
+
+## Related Issues
+Closes #123
+Fixes #456
+```
+
+### Pull Request Standards
+
+#### Atomic PR Principle
+Each PR should:
+- **Address one concern** - Don't mix features, fixes, and refactoring
+- **Have focused scope** - Related changes only
+- **Be reviewable** - Not too large (aim for <500 lines changed)
+
+#### Good PR Examples:
+```
+feat(client): add document conversion methods
+├── Add convert() method to NutrientClient
+├── Add conversion options interface
+├── Add unit tests for conversion
+└── Update API documentation
+```
+
+```
+fix(http): resolve timeout handling
+├── Fix timeout error handling in sendRequest()
+├── Add timeout-specific error class
+└── Add tests for timeout scenarios
+```
+
+#### Bad PR Examples:
+```
+feat: add multiple features and fix bugs
+├── Add conversion methods
+├── Fix authentication bug
+├── Update documentation
+├── Refactor error handling
+└── Add new workflow features
+```
+
+### Code Review Standards
+
+#### For Contributors
+- **Self-review first** - Review your own PR before requesting review
+- **Write clear descriptions** - Explain the what and why
+- **Respond promptly** - Address review feedback quickly
+- **Be open to feedback** - Code review improves code quality
+
+#### Review Criteria
+Reviewers will check for:
+
+1. **Code Quality**
+   - Follows TypeScript best practices
+   - No ESLint violations
+   - Proper error handling
+   - Performance considerations
+
+2. **Testing**
+   - Adequate test coverage
+   - Tests are meaningful and thorough
+   - Edge cases covered
+
+3. **Documentation**
+   - JSDoc comments for public APIs
+   - README updates if needed
+   - Breaking changes documented
+
+4. **Commit Standards**
+   - Conventional commit format
+   - Atomic commits
+   - Clear commit messages
+
+5. **Backwards Compatibility**
+   - No breaking changes without major version
+   - Deprecation notices for removed features
+
 ### Development Workflow
 
-1. **Create feature branch**: `git checkout -b feat/your-feature-name`
-2. **Make atomic commits**: Small, focused changes
-3. **Write tests**: Ensure your changes are tested
-4. **Run linting**: `npm run lint:fix`
-5. **Run tests**: `npm test`
-6. **Create pull request**: Use clear description
+1. **Setup Development Environment**
+   ```bash
+   npm install
+   npm run build  # Verify everything works
+   npm test       # Ensure tests pass
+   ```
+
+2. **Make Changes Following Standards**
+   - Write tests first (TDD approach recommended)
+   - Make atomic commits
+   - Use conventional commit format
+
+3. **Quality Checks**
+   ```bash
+   npm run lint:fix    # Fix linting issues
+   npm run format      # Format code
+   npm run typecheck   # Verify TypeScript
+   npm test            # Run tests
+   npm run build       # Verify build
+   ```
+
+4. **Submit PR**
+   - Use proper title format
+   - Fill out PR template completely
+   - Request review from maintainers
 
 ### Code Quality Standards
 
