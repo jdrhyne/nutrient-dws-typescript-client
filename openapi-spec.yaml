@@ -1,0 +1,291 @@
+openapi: 3.0.3
+info:
+  title: Nutrient Document Web Services API
+  description: API for document processing and manipulation
+  version: 1.0.0
+servers:
+  - url: https://api.nutrient.io/v1
+    description: Production server
+paths:
+  /convert:
+    post:
+      operationId: convertDocument
+      summary: Convert a document to a different format
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - target_format
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The document file to convert
+                target_format:
+                  type: string
+                  enum: [pdf, docx, xlsx, pptx, html, txt]
+                  description: Target format for conversion
+                options:
+                  type: object
+                  properties:
+                    quality:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                    optimize:
+                      type: boolean
+      responses:
+        '200':
+          description: Successful conversion
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  
+  /merge:
+    post:
+      operationId: mergeDocuments
+      summary: Merge multiple documents into one
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  minItems: 2
+                  description: Array of document files to merge
+                output_format:
+                  type: string
+                  enum: [pdf, docx]
+                  default: pdf
+      responses:
+        '200':
+          description: Successful merge
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  
+  /compress:
+    post:
+      operationId: compressDocument
+      summary: Compress a document to reduce file size
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The document file to compress
+                compression_level:
+                  type: string
+                  enum: [low, medium, high, maximum]
+                  default: medium
+                  description: Level of compression to apply
+      responses:
+        '200':
+          description: Successful compression
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  
+  /extract:
+    post:
+      operationId: extractText
+      summary: Extract text content from a document
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The document file to extract text from
+                include_metadata:
+                  type: boolean
+                  default: false
+                  description: Include document metadata in response
+      responses:
+        '200':
+          description: Successful text extraction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractTextResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  
+  /watermark:
+    post:
+      operationId: addWatermark
+      summary: Add a watermark to a document
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - watermark_text
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The document file to watermark
+                watermark_text:
+                  type: string
+                  description: Text to use as watermark
+                position:
+                  type: string
+                  enum: [center, top-left, top-right, bottom-left, bottom-right]
+                  default: center
+                opacity:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  default: 0.5
+                font_size:
+                  type: integer
+                  minimum: 8
+                  maximum: 72
+                  default: 36
+      responses:
+        '200':
+          description: Successful watermark addition
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    ExtractTextResponse:
+      type: object
+      required:
+        - text
+        - page_count
+      properties:
+        text:
+          type: string
+          description: Extracted text content
+        page_count:
+          type: integer
+          description: Number of pages in the document
+        metadata:
+          type: object
+          description: Document metadata (if requested)
+          properties:
+            title:
+              type: string
+            author:
+              type: string
+            creation_date:
+              type: string
+              format: date-time
+            modification_date:
+              type: string
+              format: date-time
+    
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+  
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - ApiKeyAuth: []
