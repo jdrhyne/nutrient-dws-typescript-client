@@ -11,7 +11,7 @@ import {
   createTestBlob,
   createTestBuffer,
   createTestUint8Array,
-} from './setup';
+} from './test-utils';
 import * as fs from 'fs';
 import * as path from 'path';
 

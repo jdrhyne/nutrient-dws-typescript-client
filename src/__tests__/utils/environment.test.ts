@@ -10,7 +10,7 @@ import {
   setupWebWorkerEnvironment,
   setupNodeEnvironment,
   resetEnvironment,
-} from '../setup';
+} from '../test-utils';
 
 interface TestGlobal extends NodeJS.Global {
   window?: {
