@@ -64,3 +64,17 @@ export class NutrientError extends Error {
     return result;
   }
 }
+
+/**
+ * Error thrown when input validation fails
+ */
+export class ValidationError extends NutrientError {
+  constructor(message: string, details?: Record<string, unknown>, statusCode?: number) {
+    super(message, 'VALIDATION_ERROR', details, statusCode);
+    this.name = 'ValidationError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ValidationError);
+    }
+  }
+}
