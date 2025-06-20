@@ -1,18 +1,11 @@
 import type { NutrientClientOptions } from './types/common';
-import type {
-  FileInput,
-  ConvertOperation,
-  MergeOperation,
-  CompressOperation,
-  WatermarkOperation,
-} from './types';
-import type { ExtractTextResponse } from './types/responses';
+import type { FileInput } from './types';
 import type { components } from './types/nutrient-api';
 import { ValidationError } from './errors';
 import { sendRequest } from './http';
 import { validateFileInput } from './inputs';
 import { WorkflowBuilder } from './workflow';
-import { BuildApiBuilder } from './build';
+import { BuildApiBuilder, BuildActions } from './build';
 
 /**
  * Main client for interacting with the Nutrient Document Web Services API.
@@ -87,40 +80,74 @@ export class NutrientClient {
    * const pdfBlob = await client.convert(
    *   'path/to/document.docx',
    *   'pdf',
-   *   { quality: 90, optimize: true }
+   *   { optimize: true }
    * );
    * ```
    */
   async convert(
     file: FileInput,
-    targetFormat: ConvertOperation['targetFormat'],
-    options?: ConvertOperation['options'],
+    targetFormat: 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'png' | 'jpeg' | 'webp',
+    options?: {
+      optimize?: boolean;
+      conformance?: components['schemas']['PDFAOutput']['conformance'];
+      width?: number;
+      height?: number;
+      dpi?: number;
+    },
   ): Promise<Blob> {
     if (!validateFileInput(file)) {
       throw new ValidationError('Invalid file input provided', { file });
     }
 
-    const response = await sendRequest<Blob>(
-      {
-        endpoint: '/convert',
-        method: 'POST',
-        files: { file },
-        data: {
-          targetFormat,
-          ...options,
-        },
-      },
-      this.options,
-    );
+    const builder = this.build().addFile(file);
 
-    return response.data;
+    // Set output based on target format
+    switch (targetFormat) {
+      case 'pdf':
+        builder.setOutput({
+          type: 'pdf',
+          ...(options?.optimize && {
+            optimize: {
+              linearize: true,
+              imageOptimizationQuality: 2,
+            },
+          }),
+        });
+        break;
+      case 'pdfa':
+        builder.setOutput({
+          type: 'pdfa',
+          conformance: options?.conformance,
+        });
+        break;
+      case 'docx':
+      case 'xlsx':
+      case 'pptx':
+        builder.setOutput({ type: targetFormat });
+        break;
+      case 'png':
+      case 'jpeg':
+      case 'webp':
+        builder.setOutput({
+          type: 'image',
+          format: targetFormat === 'jpeg' ? 'jpg' : targetFormat,
+          ...(options?.width && { width: options.width }),
+          ...(options?.height && { height: options.height }),
+          ...(options?.dpi && { dpi: options.dpi }),
+        });
+        break;
+      default:
+        throw new ValidationError(`Unsupported target format: ${targetFormat as string}`);
+    }
+
+    return builder.execute<Blob>();
   }
 
   /**
    * Merges multiple documents into one
    *
    * @param files - Array of document files to merge
-   * @param outputFormat - Output format for merged document
+   * @param outputFormat - Output format for merged document (default: 'pdf')
    * @returns Promise resolving to the merged file
    *
    * @example
@@ -129,37 +156,32 @@ export class NutrientClient {
    *   'doc1.pdf',
    *   'doc2.pdf',
    *   'doc3.pdf'
-   * ], 'pdf');
+   * ]);
    * ```
    */
-  async merge(files: FileInput[], outputFormat?: MergeOperation['outputFormat']): Promise<Blob> {
+  async merge(files: FileInput[], outputFormat: 'pdf' | 'pdfa' = 'pdf'): Promise<Blob> {
     if (!Array.isArray(files) || files.length < 2) {
       throw new ValidationError('At least 2 files are required for merge operation');
     }
 
     // Validate all files
-    const filesObject: Record<string, FileInput> = {};
+    const builder = this.build();
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (!file || !validateFileInput(file)) {
         throw new ValidationError(`Invalid file at index ${i}`, { file });
       }
-      filesObject[`files[${i}]`] = file;
+      builder.addFile(file);
     }
 
-    const response = await sendRequest<Blob>(
-      {
-        endpoint: '/merge',
-        method: 'POST',
-        files: filesObject,
-        data: {
-          outputFormat,
-        },
-      },
-      this.options,
-    );
+    // Set output format
+    if (outputFormat === 'pdfa') {
+      builder.setOutput({ type: 'pdfa' });
+    } else {
+      builder.setOutput({ type: 'pdf' });
+    }
 
-    return response.data;
+    return builder.execute<Blob>();
   }
 
   /**
@@ -179,62 +201,81 @@ export class NutrientClient {
    */
   async compress(
     file: FileInput,
-    compressionLevel?: CompressOperation['compressionLevel'],
+    compressionLevel: 'low' | 'medium' | 'high' = 'medium',
   ): Promise<Blob> {
     if (!validateFileInput(file)) {
       throw new ValidationError('Invalid file input provided', { file });
     }
 
-    const response = await sendRequest<Blob>(
-      {
-        endpoint: '/compress',
-        method: 'POST',
-        files: { file },
-        data: {
-          compressionLevel,
-        },
-      },
-      this.options,
-    );
+    // Map compression levels to optimization settings
+    const optimizationSettings: components['schemas']['OptimizePdf'] = {};
+    switch (compressionLevel) {
+      case 'low':
+        optimizationSettings.imageOptimizationQuality = 4;
+        break;
+      case 'medium':
+        optimizationSettings.imageOptimizationQuality = 2;
+        optimizationSettings.linearize = true;
+        break;
+      case 'high':
+        optimizationSettings.imageOptimizationQuality = 1;
+        optimizationSettings.linearize = true;
+        optimizationSettings.mrcCompression = true;
+        optimizationSettings.disableImages = false;
+        optimizationSettings.grayscaleImages = true;
+        break;
+    }
 
-    return response.data;
+    return this.build()
+      .addFile(file)
+      .setOutput({
+        type: 'pdf',
+        optimize: optimizationSettings,
+      })
+      .execute<Blob>();
   }
 
   /**
    * Extracts text content from a document
    *
    * @param file - The document file to extract text from
-   * @param includeMetadata - Whether to include document metadata
+   * @param options - Extraction options
    * @returns Promise resolving to extracted text and metadata
    *
    * @example
    * ```typescript
    * const result = await client.extractText(
    *   'document.pdf',
-   *   true
+   *   { structuredText: true, tables: true }
    * );
-   * console.log(result.text);
-   * console.log(result.metadata);
+   * console.log(result.plainText);
+   * console.log(result.tables);
    * ```
    */
-  async extractText(file: FileInput, includeMetadata?: boolean): Promise<ExtractTextResponse> {
+  async extractText(
+    file: FileInput,
+    options?: {
+      structuredText?: boolean;
+      keyValuePairs?: boolean;
+      tables?: boolean;
+      language?: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][];
+    },
+  ): Promise<components['schemas']['JSONContentOutput']> {
     if (!validateFileInput(file)) {
       throw new ValidationError('Invalid file input provided', { file });
     }
 
-    const response = await sendRequest<ExtractTextResponse>(
-      {
-        endpoint: '/extract',
-        method: 'POST',
-        files: { file },
-        data: {
-          includeMetadata,
-        },
-      },
-      this.options,
-    );
-
-    return response.data;
+    return this.build()
+      .addFile(file)
+      .setOutput({
+        type: 'json-content',
+        plainText: true,
+        structuredText: options?.structuredText,
+        keyValuePairs: options?.keyValuePairs,
+        tables: options?.tables,
+        language: options?.language,
+      })
+      .execute<components['schemas']['JSONContentOutput']>();
   }
 
   /**
@@ -251,9 +292,9 @@ export class NutrientClient {
    *   'document.pdf',
    *   'CONFIDENTIAL',
    *   {
-   *     position: 'center',
    *     opacity: 0.3,
-   *     fontSize: 48
+   *     fontSize: 48,
+   *     fontColor: '#FF0000'
    *   }
    * );
    * ```
@@ -261,7 +302,13 @@ export class NutrientClient {
   async watermark(
     file: FileInput,
     watermarkText: string,
-    options?: Partial<Pick<WatermarkOperation, 'position' | 'opacity' | 'fontSize'>>,
+    options?: {
+      opacity?: number;
+      fontSize?: number;
+      fontColor?: string;
+      fontFamily?: string;
+      rotation?: number;
+    },
   ): Promise<Blob> {
     if (!validateFileInput(file)) {
       throw new ValidationError('Invalid file input provided', { file });
@@ -271,20 +318,22 @@ export class NutrientClient {
       throw new ValidationError('Watermark text is required and must be a string');
     }
 
-    const response = await sendRequest<Blob>(
-      {
-        endpoint: '/watermark',
-        method: 'POST',
-        files: { file },
-        data: {
-          watermarkText,
-          ...options,
-        },
-      },
-      this.options,
-    );
+    // Create watermark action with sensible defaults
+    const watermarkAction = BuildActions.watermarkText(watermarkText, {
+      width: { value: 50, unit: '%' as const },
+      height: { value: 50, unit: '%' as const },
+      opacity: options?.opacity ?? 0.5,
+      fontSize: options?.fontSize ?? 36,
+      fontColor: options?.fontColor ?? '#000000',
+      fontFamily: options?.fontFamily ?? 'Helvetica',
+      rotation: options?.rotation ?? 45,
+    });
 
-    return response.data;
+    return this.build()
+      .addFile(file)
+      .withActions([watermarkAction])
+      .setOutput({ type: 'pdf' })
+      .execute<Blob>();
   }
 
   /**
