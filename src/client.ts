@@ -7,10 +7,12 @@ import type {
   WatermarkOperation,
 } from './types';
 import type { ExtractTextResponse } from './types/responses';
+import type { components } from './types/nutrient-api';
 import { ValidationError } from './errors';
 import { sendRequest } from './http';
 import { validateFileInput } from './inputs';
 import { WorkflowBuilder } from './workflow';
+import { BuildApiBuilder } from './build';
 
 /**
  * Main client for interacting with the Nutrient Document Web Services API.
@@ -303,6 +305,55 @@ export class NutrientClient {
    */
   buildWorkflow(): WorkflowBuilder {
     return new WorkflowBuilder(this.options);
+  }
+
+  /**
+   * Creates a new BuildApiBuilder for assembling documents using the Build API
+   *
+   * @returns A new BuildApiBuilder instance
+   *
+   * @example
+   * ```typescript
+   * const result = await client
+   *   .build()
+   *   .addFile('page1.pdf')
+   *   .addFile('page2.pdf', { pages: { start: 0, end: 2 } })
+   *   .addHtml('<h1>Cover Page</h1>')
+   *   .withActions([BuildActions.ocr('english')])
+   *   .execute();
+   * ```
+   */
+  build(): BuildApiBuilder {
+    return new BuildApiBuilder(this.options);
+  }
+
+  /**
+   * Analyzes a Build API request without executing it
+   * Returns the credit cost that would be consumed
+   *
+   * @param instructions - Build instructions to analyze
+   * @returns Promise resolving to the analysis result
+   *
+   * @example
+   * ```typescript
+   * const builder = client.build().addFile('document.pdf');
+   * const analysis = await client.analyzeBuild(builder.getInstructions());
+   * console.log(`This operation would cost ${analysis.cost} credits`);
+   * ```
+   */
+  async analyzeBuild(
+    instructions: components['schemas']['BuildInstructions'],
+  ): Promise<components['schemas']['AnalyzeBuildResponse']> {
+    const response = await sendRequest<components['schemas']['AnalyzeBuildResponse']>(
+      {
+        endpoint: '/analyze_build',
+        method: 'POST',
+        data: instructions,
+      },
+      this.options,
+    );
+
+    return response.data;
   }
 
   /**
