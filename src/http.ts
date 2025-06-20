@@ -47,7 +47,7 @@ export async function sendRequest<T = unknown>(
     const apiKey = await resolveApiKey(clientOptions.apiKey);
 
     // Build full URL
-    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io/v1';
+    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io';
     const url = `${baseUrl.replace(/\/$/, '')}/${config.endpoint.replace(/^\//, '')}`;
 
     // Prepare request configuration
@@ -55,7 +55,7 @@ export async function sendRequest<T = unknown>(
       method: config.method,
       url,
       headers: {
-        'X-API-Key': apiKey,
+        Authorization: `Bearer ${apiKey}`,
         ...config.headers,
       },
       timeout: config.timeout ?? 30000, // 30 second default timeout

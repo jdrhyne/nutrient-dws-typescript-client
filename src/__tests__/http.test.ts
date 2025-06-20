@@ -102,7 +102,7 @@ describe('HTTP Layer', () => {
         method: 'GET',
         url: 'https://api.test.com/v1/test',
         headers: {
-          'X-API-Key': 'test-api-key',
+          Authorization: 'Bearer test-api-key',
         },
         timeout: 30000,
         validateStatus: expect.any(Function),
@@ -142,7 +142,7 @@ describe('HTTP Layer', () => {
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({
           headers: expect.objectContaining({
-            'X-API-Key': 'async-api-key',
+            Authorization: 'Bearer async-api-key',
           }),
         }),
       );

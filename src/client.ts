@@ -317,6 +317,6 @@ export class NutrientClient {
    * Gets the current base URL
    */
   getBaseUrl(): string {
-    return this.options.baseUrl ?? 'https://api.nutrient.io/v1';
+    return this.options.baseUrl ?? 'https://api.nutrient.io';
   }
 }
