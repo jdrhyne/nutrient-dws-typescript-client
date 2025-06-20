@@ -28,5 +28,5 @@
     "@typescript-eslint/prefer-optional-chain": "error",
     "no-console": ["warn", { "allow": ["warn", "error"] }]
   },
-  "ignorePatterns": ["dist", "node_modules", "coverage", "generated", "examples"]
+  "ignorePatterns": ["dist", "node_modules", "coverage", "generated", "examples", "src/types/nutrient-api.ts"]
 }
