@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nutrient DWS Client - Browser Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 1.5rem;
+    }
+    .section {
+      margin-bottom: 2rem;
+    }
+    .upload-area {
+      border: 2px dashed #ddd;
+      border-radius: 4px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.3s;
+    }
+    .upload-area:hover {
+      border-color: #4CAF50;
+    }
+    .upload-area.dragover {
+      border-color: #4CAF50;
+      background: #f0f8f0;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 4px;
+      display: none;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976d2;
+      display: block;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+      display: block;
+    }
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+      display: block;
+    }
+    .file-info {
+      background: #f5f5f5;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-top: 1rem;
+    }
+    .actions {
+      margin-top: 1rem;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Nutrient DWS Client - Browser Example</h1>
+    
+    <div class="section">
+      <h2>Upload Document</h2>
+      <div class="upload-area" id="uploadArea">
+        <p>Click to select or drag and drop a document here</p>
+        <p><small>Supported formats: PDF, DOCX, XLSX, PPTX, images</small></p>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png">
+      <div class="file-info" id="fileInfo" style="display: none;">
+        <strong>Selected file:</strong> <span id="fileName"></span><br>
+        <strong>Size:</strong> <span id="fileSize"></span>
+      </div>
+    </div>
+
+    <div class="section actions" id="actions" style="display: none;">
+      <h2>Document Operations</h2>
+      <button onclick="convertToPdf()">Convert to PDF</button>
+      <button onclick="extractText()">Extract Text</button>
+      <button onclick="compressDocument()">Compress</button>
+      <button onclick="addWatermark()">Add Watermark</button>
+      <button onclick="runWorkflow()">Run Workflow</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="section" id="results" style="display: none;">
+      <h2>Results</h2>
+      <div id="resultContent"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import the client from CDN or your bundled version
+    // For this example, we'll assume the library is bundled and available
+    // In production, you'd import from your build or CDN
+    
+    // Mock NutrientClient for demonstration
+    // Replace this with actual import in production
+    class NutrientClient {
+      constructor(options) {
+        this.options = options;
+      }
+
+      async convert(file, format, options) {
+        setStatus('info', `Converting to ${format}...`);
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return new Blob([`Converted ${file.name} to ${format}`], { type: 'application/pdf' });
+      }
+
+      async extractText(file) {
+        setStatus('info', 'Extracting text...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return {
+          text: `Sample extracted text from ${file.name}.\n\nThis is a demonstration of the text extraction feature.`,
+          metadata: {
+            pages: 10,
+            author: 'John Doe',
+            title: 'Sample Document'
+          }
+        };
+      }
+
+      async compress(file, level) {
+        setStatus('info', `Compressing with ${level} compression...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return new Blob([`Compressed ${file.name}`], { type: file.type });
+      }
+
+      async watermark(file, text, options) {
+        setStatus('info', 'Adding watermark...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return new Blob([`Watermarked ${file.name}`], { type: file.type });
+      }
+
+      buildWorkflow() {
+        return new WorkflowBuilder(this);
+      }
+    }
+
+    class WorkflowBuilder {
+      constructor(client) {
+        this.client = client;
+        this.steps = [];
+      }
+
+      input(file) {
+        this.file = file;
+        return this;
+      }
+
+      convert(format, options) {
+        this.steps.push({ type: 'convert', format, options });
+        return this;
+      }
+
+      compress(level) {
+        this.steps.push({ type: 'compress', level });
+        return this;
+      }
+
+      watermark(text, options) {
+        this.steps.push({ type: 'watermark', text, options });
+        return this;
+      }
+
+      async execute() {
+        setStatus('info', 'Running workflow...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return {
+          success: true,
+          outputs: new Map([['final', new Blob(['Workflow result'], { type: 'application/pdf' })]])
+        };
+      }
+    }
+
+    // Initialize client with token provider
+    const client = new NutrientClient({
+      apiKey: async () => {
+        // In production, this would fetch a token from your backend
+        // For demo, we'll return a mock token
+        return 'demo-token';
+      }
+    });
+
+    let selectedFile = null;
+
+    // File upload handling
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const actions = document.getElementById('actions');
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      selectedFile = file;
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileSize').textContent = formatFileSize(file.size);
+      fileInfo.style.display = 'block';
+      actions.style.display = 'block';
+      clearStatus();
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' bytes';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function setStatus(type, message) {
+      const status = document.getElementById('status');
+      status.className = `status ${type}`;
+      status.textContent = message;
+    }
+
+    function clearStatus() {
+      const status = document.getElementById('status');
+      status.className = 'status';
+      status.textContent = '';
+    }
+
+    function showResult(content) {
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('resultContent').innerHTML = content;
+    }
+
+    // Document operations
+    window.convertToPdf = async () => {
+      if (!selectedFile) return;
+      
+      try {
+        const result = await client.convert(selectedFile, 'pdf', { quality: 90 });
+        setStatus('success', 'Document converted successfully!');
+        
+        // Create download link
+        const url = URL.createObjectURL(result);
+        showResult(`
+          <p>Conversion complete!</p>
+          <a href="${url}" download="converted.pdf">
+            <button>Download PDF</button>
+          </a>
+        `);
+      } catch (error) {
+        setStatus('error', `Error: ${error.message}`);
+      }
+    };
+
+    window.extractText = async () => {
+      if (!selectedFile) return;
+      
+      try {
+        const result = await client.extractText(selectedFile, true);
+        setStatus('success', 'Text extracted successfully!');
+        
+        showResult(`
+          <h3>Extracted Text:</h3>
+          <pre>${result.text}</pre>
+          <h3>Metadata:</h3>
+          <pre>${JSON.stringify(result.metadata, null, 2)}</pre>
+        `);
+      } catch (error) {
+        setStatus('error', `Error: ${error.message}`);
+      }
+    };
+
+    window.compressDocument = async () => {
+      if (!selectedFile) return;
+      
+      try {
+        const result = await client.compress(selectedFile, 'high');
+        setStatus('success', 'Document compressed successfully!');
+        
+        const url = URL.createObjectURL(result);
+        showResult(`
+          <p>Compression complete!</p>
+          <p>Original size: ${formatFileSize(selectedFile.size)}</p>
+          <p>Compressed size: ${formatFileSize(result.size)}</p>
+          <a href="${url}" download="compressed_${selectedFile.name}">
+            <button>Download Compressed File</button>
+          </a>
+        `);
+      } catch (error) {
+        setStatus('error', `Error: ${error.message}`);
+      }
+    };
+
+    window.addWatermark = async () => {
+      if (!selectedFile) return;
+      
+      const text = prompt('Enter watermark text:', 'CONFIDENTIAL');
+      if (!text) return;
+      
+      try {
+        const result = await client.watermark(selectedFile, text, {
+          position: 'center',
+          opacity: 0.3,
+          fontSize: 48
+        });
+        setStatus('success', 'Watermark added successfully!');
+        
+        const url = URL.createObjectURL(result);
+        showResult(`
+          <p>Watermark added!</p>
+          <a href="${url}" download="watermarked_${selectedFile.name}">
+            <button>Download Watermarked File</button>
+          </a>
+        `);
+      } catch (error) {
+        setStatus('error', `Error: ${error.message}`);
+      }
+    };
+
+    window.runWorkflow = async () => {
+      if (!selectedFile) return;
+      
+      try {
+        const result = await client
+          .buildWorkflow()
+          .input(selectedFile)
+          .convert('pdf')
+          .compress('medium')
+          .watermark('PROCESSED', { position: 'top-right', opacity: 0.5 })
+          .execute();
+        
+        if (result.success) {
+          setStatus('success', 'Workflow completed successfully!');
+          
+          const output = result.outputs.get('final');
+          const url = URL.createObjectURL(output);
+          showResult(`
+            <p>Workflow complete! Document was:</p>
+            <ul>
+              <li>Converted to PDF</li>
+              <li>Compressed</li>
+              <li>Watermarked</li>
+            </ul>
+            <a href="${url}" download="processed.pdf">
+              <button>Download Processed File</button>
+            </a>
+          `);
+        }
+      } catch (error) {
+        setStatus('error', `Error: ${error.message}`);
+      }
+    };
+  </script>
+</body>
+</html>
