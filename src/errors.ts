@@ -78,3 +78,45 @@ export class ValidationError extends NutrientError {
     }
   }
 }
+
+/**
+ * Error thrown when API requests fail
+ */
+export class APIError extends NutrientError {
+  constructor(message: string, statusCode: number, details?: Record<string, unknown>) {
+    super(message, 'API_ERROR', details, statusCode);
+    this.name = 'APIError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, APIError);
+    }
+  }
+}
+
+/**
+ * Error thrown when authentication fails
+ */
+export class AuthenticationError extends NutrientError {
+  constructor(message: string, details?: Record<string, unknown>, statusCode: number = 401) {
+    super(message, 'AUTHENTICATION_ERROR', details, statusCode);
+    this.name = 'AuthenticationError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, AuthenticationError);
+    }
+  }
+}
+
+/**
+ * Error thrown when network requests fail
+ */
+export class NetworkError extends NutrientError {
+  constructor(message: string, details?: Record<string, unknown>, statusCode?: number) {
+    super(message, 'NETWORK_ERROR', details, statusCode);
+    this.name = 'NetworkError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, NetworkError);
+    }
+  }
+}
