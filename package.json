@@ -55,17 +55,22 @@
     "typecheck": "tsc --noEmit",
     "prepare": "husky install",
     "prepublishOnly": "npm run build && npm run test",
-    "generate:types": "openapi-typescript openapi-spec.yaml -o ./generated/api-types.ts"
+    "generate:types": "openapi-typescript openapi-spec.yaml -o ./generated/api-types.ts",
+    "commit": "cz"
   },
   "dependencies": {
     "axios": "^1.7.2",
     "form-data": "^4.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-jest": "^28.6.0",
@@ -87,5 +92,10 @@
       "eslint --fix",
       "prettier --write"
     ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
   }
 }
