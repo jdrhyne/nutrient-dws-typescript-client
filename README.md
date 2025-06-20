@@ -6,7 +6,8 @@ A TypeScript client library for [Nutrient Document Web Services (DWS) API](https
 
 - 🌐 **Isomorphic**: Works in both Node.js and browser environments
 - 🔒 **Type-safe**: Full TypeScript support with comprehensive type definitions
-- 🚀 **Ergonomic API**: Fluent interface with WorkflowBuilder for chaining operations
+- 🚀 **Build API**: Powerful document assembly with the Build API for complex workflows
+- 🔗 **Fluent interface**: Chain operations with WorkflowBuilder and BuildApiBuilder
 - 🔐 **Flexible authentication**: Support for API keys and async token providers
 - 📦 **Multiple module formats**: ESM and CommonJS builds
 - 🧪 **Well-tested**: Comprehensive test suite with high coverage
@@ -39,14 +40,47 @@ const client = new NutrientClient({
 // Convert a document
 const pdfBlob = await client.convert('path/to/document.docx', 'pdf');
 
+// Merge multiple documents
+const merged = await client.merge(['doc1.pdf', 'doc2.pdf', 'doc3.pdf']);
+
 // Extract text from a PDF
-const result = await client.extractText('path/to/document.pdf');
-console.log(result.text);
+const result = await client.extractText('path/to/document.pdf', {
+  tables: true,
+  structuredText: true
+});
+console.log(result.plainText);
+```
+
+### Build API
+
+For complex document assembly and processing, use the powerful Build API:
+
+```typescript
+import { BuildActions, BuildOutputs } from '@nutrient/dws-client';
+
+const result = await client
+  .build()
+  .addFile('cover.pdf')
+  .addHtml('<h1>Chapter 1</h1><p>Content...</p>')
+  .addFile('chapter2.docx')
+  .addNewPages(2) // Add blank pages
+  .withActions([
+    BuildActions.ocr('english'),
+    BuildActions.watermarkText('DRAFT', {
+      width: { value: 50, unit: '%' },
+      height: { value: 50, unit: '%' },
+      opacity: 0.3
+    })
+  ])
+  .setOutput(BuildOutputs.pdf({
+    optimize: { linearize: true }
+  }))
+  .execute();
 ```
 
 ### Workflow Builder
 
-For complex document processing workflows, use the fluent WorkflowBuilder API:
+For sequential document processing workflows:
 
 ```typescript
 const result = await client
