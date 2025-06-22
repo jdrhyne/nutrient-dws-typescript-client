@@ -17,7 +17,7 @@ Shows advanced workflow capabilities:
 - Chaining multiple operations
 - Creating named outputs
 - Progress tracking
-- Error handling with `continueOnError`
+- Error handling
 
 ### 3. Browser Usage (`browser-usage.html`)
 Interactive web interface demonstrating:

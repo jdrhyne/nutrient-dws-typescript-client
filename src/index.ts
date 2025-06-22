@@ -1,7 +1,5 @@
 // Main exports
 export { NutrientClient } from './client';
-export { WorkflowBuilder } from './workflow';
-export { BuildApiBuilder, BuildActions, BuildOutputs } from './build';
 
 // Error exports
 export {
@@ -50,23 +48,3 @@ export type {
 
 // Utility exports
 export { validateFileInput, processFileInput, type NormalizedFileData } from './inputs';
-
-export {
-  getEnvironment,
-  getEnvironmentCapabilities,
-  isBrowser,
-  isNode,
-  isWebWorker,
-  type Environment,
-  type EnvironmentCapabilities,
-} from './utils/environment';
-
-export {
-  camelToSnake,
-  snakeToCamel,
-  objectCamelToSnake,
-  objectSnakeToCamel,
-} from './utils/case-transform';
-
-// Export types from the generated API types
-export type { components, operations, paths } from './types/nutrient-api';

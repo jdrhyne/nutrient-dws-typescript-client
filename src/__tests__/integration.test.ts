@@ -12,7 +12,7 @@ const shouldRunIntegrationTests = process.env.NUTRIENT_API_KEY && !process.env.C
 
 describe.skip('Integration Tests', () => {
   let client: NutrientClient;
-  
+
   beforeAll(() => {
     if (!shouldRunIntegrationTests) {
       console.log('Skipping integration tests - NUTRIENT_API_KEY not found or running in CI');
@@ -35,9 +35,9 @@ describe.skip('Integration Tests', () => {
       // Create a simple test document
       const testContent = 'Hello, this is a test document for conversion.';
       const textBlob = new Blob([testContent], { type: 'text/plain' });
-      
+
       const result = await client.convert(textBlob, 'pdf');
-      
+
       expect(result).toBeInstanceOf(Blob);
       expect(result.type).toContain('pdf');
       expect(result.size).toBeGreaterThan(0);
@@ -49,9 +49,9 @@ describe.skip('Integration Tests', () => {
       // Create a simple test document
       const testContent = 'This is test content for text extraction.';
       const textBlob = new Blob([testContent], { type: 'text/plain' });
-      
+
       const result = await client.extractText(textBlob, true);
-      
+
       expect(result).toHaveProperty('text');
       expect(result.text).toContain('test content');
       expect(result).toHaveProperty('metadata');
@@ -63,9 +63,9 @@ describe.skip('Integration Tests', () => {
       // Create test documents
       const doc1 = new Blob(['Document 1 content'], { type: 'text/plain' });
       const doc2 = new Blob(['Document 2 content'], { type: 'text/plain' });
-      
+
       const result = await client.merge([doc1, doc2], 'pdf');
-      
+
       expect(result).toBeInstanceOf(Blob);
       expect(result.type).toContain('pdf');
       expect(result.size).toBeGreaterThan(0);
@@ -80,7 +80,7 @@ describe.skip('Integration Tests', () => {
       const textBlob = new Blob([testContent], { type: 'text/plain' });
 
       const result = await client
-        .buildWorkflow()
+        .workflow()
         .input(textBlob)
         .convert('pdf', { quality: 90 }, 'pdf-version')
         .watermark('TEST DOCUMENT', { position: 'center', opacity: 0.3 }, 'watermarked')
@@ -94,7 +94,7 @@ describe.skip('Integration Tests', () => {
       expect(result.success).toBe(true);
       expect(result.errors).toHaveLength(0);
       expect(result.outputs.size).toBeGreaterThan(0);
-      
+
       // Check named outputs
       expect(result.outputs.has('pdf-version')).toBe(true);
       expect(result.outputs.has('watermarked')).toBe(true);
@@ -112,9 +112,7 @@ describe.skip('Integration Tests', () => {
       const result = await workflow
         .input('nonexistent-file.pdf')
         .convert('pdf')
-        .execute({
-          continueOnError: true,
-        });
+        .execute();
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -162,10 +160,10 @@ describe.skip('Integration Tests', () => {
 
       expect(result).toBeInstanceOf(Blob);
       expect(result.size).toBeGreaterThan(0);
-      
+
       const processingTime = endTime - startTime;
       console.log(`Large document processing time: ${processingTime}ms`);
-      
+
       // Reasonable performance expectation (adjust based on API performance)
       expect(processingTime).toBeLessThan(60000); // Less than 60 seconds
     }, 90000); // 90s timeout for large file
@@ -203,24 +201,22 @@ describe('Integration Test Mocks', () => {
 
     expect(client).toBeInstanceOf(NutrientClient);
     expect(client.getApiKey()).toBe('mock-api-key');
-    expect(client.getBaseUrl()).toBe('https://api.nutrient.io/v1');
+    expect(client.getBaseUrl()).toBe('https://api.nutrient.io');
   });
 
   it('should demonstrate workflow builder pattern', () => {
     const client = new NutrientClient({ apiKey: 'mock-key' });
-    const workflow = client.buildWorkflow();
+    const workflow = client.workflow();
 
     expect(workflow).toBeInstanceOf(WorkflowBuilder);
-    expect(workflow.stepCount).toBe(0);
+    expect(workflow.partCount).toBe(0);
 
-    // Demonstrate fluent API
+    // Demonstrate fluent API with new API
     workflow
-      .input('test.docx')
-      .convert('pdf')
-      .compress('high')
-      .watermark('DRAFT');
+      .addFilePart('test.docx')
+      .outputPdf();
 
-    expect(workflow.stepCount).toBe(4);
+    expect(workflow.partCount).toBe(1);
   });
 
   it('should demonstrate error handling patterns', async () => {
@@ -228,13 +224,10 @@ describe('Integration Test Mocks', () => {
 
     // These will fail in unit tests but demonstrate the patterns
     try {
-      await client.convert('invalid-file', 'pdf');
-    } catch (error) {
-      expect(error).toBeDefined();
-    }
-
-    try {
-      await client.merge(['file1.pdf']); // Insufficient files
+      await client.workflow()
+        .addFilePart('invalid-file')
+        .outputPdf()
+        .execute();
     } catch (error) {
       expect(error).toBeDefined();
     }

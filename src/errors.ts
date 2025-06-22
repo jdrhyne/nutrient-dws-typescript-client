@@ -53,7 +53,7 @@ export class NutrientError extends Error {
   /**
    * Returns a string representation of the error
    */
-  toString(): string {
+  override toString(): string {
     let result = `${this.name}: ${this.message}`;
     if (this.code !== 'NUTRIENT_ERROR') {
       result += ` (${this.code})`;

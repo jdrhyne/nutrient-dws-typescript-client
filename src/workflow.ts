@@ -1,29 +1,32 @@
-import type {
-  FileInput,
-  ConvertOperation,
-  MergeOperation,
-  CompressOperation,
-  ExtractOperation,
-  WatermarkOperation,
-  WorkflowStep,
-  WorkflowResult,
-  WorkflowExecuteOptions,
+import type { 
+  FileInput, 
+  WorkflowDryRunResult, 
+  WorkflowExecuteOptions, 
+  OutputTypeMap, 
+  TypedWorkflowResult,
+  WorkflowInitialStage,
+  WorkflowWithPartsStage,
+  WorkflowWithActionsStage,
+  WorkflowWithOutputStage
 } from './types';
-import type { NutrientClientOptions } from './types/common';
-import { ValidationError, NutrientError } from './errors';
+import type { NutrientClientOptions } from './types';
+import { NutrientError, ValidationError } from './errors';
 import { validateFileInput } from './inputs';
 import { sendRequest } from './http';
-import type { ExtractTextResponse } from './types/responses';
+import { BuildOutputs } from './build';
+import type { components } from './types/nutrient-api';
 
 /**
  * Fluent interface for building and executing document processing workflows
- * Allows chaining multiple operations for sequential processing
+ * using a composable API that directly maps to the /build API structure.
  */
-export class WorkflowBuilder {
+export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = undefined> {
   /**
-   * Steps to execute in the workflow
+   * Build instructions for the /build API
    */
-  private steps: WorkflowStep[] = [];
+  private buildInstructions: components['schemas']['BuildInstructions'] = {
+    parts: [],
+  };
 
   /**
    * Client options for API authentication and configuration
@@ -36,199 +39,254 @@ export class WorkflowBuilder {
   private currentFile: Blob | null = null;
 
   /**
-   * Named outputs from workflow steps
+   * Last execution output
    */
-  private outputs: Map<string, Blob> = new Map();
+  private lastOutput: TypedWorkflowResult<TOutput>['output'] = undefined;
+
+  /**
+   * Files to be sent in the request
+   */
+  private files: Record<string, unknown> = {};
+
+  /**
+   * Current file index for generating unique file keys
+   */
+  private fileIndex = 0;
 
   constructor(clientOptions: NutrientClientOptions) {
     this.clientOptions = clientOptions;
   }
 
   /**
-   * Sets the initial input file for the workflow
-   * @param input - File to start the workflow with
+   * Adds a part to the workflow
+   * @param part - The part to add
    * @returns The workflow builder for chaining
    */
-  input(input: FileInput): this {
-    if (!validateFileInput(input)) {
-      throw new ValidationError('Invalid file input provided to workflow', { input });
+  addPart(part: components['schemas']['Part']): this {
+    this.buildInstructions.parts.push(part);
+    return this;
+  }
+
+  /**
+   * Adds a file part to the workflow
+   * @param file - The file to add
+   * @param options - Additional options for the file part
+   * @param actions - Actions to apply to this specific part
+   * @returns The workflow builder for chaining
+   */
+  addFilePart(
+    file: FileInput, 
+    options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
+    actions?: components['schemas']['BuildAction'][]
+  ): this {
+    if (!validateFileInput(file)) {
+      throw new ValidationError('Invalid file input provided to workflow', { file });
     }
 
-    // Create initial step to load the input
-    this.steps.push({
-      operation: {
-        type: 'convert',
-        file: input,
-        targetFormat: 'pdf', // Default to PDF for consistency
-      } as ConvertOperation,
-      outputName: '_initial',
-    });
+    const fileKey = `file_${this.fileIndex++}`;
+    this.files[fileKey] = file;
 
+    const filePart: components['schemas']['FilePart'] = {
+      file: fileKey,
+      ...options,
+      ...(actions && actions.length > 0 ? { actions } : {}),
+    };
+
+    this.buildInstructions.parts.push(filePart);
     return this;
   }
 
   /**
-   * Adds a document conversion step to the workflow
-   * @param targetFormat - Target format for conversion
-   * @param options - Additional conversion options
-   * @param outputName - Optional name to store this output
+   * Adds an HTML part to the workflow
+   * @param html - The HTML content to add
+   * @param options - Additional options for the HTML part
+   * @param actions - Actions to apply to this specific part
    * @returns The workflow builder for chaining
    */
-  convert(
-    targetFormat: ConvertOperation['targetFormat'],
-    options?: ConvertOperation['options'],
-    outputName?: string,
+  addHtmlPart(
+    html: string | Blob, 
+    options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
+    actions?: components['schemas']['BuildAction'][]
   ): this {
-    this.steps.push({
-      operation: {
-        type: 'convert',
-        file: '_previous',
-        targetFormat,
-        options,
-      } as ConvertOperation,
-      outputName,
-    });
+    const htmlKey = `html_${this.fileIndex++}`;
+    this.files[htmlKey] = html;
 
+    const htmlPart: components['schemas']['HTMLPart'] = {
+      html: htmlKey,
+      ...options,
+      ...(actions && actions.length > 0 ? { actions } : {}),
+    };
+
+    this.buildInstructions.parts.push(htmlPart);
     return this;
   }
 
   /**
-   * Adds a document merge step to the workflow
-   * @param additionalFiles - Additional files to merge with current
-   * @param outputFormat - Output format for merged document
-   * @param outputName - Optional name to store this output
+   * Adds a new blank page to the workflow
+   * @param options - Options for the new page
+   * @param actions - Actions to apply to this specific part
    * @returns The workflow builder for chaining
    */
-  merge(
-    additionalFiles: FileInput[],
-    outputFormat?: MergeOperation['outputFormat'],
-    outputName?: string,
+  addNewPage(
+    options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
+    actions?: components['schemas']['BuildAction'][]
   ): this {
-    // Validate additional files
-    for (const file of additionalFiles) {
-      if (!validateFileInput(file)) {
-        throw new ValidationError('Invalid file input in merge operation', { file });
-      }
+    const newPagePart: components['schemas']['NewPagePart'] = {
+      page: 'new',
+      ...options,
+      ...(actions && actions.length > 0 ? { actions } : {}),
+    };
+
+    this.buildInstructions.parts.push(newPagePart);
+    return this;
+  }
+
+  /**
+   * Adds a document part to the workflow
+   * @param documentId - The ID of the document
+   * @param options - Additional options for the document part
+   * @param actions - Actions to apply to this specific part
+   * @returns The workflow builder for chaining
+   */
+  addDocumentPart(
+    documentId: string,
+    options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
+      layer?: string;
+    },
+    actions?: components['schemas']['BuildAction'][]
+  ): this {
+    const { layer, ...restOptions } = options ?? {};
+
+    const documentPart: components['schemas']['DocumentPart'] = {
+      document: {
+        id: documentId,
+        ...(layer ? { layer } : {}),
+      },
+      ...restOptions,
+      ...(actions && actions.length > 0 ? { actions } : {}),
+    };
+
+    this.buildInstructions.parts.push(documentPart);
+    return this;
+  }
+
+  /**
+   * Applies actions to the entire document
+   * @param actions - The actions to apply
+   * @returns The workflow builder for chaining
+   */
+  applyActions(actions: components['schemas']['BuildAction'][]): this {
+    if (!this.buildInstructions.actions) {
+      this.buildInstructions.actions = [];
     }
 
-    this.steps.push({
-      operation: {
-        type: 'merge',
-        files: ['_previous', ...additionalFiles],
-        outputFormat,
-      } as MergeOperation,
-      outputName,
-    });
-
+    this.buildInstructions.actions.push(...actions);
     return this;
   }
 
   /**
-   * Adds a document compression step to the workflow
-   * @param compressionLevel - Level of compression to apply
-   * @param outputName - Optional name to store this output
+   * Applies a single action to the entire document
+   * @param action - The action to apply
    * @returns The workflow builder for chaining
    */
-  compress(compressionLevel?: CompressOperation['compressionLevel'], outputName?: string): this {
-    this.steps.push({
-      operation: {
-        type: 'compress',
-        file: '_previous',
-        compressionLevel,
-      } as CompressOperation,
-      outputName,
-    });
-
-    return this;
+  applyAction(action: components['schemas']['BuildAction']): this {
+    return this.applyActions([action]);
   }
 
   /**
-   * Adds a text extraction step to the workflow
-   * @param includeMetadata - Whether to include document metadata
-   * @param outputName - Optional name to store this output
+   * Sets the output format and options
+   * @param output - The output configuration
    * @returns The workflow builder for chaining
    */
-  extractText(includeMetadata?: boolean, outputName?: string): this {
-    this.steps.push({
-      operation: {
-        type: 'extract',
-        file: '_previous',
-        includeMetadata,
-      } as ExtractOperation,
-      outputName,
-    });
-
+  output(output: components['schemas']['BuildOutput']): this {
+    this.buildInstructions.output = output;
     return this;
   }
 
   /**
-   * Adds a watermark step to the workflow
-   * @param watermarkText - Text to use as watermark
-   * @param options - Watermark positioning and styling options
-   * @param outputName - Optional name to store this output
+   * Sets the output format to PDF with options
+   * @param options - PDF output options
    * @returns The workflow builder for chaining
    */
-  watermark(
-    watermarkText: string,
-    options?: Partial<Pick<WatermarkOperation, 'position' | 'opacity' | 'fontSize'>>,
-    outputName?: string,
-  ): this {
-    this.steps.push({
-      operation: {
-        type: 'watermark',
-        file: '_previous',
-        watermarkText,
-        ...options,
-      } as WatermarkOperation,
-      outputName,
-    });
-
-    return this;
+  outputPdf(options?: Omit<components['schemas']['PDFOutput'], 'type'>): WorkflowBuilder<'pdf'> {
+    this.buildInstructions.output = {
+      type: 'pdf',
+      ...options,
+    } as components['schemas']['PDFOutput'];
+    return this as WorkflowBuilder<'pdf'>;
   }
 
   /**
-   * Gets the number of steps in the workflow
-   */
-  get stepCount(): number {
-    return this.steps.length;
-  }
-
-  /**
-   * Gets a copy of the current workflow steps
-   */
-  getSteps(): WorkflowStep[] {
-    return [...this.steps];
-  }
-
-  /**
-   * Clears all steps from the workflow
+   * Sets the output format to PDF/A with options
+   * @param options - PDF/A output options
    * @returns The workflow builder for chaining
    */
-  clear(): this {
-    this.steps = [];
-    this.currentFile = null;
-    this.outputs.clear();
-    return this;
+  outputPdfA(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowBuilder<'pdfa'> {
+    this.buildInstructions.output = {
+      type: 'pdfa',
+      ...options,
+    } as components['schemas']['PDFAOutput'];
+    return this as WorkflowBuilder<'pdfa'>;
   }
 
   /**
-   * Validates that the workflow has steps and is ready to execute
+   * Sets the output format to image with options
+   * @param options - Image output options
+   * @returns The workflow builder for chaining
+   */
+  outputImage(options?: Omit<components['schemas']['ImageOutput'], 'type'>): WorkflowBuilder<'image'> {
+    this.buildInstructions.output = {
+      type: 'image',
+      ...options,
+    } as components['schemas']['ImageOutput'];
+    return this as WorkflowBuilder<'image'>;
+  }
+
+  /**
+   * Sets the output format to Office with options
+   * @param format - Office format (docx, xlsx, pptx)
+   * @returns The workflow builder for chaining
+   */
+  outputOffice<T extends 'docx' | 'xlsx' | 'pptx'>(format: T): WorkflowBuilder<T> {
+    this.buildInstructions.output = {
+      type: format,
+    } as components['schemas']['OfficeOutput'];
+    return this as unknown as WorkflowBuilder<T>;
+  }
+
+  /**
+   * Sets the output format to JSON with options
+   * @param options - JSON output options
+   * @returns The workflow builder for chaining
+   */
+  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowBuilder<'json-content'> {
+    this.buildInstructions.output = {
+      type: 'json-content',
+      ...options,
+    } as components['schemas']['JSONContentOutput'];
+    return this as WorkflowBuilder<'json-content'>;
+  }
+
+  /**
+   * Gets the output from the last execution
+   * @returns The output from the last execution, or undefined if no execution has occurred
+   */
+  getOutput(): TypedWorkflowResult<TOutput>['output'] {
+    return this.lastOutput;
+  }
+
+  /**
+   * Validates that the workflow has parts and is ready to execute
    */
   private validate(): void {
-    if (this.steps.length === 0) {
-      throw new ValidationError('Workflow has no steps to execute');
+    if (this.buildInstructions.parts.length === 0) {
+      throw new ValidationError('Workflow has no parts to execute');
     }
 
-    // Check that first step has a real input (not _previous)
-    const firstStep = this.steps[0];
-    if (
-      firstStep &&
-      firstStep.operation.type !== 'merge' &&
-      firstStep.operation.file === '_previous'
-    ) {
-      throw new ValidationError('First workflow step must have an input file specified', {
-        firstStep,
-      });
+    // Ensure we have an output format
+    if (!this.buildInstructions.output) {
+      // Default to PDF output if not specified
+      this.buildInstructions.output = BuildOutputs.pdf();
     }
   }
 
@@ -237,222 +295,270 @@ export class WorkflowBuilder {
    * @param options - Execution options
    * @returns Promise resolving to workflow results
    */
-  async execute(options?: WorkflowExecuteOptions): Promise<WorkflowResult> {
+  async execute(options?: WorkflowExecuteOptions): Promise<TypedWorkflowResult<TOutput>> {
     this.validate();
 
-    const result: WorkflowResult = {
+    const result: TypedWorkflowResult<TOutput> = {
       success: false,
-      outputs: new Map(),
       errors: [],
     };
 
     try {
-      for (let i = 0; i < this.steps.length; i++) {
-        const step = this.steps[i];
-        if (!step) continue;
+      // Call progress callback if provided
+      options?.onProgress?.(1, 1);
 
-        // Call progress callback if provided
-        options?.onProgress?.(i + 1, this.steps.length);
+      // Execute the build API request
+      const response = await sendRequest<Blob>(
+        {
+          endpoint: '/build',
+          method: 'POST',
+          files: this.files,
+          data: {
+            instructions: this.buildInstructions,
+          },
+          timeout: options?.timeout,
+        },
+        this.clientOptions,
+      );
 
-        try {
-          // Execute the step
-          await this.executeStep(step, i);
+      // Store the result
+      this.currentFile = response.data;
 
-          // Store named output if specified
-          if (step.outputName && this.currentFile) {
-            this.outputs.set(step.outputName, this.currentFile);
-          }
-        } catch (error) {
-          const stepError = {
-            step: i,
-            error:
-              error instanceof Error ? error : new NutrientError('Unknown error in workflow step'),
-          };
+      // Store output if available
+      if (this.currentFile) {
+        const mimeType = response.headers['content-type'] ?? this.determineMimeTypeFromOutput();
+        result.output = {
+          blob: this.currentFile,
+          mimeType,
+        } as TypedWorkflowResult<TOutput>['output'];
 
-          result.errors?.push(stepError);
-
-          if (!options?.continueOnError) {
-            throw error;
-          }
-        }
+        // Store the output for getOutput method
+        this.lastOutput = result.output;
       }
 
       result.success = true;
-      result.outputs = new Map(this.outputs);
     } catch (error) {
       // Workflow failed
       result.success = false;
+      result.errors?.push({
+        step: 0,
+        error: error instanceof Error ? error : new NutrientError('Unknown error in workflow execution'),
+      });
     }
 
     return result;
   }
 
   /**
-   * Executes a single workflow step
+   * Performs a dry run of the workflow to analyze it without executing
+   * 
+   * This method uses the analyze_build endpoint to validate the workflow and calculate
+   * the credit cost without actually executing the workflow. It's useful for checking
+   * if a workflow is valid and understanding the resource requirements before execution.
+   * 
+   * @param options - Execution options (timeout)
+   * @returns Promise resolving to workflow dry run results including analysis data
    */
-  private async executeStep(step: WorkflowStep, stepIndex: number): Promise<void> {
-    const operation = step.operation;
+  async dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult> {
+    this.validate();
 
-    // Prepare file input for the operation
-    const fileInput = await this.prepareFileInput(operation, stepIndex);
+    const result: WorkflowDryRunResult = {
+      success: false,
+      errors: [],
+    };
 
-    switch (operation.type) {
-      case 'convert': {
-        const response = await sendRequest<Blob>(
-          {
-            endpoint: '/convert',
-            method: 'POST',
-            files: { file: fileInput },
-            data: {
-              targetFormat: operation.targetFormat,
-              ...operation.options,
-            },
+    try {
+      // Execute the analyze_build API request
+      const response = await sendRequest<components['schemas']['AnalyzeBuildResponse']>(
+        {
+          endpoint: '/analyze_build',
+          method: 'POST',
+          data: {
+            instructions: this.buildInstructions,
           },
-          this.clientOptions,
-        );
+          timeout: options?.timeout,
+        },
+        this.clientOptions,
+      );
 
-        this.currentFile = response.data;
-        break;
+      result.success = true;
+      result.analysis = response.data;
+    } catch (error) {
+      // Dry run failed
+      result.success = false;
+      result.errors?.push({
+        step: 0,
+        error: error instanceof Error ? error : new NutrientError('Unknown error in workflow dry run'),
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Determines the MIME type based on the output configuration
+   * @returns The MIME type string
+   */
+  private determineMimeTypeFromOutput(): string {
+    const output = this.buildInstructions.output;
+
+    if (!output) {
+      return 'application/octet-stream'; // Default fallback
+    }
+
+    switch (output.type) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'pdfa':
+        return 'application/pdf';
+      case 'image': {
+        const format = output.format ?? 'png';
+        return `image/${format === 'jpg' ? 'jpeg' : format}`;
       }
-
-      case 'merge': {
-        const files: Record<string, FileInput> = {};
-
-        // Prepare all files for merge
-        for (let i = 0; i < operation.files.length; i++) {
-          const file = operation.files[i];
-          if (!file) continue;
-          if (file === '_previous') {
-            if (!this.currentFile) {
-              throw new ValidationError('No current file available for merge operation');
-            }
-            files[`files[${i}]`] = this.currentFile;
-          } else {
-            files[`files[${i}]`] = file;
-          }
-        }
-
-        const response = await sendRequest<Blob>(
-          {
-            endpoint: '/merge',
-            method: 'POST',
-            files,
-            data: {
-              outputFormat: operation.outputFormat,
-            },
-          },
-          this.clientOptions,
-        );
-
-        this.currentFile = response.data;
-        break;
-      }
-
-      case 'compress': {
-        const response = await sendRequest<Blob>(
-          {
-            endpoint: '/compress',
-            method: 'POST',
-            files: { file: fileInput },
-            data: {
-              compressionLevel: operation.compressionLevel,
-            },
-          },
-          this.clientOptions,
-        );
-
-        this.currentFile = response.data;
-        break;
-      }
-
-      case 'extract': {
-        const response = await sendRequest<ExtractTextResponse>(
-          {
-            endpoint: '/extract',
-            method: 'POST',
-            files: { file: fileInput },
-            data: {
-              includeMetadata: operation.includeMetadata,
-            },
-          },
-          this.clientOptions,
-        );
-
-        // For extract, we need to convert the response to a blob
-        const textData = JSON.stringify(response.data);
-        this.currentFile = new Blob([textData], { type: 'application/json' });
-        break;
-      }
-
-      case 'watermark': {
-        const response = await sendRequest<Blob>(
-          {
-            endpoint: '/watermark',
-            method: 'POST',
-            files: { file: fileInput },
-            data: {
-              watermarkText: operation.watermarkText,
-              position: operation.position,
-              opacity: operation.opacity,
-              fontSize: operation.fontSize,
-            },
-          },
-          this.clientOptions,
-        );
-
-        this.currentFile = response.data;
-        break;
-      }
-
+      case 'json-content':
+        return 'application/json';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
       default:
-        throw new ValidationError(
-          `Unknown operation type: ${(operation as { type: string }).type}`,
-          { operation },
-        );
+        return 'application/octet-stream';
     }
   }
 
-  /**
-   * Prepares the file input for an operation
-   */
-  private prepareFileInput(
-    operation: WorkflowStep['operation'],
-    stepIndex: number,
-  ): Promise<FileInput> {
-    if (operation.type === 'merge') {
-      // Merge handles files differently
-      if (!this.currentFile) {
-        throw new ValidationError('No current file available for merge operation');
-      }
-      return this.currentFile;
-    }
 
-    const fileRef = (operation as { file?: FileInput }).file;
 
-    if (!fileRef || fileRef === '_previous') {
-      if (!this.currentFile) {
-        throw new ValidationError(
-          `Step ${stepIndex} references previous output but no previous output exists`,
-          { stepIndex, operation },
-        );
-      }
-      return this.currentFile;
-    }
+}
 
-    return fileRef;
+/**
+ * Staged workflow builder that implements the builder pattern with method restrictions
+ */
+class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = undefined> 
+  implements WorkflowInitialStage, WorkflowWithPartsStage, WorkflowWithActionsStage, WorkflowWithOutputStage<TOutput> {
+
+  private builder: WorkflowBuilder<TOutput>;
+
+  constructor(clientOptions: NutrientClientOptions) {
+    this.builder = new WorkflowBuilder<TOutput>(clientOptions);
   }
 
-  /**
-   * Gets a specific output by name
-   */
-  getOutput(name: string): Blob | undefined {
-    return this.outputs.get(name);
+  // Stage 1: Initial workflow - only part methods available
+  addPart(part: components['schemas']['Part']): WorkflowWithPartsStage {
+    this.builder.addPart(part);
+    return this as WorkflowWithPartsStage;
   }
 
-  /**
-   * Gets all named outputs
-   */
-  getAllOutputs(): Map<string, Blob> {
-    return new Map(this.outputs);
+  addFilePart(
+    file: FileInput, 
+    options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
+    actions?: components['schemas']['BuildAction'][]
+  ): WorkflowWithPartsStage {
+    this.builder.addFilePart(file, options, actions);
+    return this as WorkflowWithPartsStage;
   }
+
+  addHtmlPart(
+    html: string | Blob, 
+    options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
+    actions?: components['schemas']['BuildAction'][]
+  ): WorkflowWithPartsStage {
+    this.builder.addHtmlPart(html, options, actions);
+    return this as WorkflowWithPartsStage;
+  }
+
+  addNewPage(
+    options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
+    actions?: components['schemas']['BuildAction'][]
+  ): WorkflowWithPartsStage {
+    this.builder.addNewPage(options, actions);
+    return this as WorkflowWithPartsStage;
+  }
+
+  addDocumentPart(
+    documentId: string,
+    options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
+      layer?: string;
+    },
+    actions?: components['schemas']['BuildAction'][]
+  ): WorkflowWithPartsStage {
+    this.builder.addDocumentPart(documentId, options, actions);
+    return this as WorkflowWithPartsStage;
+  }
+
+  // Stage 2 & 3: Action methods
+  applyActions(actions: components['schemas']['BuildAction'][]): WorkflowWithActionsStage {
+    this.builder.applyActions(actions);
+    return this as WorkflowWithActionsStage;
+  }
+
+  applyAction(action: components['schemas']['BuildAction']): WorkflowWithActionsStage {
+    this.builder.applyAction(action);
+    return this as WorkflowWithActionsStage;
+  }
+
+  // Stage 2 & 3: Output methods
+  output(output: components['schemas']['BuildOutput']): WorkflowWithOutputStage {
+    this.builder.output(output);
+    return this as WorkflowWithOutputStage;
+  }
+
+  outputPdf(options?: Omit<components['schemas']['PDFOutput'], 'type'>): WorkflowWithOutputStage<'pdf'> {
+    this.builder.outputPdf(options);
+    return this as WorkflowWithOutputStage<'pdf'>;
+  }
+
+  outputPdfA(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowWithOutputStage<'pdfa'> {
+    this.builder.outputPdfA(options);
+    return this as WorkflowWithOutputStage<'pdfa'>;
+  }
+
+  outputImage(options?: Omit<components['schemas']['ImageOutput'], 'type'>): WorkflowWithOutputStage<'image'> {
+    this.builder.outputImage(options);
+    return this as WorkflowWithOutputStage<'image'>;
+  }
+
+  outputOffice<T extends 'docx' | 'xlsx' | 'pptx'>(format: T): WorkflowWithOutputStage<T> {
+    this.builder.outputOffice(format);
+    return this as unknown as WorkflowWithOutputStage<T>;
+  }
+
+  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowWithOutputStage<'json-content'> {
+    this.builder.outputJson(options);
+    return this as WorkflowWithOutputStage<'json-content'>;
+  }
+
+  // Stage 4: Final execution methods
+  async execute(options?: WorkflowExecuteOptions): Promise<TypedWorkflowResult<TOutput>> {
+    return this.builder.execute(options);
+  }
+
+  async dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult> {
+    return this.builder.dryRun(options);
+  }
+
+  getOutput(): TypedWorkflowResult<TOutput>['output'] {
+    return this.builder.getOutput();
+  }
+}
+
+/**
+ * Creates a new workflow builder with the specified client options.
+ * This is the entry point for the builder pattern API.
+ *
+ * @param clientOptions - Configuration options for the Nutrient API client
+ * @returns A workflow builder that only allows part methods initially
+ *
+ * @example
+ * ```typescript
+ * const result = await workflow(clientOptions)
+ *   .addFilePart('document.pdf')
+ *   .applyAction(BuildActions.rotate(90))
+ *   .outputPdf()
+ *   .execute();
+ * ```
+ */
+export function workflow(clientOptions: NutrientClientOptions): WorkflowInitialStage {
+  return new StagedWorkflowBuilder(clientOptions);
 }

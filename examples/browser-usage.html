@@ -177,7 +177,7 @@
         return new Blob([`Watermarked ${file.name}`], { type: file.type });
       }
 
-      buildWorkflow() {
+      workflow() {
         return new WorkflowBuilder(this);
       }
     }
@@ -385,7 +385,7 @@
       
       try {
         const result = await client
-          .buildWorkflow()
+          .workflow()
           .input(selectedFile)
           .convert('pdf')
           .compress('medium')

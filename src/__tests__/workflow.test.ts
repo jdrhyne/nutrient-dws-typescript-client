@@ -1,9 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { WorkflowBuilder } from '../workflow';
-import type { NutrientClientOptions, WorkflowExecuteOptions } from '../types/common';
-import { ValidationError, NutrientError } from '../errors';
+import type { NutrientClientOptions } from '../types/common';
+import type { WorkflowExecuteOptions } from '../types/workflow';
+import { ValidationError } from '../errors';
 import * as inputsModule from '../inputs';
 import * as httpModule from '../http';
+import { BuildActions } from '../build';
 
 // Mock dependencies
 jest.mock('../inputs');
@@ -27,7 +29,6 @@ describe('WorkflowBuilder', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     workflow = new WorkflowBuilder(mockClientOptions);
-
     // Default mocks
     mockValidateFileInput.mockReturnValue(true);
     mockSendRequest.mockResolvedValue({
@@ -42,288 +43,152 @@ describe('WorkflowBuilder', () => {
     it('should create a workflow with client options', () => {
       const builder = new WorkflowBuilder(mockClientOptions);
       expect(builder).toBeDefined();
-      expect(builder.stepCount).toBe(0);
     });
   });
 
-  describe('input', () => {
-    it('should add initial input step', () => {
+  describe('addFilePart', () => {
+    it('should add file part to workflow', () => {
       const inputFile = 'test.pdf';
 
-      const result = workflow.input(inputFile);
+      const result = workflow.addFilePart(inputFile);
 
       expect(result).toBe(workflow); // Should return this for chaining
-      expect(workflow.stepCount).toBe(1);
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'convert',
-          file: inputFile,
-          targetFormat: 'pdf',
-        },
-        outputName: '_initial',
-      });
     });
 
     it('should validate input file', () => {
       mockValidateFileInput.mockReturnValue(false);
 
-      expect(() => workflow.input('invalid-file')).toThrow(ValidationError);
-      expect(() => workflow.input('invalid-file')).toThrow(
+      expect(() => workflow.addFilePart('invalid-file')).toThrow(ValidationError);
+      expect(() => workflow.addFilePart('invalid-file')).toThrow(
         'Invalid file input provided to workflow',
       );
     });
-  });
 
-  describe('convert', () => {
-    it('should add convert step with target format', () => {
-      const result = workflow.convert('docx');
+    it('should add file part with actions', () => {
+      const result = workflow.addFilePart('test.pdf', {}, [BuildActions.rotate(90)]);
 
       expect(result).toBe(workflow);
-      expect(workflow.stepCount).toBe(1);
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'convert',
-          file: '_previous',
-          targetFormat: 'docx',
-        },
-      });
-    });
-
-    it('should add convert step with options and output name', () => {
-      workflow.convert('pdf', { quality: 95 }, 'high-quality');
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'convert',
-          file: '_previous',
-          targetFormat: 'pdf',
-          options: { quality: 95 },
-        },
-        outputName: 'high-quality',
-      });
     });
   });
 
-  describe('merge', () => {
-    it('should add merge step with additional files', () => {
-      const additionalFiles = ['file2.pdf', 'file3.pdf'];
-
-      const result = workflow.merge(additionalFiles);
+  describe('addHtmlPart', () => {
+    it('should add HTML part to workflow', () => {
+      const result = workflow.addHtmlPart('<html><body>Hello</body></html>');
 
       expect(result).toBe(workflow);
-      expect(workflow.stepCount).toBe(1);
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'merge',
-          files: ['_previous', ...additionalFiles],
-        },
-      });
     });
 
-    it('should add merge step with output format and name', () => {
-      workflow.merge(['file2.pdf'], 'pdf', 'merged-output');
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'merge',
-          files: ['_previous', 'file2.pdf'],
-          outputFormat: 'pdf',
-        },
-        outputName: 'merged-output',
-      });
-    });
-
-    it('should validate additional files', () => {
-      mockValidateFileInput.mockImplementation((file) => file !== 'invalid-file');
-
-      expect(() => workflow.merge(['valid-file', 'invalid-file'])).toThrow(ValidationError);
-      expect(() => workflow.merge(['valid-file', 'invalid-file'])).toThrow(
-        'Invalid file input in merge operation',
-      );
-    });
-  });
-
-  describe('compress', () => {
-    it('should add compress step with default compression level', () => {
-      const result = workflow.compress();
-
-      expect(result).toBe(workflow);
-      expect(workflow.stepCount).toBe(1);
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'compress',
-          file: '_previous',
-        },
-      });
-    });
-
-    it('should add compress step with compression level and output name', () => {
-      workflow.compress('high', 'compressed-version');
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'compress',
-          file: '_previous',
-          compressionLevel: 'high',
-        },
-        outputName: 'compressed-version',
-      });
-    });
-  });
-
-  describe('extractText', () => {
-    it('should add extract text step', () => {
-      const result = workflow.extractText();
-
-      expect(result).toBe(workflow);
-      expect(workflow.stepCount).toBe(1);
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'extract',
-          file: '_previous',
-        },
-      });
-    });
-
-    it('should add extract text step with metadata and output name', () => {
-      workflow.extractText(true, 'extracted-content');
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'extract',
-          file: '_previous',
-          includeMetadata: true,
-        },
-        outputName: 'extracted-content',
-      });
-    });
-  });
-
-  describe('watermark', () => {
-    it('should add watermark step with text', () => {
-      const result = workflow.watermark('CONFIDENTIAL');
-
-      expect(result).toBe(workflow);
-      expect(workflow.stepCount).toBe(1);
-
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'watermark',
-          file: '_previous',
-          watermarkText: 'CONFIDENTIAL',
-        },
-      });
-    });
-
-    it('should add watermark step with options and output name', () => {
-      workflow.watermark(
-        'DRAFT',
-        {
-          position: 'top-right',
-          opacity: 0.5,
-          fontSize: 36,
-        },
-        'watermarked-version',
+    it('should add HTML part with options and actions', () => {
+      const result = workflow.addHtmlPart(
+        '<html><body>Hello</body></html>',
+        { assets: ['style.css'] },
+        [BuildActions.rotate(90)]
       );
 
-      const steps = workflow.getSteps();
-      expect(steps[0]).toMatchObject({
-        operation: {
-          type: 'watermark',
-          file: '_previous',
-          watermarkText: 'DRAFT',
-          position: 'top-right',
-          opacity: 0.5,
-          fontSize: 36,
-        },
-        outputName: 'watermarked-version',
-      });
+      expect(result).toBe(workflow);
     });
   });
 
-  describe('step management', () => {
-    it('should return correct step count', () => {
-      expect(workflow.stepCount).toBe(0);
-
-      workflow.input('test.pdf');
-      expect(workflow.stepCount).toBe(1);
-
-      workflow.convert('docx').compress();
-      expect(workflow.stepCount).toBe(3);
-    });
-
-    it('should return copy of steps', () => {
-      workflow.input('test.pdf').convert('docx');
-
-      const steps = workflow.getSteps();
-      expect(steps).toHaveLength(2);
-
-      // Should be a copy, not reference
-      steps.push({} as never);
-      expect(workflow.stepCount).toBe(2);
-    });
-
-    it('should clear all steps and state', () => {
-      workflow.input('test.pdf').convert('docx');
-      expect(workflow.stepCount).toBe(2);
-
-      const result = workflow.clear();
+  describe('addNewPage', () => {
+    it('should add new page to workflow', () => {
+      const result = workflow.addNewPage();
 
       expect(result).toBe(workflow);
-      expect(workflow.stepCount).toBe(0);
-      expect(workflow.getSteps()).toHaveLength(0);
+    });
+
+    it('should add new page with options and actions', () => {
+      const result = workflow.addNewPage(
+        { pageCount: 3 },
+        [BuildActions.rotate(90)]
+      );
+
+      expect(result).toBe(workflow);
+    });
+  });
+
+  describe('addDocumentPart', () => {
+    it('should add document part to workflow', () => {
+      const result = workflow.addDocumentPart('doc-id-123');
+
+      expect(result).toBe(workflow);
+    });
+
+    it('should add document part with options and actions', () => {
+      const result = workflow.addDocumentPart(
+        'doc-id-123',
+        { layer: 'layer1' },
+        [BuildActions.rotate(90)]
+      );
+
+      expect(result).toBe(workflow);
+    });
+  });
+
+  describe('applyActions', () => {
+    it('should apply actions to workflow', () => {
+      const result = workflow.applyActions([
+        BuildActions.ocr('english'),
+        BuildActions.flatten()
+      ]);
+
+      expect(result).toBe(workflow);
+    });
+
+    it('should apply single action to workflow', () => {
+      const result = workflow.applyAction(BuildActions.rotate(90));
+
+      expect(result).toBe(workflow);
+    });
+  });
+
+  describe('output methods', () => {
+    it('should set PDF output', () => {
+      const result = workflow.outputPdf();
+      expect(result).toBe(workflow);
+    });
+
+    it('should set PDF/A output', () => {
+      const result = workflow.outputPdfA();
+      expect(result).toBe(workflow);
+    });
+
+    it('should set image output', () => {
+      const result = workflow.outputImage({ format: 'png' });
+      expect(result).toBe(workflow);
+    });
+
+    it('should set office output', () => {
+      const result = workflow.outputOffice('docx');
+      expect(result).toBe(workflow);
+    });
+
+    it('should set JSON output', () => {
+      const result = workflow.outputJson({ plainText: true });
+      expect(result).toBe(workflow);
     });
   });
 
   describe('validation', () => {
-    it('should validate workflow has steps before execution', async () => {
+    it('should validate workflow has parts before execution', async () => {
       await expect(workflow.execute()).rejects.toThrow(ValidationError);
-      await expect(workflow.execute()).rejects.toThrow('Workflow has no steps to execute');
+      await expect(workflow.execute()).rejects.toThrow('Workflow has no parts to execute');
     });
 
-    it('should validate first step has input file', async () => {
-      workflow.convert('pdf'); // First step with _previous reference
+    it('should auto-add default output if none specified', async () => {
+      workflow.addFilePart('test.pdf');
 
-      await expect(workflow.execute()).rejects.toThrow(ValidationError);
-      await expect(workflow.execute()).rejects.toThrow(
-        'First workflow step must have an input file specified',
-      );
-    });
-
-    it('should allow merge as first step but fail during execution', async () => {
-      workflow.merge(['file1.pdf', 'file2.pdf']);
-
-      // Merge as first step passes validation but fails during execution due to no current file
+      // Should succeed and add default PDF output
       const result = await workflow.execute();
-      expect(result.success).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]?.error.message).toContain(
-        'No current file available for merge operation',
-      );
+      expect(result.success).toBe(true);
     });
   });
 
   describe('execute', () => {
     beforeEach(() => {
-      workflow.input('test.pdf');
+      workflow.addFilePart('test.pdf');
     });
 
-    it('should execute single step workflow successfully', async () => {
+    it('should execute workflow using Build API', async () => {
       const mockBlob = new Blob(['converted content'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
         data: mockBlob,
@@ -339,308 +204,506 @@ describe('WorkflowBuilder', () => {
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: '/convert',
+          endpoint: '/build',
           method: 'POST',
-          files: { file: 'test.pdf' },
-          data: { targetFormat: 'pdf' },
+          files: expect.objectContaining({
+            file_0: 'test.pdf',
+          }),
+          data: expect.objectContaining({
+            instructions: expect.objectContaining({
+              parts: expect.arrayContaining([
+                expect.objectContaining({
+                  file: 'file_0',
+                }),
+              ]),
+              output: expect.objectContaining({
+                type: 'pdf',
+              }),
+            }),
+          }),
         }),
         mockClientOptions,
       );
     });
 
-    it('should execute multi-step workflow', async () => {
-      workflow.convert('docx').compress('medium');
+    it('should execute multi-step workflow with correct build instructions', async () => {
+      workflow.addFilePart('test.pdf').outputOffice('docx').applyAction(BuildActions.flatten());
 
-      const convertBlob = new Blob(['converted'], { type: 'application/docx' });
-      const compressBlob = new Blob(['compressed'], { type: 'application/docx' });
-
-      mockSendRequest
-        .mockResolvedValueOnce({ data: convertBlob, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: convertBlob, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: compressBlob, status: 200, statusText: 'OK', headers: {} });
+      const mockBlob = new Blob(['result'], { type: 'application/docx' });
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
 
       const result = await workflow.execute();
 
       expect(result.success).toBe(true);
-      expect(mockSendRequest).toHaveBeenCalledTimes(3);
+      expect(mockSendRequest).toHaveBeenCalledTimes(1);
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpoint: '/build',
+          method: 'POST',
+          data: expect.objectContaining({
+            instructions: expect.objectContaining({
+              parts: expect.arrayContaining([
+                expect.objectContaining({
+                  file: expect.any(String),
+                }),
+              ]),
+              actions: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'flatten',
+                }),
+              ]),
+              output: expect.objectContaining({
+                type: 'docx',
+              }),
+            }),
+          }),
+        }),
+        mockClientOptions,
+      );
+    });
+
+    it('should execute extract text workflow with correct output format', async () => {
+      workflow.applyAction(BuildActions.ocr('english')).outputJson({ plainText: true });
+
+      const mockResponse = { text: 'extracted text', metadata: {} };
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
+
+      const result = await workflow.execute();
+
+      expect(result.success).toBe(true);
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            instructions: expect.objectContaining({
+              actions: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'ocr',
+                  language: 'english',
+                }),
+              ]),
+              output: expect.objectContaining({
+                type: 'json-content',
+              }),
+            }),
+          }),
+        }),
+        mockClientOptions,
+      );
+    });
+
+    it('should execute watermark workflow with correct action', async () => {
+      workflow.applyAction(BuildActions.watermarkText('CONFIDENTIAL', {
+        width: { value: 50, unit: '%' },
+        height: { value: 50, unit: '%' },
+        opacity: 0.5,
+      }));
+
+      const mockBlob = new Blob(['watermarked'], { type: 'application/pdf' });
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
+
+      const result = await workflow.execute();
+
+      expect(result.success).toBe(true);
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            instructions: expect.objectContaining({
+              actions: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'watermark',
+                  text: 'CONFIDENTIAL',
+                  opacity: 0.5,
+                }),
+              ]),
+            }),
+          }),
+        }),
+        mockClientOptions,
+      );
+    });
+
+    it('should execute merge workflow with multiple files', async () => {
+      workflow.addFilePart('file1.pdf');
+      workflow.addFilePart('file2.pdf');
+      workflow.addFilePart('file3.pdf');
+
+      const mockBlob = new Blob(['merged'], { type: 'application/pdf' });
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
+
+      const result = await workflow.execute();
+
+      expect(result.success).toBe(true);
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          files: expect.objectContaining({
+            file_0: 'test.pdf',
+            file_1: 'file1.pdf',
+            file_2: 'file2.pdf',
+            file_3: 'file3.pdf',
+          }),
+          data: expect.objectContaining({
+            instructions: expect.objectContaining({
+              parts: expect.arrayContaining([
+                expect.objectContaining({ file: 'file_0' }),
+                expect.objectContaining({ file: 'file_1' }),
+                expect.objectContaining({ file: 'file_2' }),
+                expect.objectContaining({ file: 'file_3' }),
+              ]),
+              output: expect.objectContaining({
+                type: 'pdf',
+              }),
+            }),
+          }),
+        }),
+        mockClientOptions,
+      );
     });
 
     it('should call progress callback', async () => {
-      workflow.convert('docx').compress();
+      workflow.addFilePart('test.pdf').outputOffice('docx').applyAction(BuildActions.flatten());
 
       const onProgress = jest.fn();
-      const options = { onProgress } satisfies WorkflowExecuteOptions;
+      const options: WorkflowExecuteOptions = { onProgress };
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       await workflow.execute(options);
 
-      expect(onProgress).toHaveBeenCalledTimes(3);
-      expect(onProgress).toHaveBeenNthCalledWith(1, 1, 3);
-      expect(onProgress).toHaveBeenNthCalledWith(2, 2, 3);
-      expect(onProgress).toHaveBeenNthCalledWith(3, 3, 3);
+      expect(onProgress).toHaveBeenCalledTimes(1);
+      expect(onProgress).toHaveBeenNthCalledWith(1, 1, 1);
     });
 
-    it('should store named outputs', async () => {
-      workflow.convert('docx', undefined, 'word-version').compress('high', 'compressed-version');
+    it('should store output with default name', async () => {
+      workflow.addFilePart('test.docx').outputOffice('docx');
 
-      const convertBlob = new Blob(['converted'], { type: 'application/docx' });
-      const compressBlob = new Blob(['compressed'], { type: 'application/docx' });
-
-      mockSendRequest
-        .mockResolvedValueOnce({ data: convertBlob, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: convertBlob, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: compressBlob, status: 200, statusText: 'OK', headers: {} });
+      const mockBlob = new Blob(['result'], { type: 'application/docx' });
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
 
       const result = await workflow.execute();
 
       expect(result.success).toBe(true);
-      expect(result.outputs.has('word-version')).toBe(true);
-      expect(result.outputs.has('compressed-version')).toBe(true);
-      expect(result.outputs.get('word-version')).toBe(convertBlob);
-      expect(result.outputs.get('compressed-version')).toBe(compressBlob);
+      expect(result.output).toBeDefined();
+      expect(result.output?.blob).toBe(mockBlob);
+      expect(result.output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
-    it('should handle step errors without continueOnError', async () => {
-      workflow.convert('docx');
-
-      const error = new Error('Conversion failed');
-      mockSendRequest
-        .mockResolvedValueOnce({ data: new Blob(), status: 200, statusText: 'OK', headers: {} })
-        .mockRejectedValueOnce(error);
+    it('should handle Build API errors', async () => {
+      const error = new Error('Build API failed');
+      mockSendRequest.mockRejectedValueOnce(error);
 
       const result = await workflow.execute();
 
       expect(result.success).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]).toMatchObject({
-        step: 1,
-        error,
-      });
+      expect(mockSendRequest).toHaveBeenCalledTimes(1);
     });
 
-    it('should continue on errors when continueOnError is true', async () => {
-      workflow.convert('docx').compress();
+    it('should handle API errors during execution', async () => {
+      workflow.addFilePart('test.pdf');
 
-      const error = new Error('Conversion failed');
-      mockSendRequest
-        .mockResolvedValueOnce({ data: new Blob(), status: 200, statusText: 'OK', headers: {} })
-        .mockRejectedValueOnce(error)
-        .mockResolvedValueOnce({ data: new Blob(), status: 200, statusText: 'OK', headers: {} });
-
-      const result = await workflow.execute({ continueOnError: true });
-
-      expect(result.success).toBe(true);
-      expect(result.errors).toHaveLength(1);
-      expect(mockSendRequest).toHaveBeenCalledTimes(3);
-    });
-
-    it('should handle unknown errors in steps', async () => {
-      workflow.convert('docx');
-
-      mockSendRequest
-        .mockResolvedValueOnce({ data: new Blob(), status: 200, statusText: 'OK', headers: {} })
-        .mockRejectedValueOnce('string error');
-
-      const result = await workflow.execute({ continueOnError: true });
-
-      expect(result.success).toBe(true);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]?.error).toBeInstanceOf(NutrientError);
-    });
-  });
-
-  describe('operation execution', () => {
-    beforeEach(() => {
-      workflow.input('test.pdf');
-    });
-
-    it('should execute convert operation', async () => {
-      workflow.convert('docx', { quality: 90 });
-
-      await workflow.execute();
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          endpoint: '/convert',
-          method: 'POST',
-          files: { file: expect.any(Object) },
-          data: { targetFormat: 'docx', quality: 90 },
-        }),
-        mockClientOptions,
-      );
-    });
-
-    it('should execute merge operation', async () => {
-      workflow.merge(['file2.pdf', 'file3.pdf'], 'pdf');
-
-      await workflow.execute();
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          endpoint: '/merge',
-          method: 'POST',
-          files: expect.objectContaining({
-            'files[0]': expect.any(Object),
-            'files[1]': 'file2.pdf',
-            'files[2]': 'file3.pdf',
-          }),
-          data: { outputFormat: 'pdf' },
-        }),
-        mockClientOptions,
-      );
-    });
-
-    it('should execute compress operation', async () => {
-      workflow.compress('high');
-
-      await workflow.execute();
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          endpoint: '/compress',
-          method: 'POST',
-          files: { file: expect.any(Object) },
-          data: { compressionLevel: 'high' },
-        }),
-        mockClientOptions,
-      );
-    });
-
-    it('should execute extract operation', async () => {
-      workflow.extractText(true);
-
-      const extractResponse = { text: 'extracted text', metadata: {} };
-      mockSendRequest
-        .mockResolvedValueOnce({ data: new Blob(), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({
-          data: extractResponse,
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-        });
-
-      await workflow.execute();
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          endpoint: '/extract',
-          method: 'POST',
-          files: { file: expect.any(Object) },
-          data: { includeMetadata: true },
-        }),
-        mockClientOptions,
-      );
-    });
-
-    it('should execute watermark operation', async () => {
-      workflow.watermark('CONFIDENTIAL', { position: 'center', opacity: 0.5 });
-
-      await workflow.execute();
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          endpoint: '/watermark',
-          method: 'POST',
-          files: { file: expect.any(Object) },
-          data: {
-            watermarkText: 'CONFIDENTIAL',
-            position: 'center',
-            opacity: 0.5,
-          },
-        }),
-        mockClientOptions,
-      );
-    });
-
-    it('should handle error for unknown operation type', async () => {
-      // Manually add invalid step to test error handling
-      (workflow as unknown as { steps: unknown[] }).steps.push({
-        operation: { type: 'unknown', file: '_previous' },
-      });
+      const error = new Error('API failed');
+      mockSendRequest.mockRejectedValueOnce(error);
 
       const result = await workflow.execute();
       expect(result.success).toBe(false);
       expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]?.error.message).toContain('Unknown operation type: unknown');
+      expect(result.errors?.[0]?.error).toBe(error);
+    });
+
+    it('should handle execution errors', async () => {
+      workflow.addFilePart('test.pdf');
+
+      const error = new Error('Execution failed');
+      mockSendRequest.mockRejectedValueOnce(error);
+
+      const result = await workflow.execute();
+      expect(result.success).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors?.[0]?.error).toBe(error);
+    });
+
+    it('should handle timeout option', async () => {
+      const timeout = 30000;
+      await workflow.execute({ timeout });
+
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeout,
+        }),
+        mockClientOptions,
+      );
     });
   });
 
   describe('output management', () => {
     beforeEach(() => {
-      workflow.input('test.pdf');
+      workflow.addFilePart('test.pdf');
     });
 
     it('should get specific output by name', async () => {
-      workflow.convert('docx', undefined, 'word-version');
+      workflow.addFilePart('test.docx').outputOffice('docx');
 
       const mockBlob = new Blob(['content'], { type: 'application/docx' });
-      mockSendRequest
-        .mockResolvedValueOnce({ data: new Blob(), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: mockBlob, status: 200, statusText: 'OK', headers: {} });
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
 
       await workflow.execute();
 
-      expect(workflow.getOutput('word-version')).toBe(mockBlob);
-      expect(workflow.getOutput('non-existent')).toBeUndefined();
+      const output = workflow.getOutput();
+      expect(output?.blob).toBe(mockBlob);
+      expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
-    it('should get all outputs', async () => {
-      workflow.convert('docx', undefined, 'word-version').compress('high', 'compressed-version');
+    it('should get workflow output', async () => {
+      workflow.addFilePart('test.docx').outputOffice('docx');
 
-      const convertBlob = new Blob(['converted'], { type: 'application/docx' });
-      const compressBlob = new Blob(['compressed'], { type: 'application/docx' });
-
-      mockSendRequest
-        .mockResolvedValueOnce({ data: new Blob(), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: convertBlob, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: compressBlob, status: 200, statusText: 'OK', headers: {} });
+      const mockBlob = new Blob(['content'], { type: 'application/docx' });
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
 
       await workflow.execute();
 
-      const allOutputs = workflow.getAllOutputs();
-      expect(allOutputs.size).toBe(3); // Includes '_initial' from input step
-      expect(allOutputs.get('word-version')).toBe(convertBlob);
-      expect(allOutputs.get('compressed-version')).toBe(compressBlob);
-      expect(allOutputs.has('_initial')).toBe(true);
+      const output = workflow.getOutput();
+      expect(output).toBeDefined();
+      expect(output?.blob).toBe(mockBlob);
+      expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    });
+
+    it('should set correct mimetype for JSON output', async () => {
+      workflow.addFilePart('test.pdf').outputJson({ plainText: true });
+
+      const mockJsonResponse = { text: 'extracted text' };
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockJsonResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+      });
+
+      const result = await workflow.execute();
+
+      expect(result.success).toBe(true);
+      expect(result.output?.blob).toBe(mockJsonResponse);
+      expect(result.output?.mimeType).toBe('application/json');
+    });
+
+    it('should fallback to determined mimetype when content-type header is missing', async () => {
+      workflow.addFilePart('test.pdf').outputPdf();
+
+      const mockBlob = new Blob(['pdf content'], { type: 'application/pdf' });
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockBlob,
+        status: 200,
+        statusText: 'OK',
+        headers: {}, // No content-type header
+      });
+
+      const result = await workflow.execute();
+
+      expect(result.success).toBe(true);
+      expect(result.output?.blob).toBe(mockBlob);
+      expect(result.output?.mimeType).toBe('application/pdf'); // Should be determined from output type
     });
   });
 
-  describe('error handling in step execution', () => {
-    it('should handle missing current file for _previous reference', async () => {
-      // Clear and add step that references _previous without input
-      workflow.clear().convert('pdf');
-
-      await expect(workflow.execute()).rejects.toThrow(ValidationError);
-      await expect(workflow.execute()).rejects.toThrow(
-        'First workflow step must have an input file specified',
-      );
+  describe('dryRun', () => {
+    beforeEach(() => {
+      workflow.addFilePart('test.pdf');
     });
 
-    it('should handle missing current file in merge operation', async () => {
-      // Clear and add merge step without current file
-      workflow.clear().merge(['file1.pdf']);
+    it('should analyze workflow using analyze_build API', async () => {
+      const mockAnalysisResponse = {
+        cost: 3.5,
+        required_features: {
+          ocr_api: [
+            {
+              unit_cost: 2,
+              units: 1,
+              cost: 2,
+              usage: ['$.actions[0]']
+            }
+          ],
+          annotation_api: [
+            {
+              unit_cost: 0.5,
+              units: 3,
+              cost: 1.5,
+              usage: ['$.parts[0].actions[0]']
+            }
+          ]
+        }
+      };
 
-      const result = await workflow.execute();
-      expect(result.success).toBe(false);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]?.error.message).toContain(
-        'No current file available for merge operation',
-      );
-    });
-
-    it('should handle missing previous output in step', async () => {
-      // Manually create scenario where current file is missing mid-workflow
-      workflow.convert('pdf');
-
-      // Mock first step success but clear current file before second step
-      mockSendRequest.mockImplementation(() => {
-        (workflow as unknown as { currentFile: null }).currentFile = null; // Simulate missing current file
-        throw new ValidationError(
-          'Step 1 references previous output but no previous output exists',
-        );
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockAnalysisResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
       });
 
-      await expect(workflow.execute()).rejects.toThrow(ValidationError);
+      const result = await workflow.dryRun();
+
+      expect(result.success).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.analysis).toEqual(mockAnalysisResponse);
+      expect(mockSendRequest).toHaveBeenCalledTimes(1);
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpoint: '/analyze_build',
+          method: 'POST',
+          data: expect.objectContaining({
+            instructions: expect.objectContaining({
+              parts: expect.arrayContaining([
+                expect.objectContaining({
+                  file: 'file_0',
+                }),
+              ]),
+            }),
+          }),
+        }),
+        mockClientOptions,
+      );
+    });
+
+    it('should analyze complex workflow with multiple parts and actions', async () => {
+      workflow.addFilePart('file1.pdf');
+      workflow.addFilePart('file2.pdf', {}, [BuildActions.rotate(90)]);
+      workflow.applyActions([BuildActions.ocr('english')]);
+      workflow.outputPdf();
+
+      const mockAnalysisResponse = {
+        cost: 5.5,
+        required_features: {
+          ocr_api: [
+            {
+              unit_cost: 2,
+              units: 2,
+              cost: 4,
+              usage: ['$.actions[0]']
+            }
+          ],
+          document_editor_api: [
+            {
+              unit_cost: 1.5,
+              units: 1,
+              cost: 1.5,
+              usage: ['$.parts[1].actions[0]']
+            }
+          ]
+        }
+      };
+
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockAnalysisResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
+
+      const result = await workflow.dryRun();
+
+      expect(result.success).toBe(true);
+      expect(result.analysis).toEqual(mockAnalysisResponse);
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpoint: '/analyze_build',
+          method: 'POST',
+          data: expect.objectContaining({
+            instructions: expect.objectContaining({
+              parts: expect.arrayContaining([
+                expect.objectContaining({
+                  file: expect.any(String),
+                }),
+                expect.objectContaining({
+                  file: expect.any(String),
+                  actions: expect.arrayContaining([
+                    expect.objectContaining({
+                      type: 'rotate',
+                    }),
+                  ]),
+                }),
+              ]),
+              actions: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'ocr',
+                }),
+              ]),
+            }),
+          }),
+        }),
+        mockClientOptions,
+      );
+    });
+
+    it('should handle timeout option', async () => {
+      const timeout = 30000;
+      const mockAnalysisResponse = { cost: 1.5 };
+
+      mockSendRequest.mockResolvedValueOnce({
+        data: mockAnalysisResponse,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
+
+      await workflow.dryRun({ timeout });
+
+      expect(mockSendRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeout,
+        }),
+        mockClientOptions,
+      );
+    });
+
+    it('should handle API errors', async () => {
+      const error = new Error('Analyze API failed');
+      mockSendRequest.mockRejectedValueOnce(error);
+
+      const result = await workflow.dryRun();
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors?.[0]?.error).toBe(error);
+      expect(mockSendRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('should validate workflow before dry run', async () => {
+      // Clear all parts by creating a new workflow instance
+      workflow = new WorkflowBuilder(mockClientOptions);
+
+      await expect(workflow.dryRun()).rejects.toThrow(ValidationError);
+      await expect(workflow.dryRun()).rejects.toThrow('Workflow has no parts to execute');
     });
   });
 });
