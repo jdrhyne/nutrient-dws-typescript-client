@@ -14,6 +14,7 @@
 - Configure ESLint with TypeScript rules
 - Set up Prettier for code formatting
 - Configure Jest for testing
+- Set up dotenv for environment variable management in development
 
 ### 3. Project Structure
 ```
@@ -36,6 +37,7 @@ nutrient-dws-typescript-client/
 - axios (HTTP client)
 - form-data (Node.js FormData polyfill)
 - openapi-typescript (dev dependency)
+- dotenv (dev dependency for environment variables in development)
 
 ## Success Criteria
 - [ ] Project builds successfully with TypeScript
