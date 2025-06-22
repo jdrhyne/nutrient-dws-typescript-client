@@ -5,7 +5,7 @@
 ## Tasks
 
 ### 1. OpenAPI Setup
-- Obtain Nutrient DWS OpenAPI specification
+- Nutrient DWS OpenAPI specification is already provided in dws-api-spec.yml
 - Configure openapi-typescript generator
 - Create generation script in package.json
 

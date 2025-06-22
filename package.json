@@ -54,7 +54,7 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build && npm run test",
-    "generate:types": "openapi-typescript openapi-spec.yaml -o ./generated/api-types.ts",
+    "generate:types": "openapi-typescript dws-api-spec.yml -o ./generated/api-types.ts",
     "commit": "cz"
   },
   "dependencies": {
