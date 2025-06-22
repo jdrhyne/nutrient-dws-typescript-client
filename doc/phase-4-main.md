@@ -8,13 +8,15 @@
 - Constructor with options validation
 - Authentication handling
 - Direct API method implementations
-- buildWorkflow() method
+- workflow() method to expose complicated document workflows
 
 ### 2. WorkflowBuilder (src/workflow.ts)
 - Fluent API design
 - Step management
 - Input/output handling
-- execute() implementation
+- execute() implementation (using the `/build` API from DWS API)
+  - Use multipart build instructions to build up parts and actions
+  - Define output format and options
 - Proper method chaining
 
 ### 3. Integration
