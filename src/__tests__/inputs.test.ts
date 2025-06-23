@@ -253,22 +253,18 @@ describe('Input Processing', () => {
       const mockFs = fs as jest.Mocked<typeof fs>;
       const mockPath = path as jest.Mocked<typeof path>;
 
-      // Create a mock stream object
-      const mockStream = {
-        pipe: jest.fn(),
-        on: jest.fn(),
-        read: jest.fn(),
-      };
+      // Create a mock buffer
+      const mockBuffer = Buffer.from('test content');
 
       mockFs.promises.access.mockResolvedValueOnce(undefined);
-      mockFs.createReadStream.mockReturnValueOnce(mockStream as any);
+      mockFs.promises.readFile.mockResolvedValueOnce(mockBuffer);
       mockPath.basename.mockReturnValueOnce('document.pdf');
 
       const result = await processFileInput('/path/to/document.pdf');
 
       expect(mockFs.promises.access).toHaveBeenCalledWith('/path/to/document.pdf', 0);
-      expect(mockFs.createReadStream).toHaveBeenCalledWith('/path/to/document.pdf');
-      expect(result.data).toBe(mockStream);
+      expect(mockFs.promises.readFile).toHaveBeenCalledWith('/path/to/document.pdf');
+      expect(result.data).toBe(mockBuffer);
       expect(result.filename).toBe('document.pdf');
     });
 
@@ -282,19 +278,15 @@ describe('Input Processing', () => {
       const mockFs = fs as jest.Mocked<typeof fs>;
       const mockPath = path as jest.Mocked<typeof path>;
 
-      // Create a mock stream object
-      const mockStream = {
-        pipe: jest.fn(),
-        on: jest.fn(),
-        read: jest.fn(),
-      };
+      // Create a mock buffer
+      const mockBuffer = Buffer.from('test content');
 
       mockFs.promises.access.mockResolvedValueOnce(undefined);
-      mockFs.createReadStream.mockReturnValueOnce(mockStream as any);
+      mockFs.promises.readFile.mockResolvedValueOnce(mockBuffer);
       mockPath.basename.mockReturnValueOnce('document.pdf');
 
       const result = await processFileInput({ type: 'file-path', path: '/path/to/document.pdf' });
-      expect(result.data).toBe(mockStream);
+      expect(result.data).toBe(mockBuffer);
       expect(result.filename).toBe('document.pdf');
     });
   });
@@ -312,7 +304,7 @@ describe('Input Processing', () => {
 
       (global.fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      const result = await processFileInput('https://example.com/document.pdf');
+      const result = await processFileInput({ type: 'url', url: 'https://example.com/document.pdf' });
 
       expect(global.fetch).toHaveBeenCalledWith('https://example.com/document.pdf');
       expect(result.data).toBe(mockBlob);
@@ -332,7 +324,7 @@ describe('Input Processing', () => {
 
       (global.fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      const result = await processFileInput('https://example.com/');
+      const result = await processFileInput({ type: 'url', url: 'https://example.com/' });
 
       expect(result.filename).toBe('download');
       expect(result.contentType).toBeUndefined();
@@ -343,15 +335,19 @@ describe('Input Processing', () => {
         ok: false,
         status: 404,
         statusText: 'Not Found',
+        blob: jest.fn(),
+        headers: {
+          get: jest.fn(),
+        },
       };
 
       (global.fetch as jest.Mock).mockResolvedValueOnce(mockResponse);
 
-      await expect(processFileInput('https://example.com/missing.pdf')).rejects.toThrow(
+      await expect(processFileInput({ type: 'url', url: 'https://example.com/missing.pdf' })).rejects.toThrow(
         ValidationError,
       );
-      // The actual error message includes the URL, not the status
-      await expect(processFileInput('https://example.com/missing.pdf')).rejects.toThrow(
+      // The actual error message includes the URL
+      await expect(processFileInput({ type: 'url', url: 'https://example.com/missing.pdf' })).rejects.toThrow(
         'Failed to fetch URL: https://example.com/missing.pdf',
       );
     });
@@ -359,10 +355,10 @@ describe('Input Processing', () => {
     it('should handle network errors', async () => {
       (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(processFileInput('https://example.com/file.pdf')).rejects.toThrow(
+      await expect(processFileInput({ type: 'url', url: 'https://example.com/file.pdf' })).rejects.toThrow(
         ValidationError,
       );
-      await expect(processFileInput('https://example.com/file.pdf')).rejects.toThrow(
+      await expect(processFileInput({ type: 'url', url: 'https://example.com/file.pdf' })).rejects.toThrow(
         'Failed to fetch URL: https://example.com/file.pdf',
       );
     });

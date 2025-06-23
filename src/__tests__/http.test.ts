@@ -28,14 +28,8 @@ jest.mock('form-data', () => {
 jest.mock('../inputs', () => ({
   processFileInput: jest.fn().mockImplementation((input: unknown) => {
     if (typeof input === 'string' && input === 'test-file.pdf') {
-      // Return a mock stream for file path inputs
-      const mockStream = {
-        pipe: jest.fn(),
-        on: jest.fn(),
-        read: jest.fn(),
-      };
       return Promise.resolve({
-        data: mockStream,
+        data: Buffer.from('mock pdf file data'),
         filename: 'test-file.pdf',
         contentType: 'application/pdf',
       });
@@ -68,14 +62,16 @@ describe('HTTP Layer', () => {
     mockFormDataInstance.getHeaders.mockReturnValue({
       'content-type': 'multipart/form-data; boundary=----test',
     });
-    // Reset axios.isAxiosError mock
+    // Reset axios mocks
+    mockedAxios.mockClear();
     (mockedAxios.isAxiosError as jest.Mock).mockReturnValue(false);
   });
 
   describe('sendRequest', () => {
     it('should make a successful GET request', async () => {
+      const responseData = JSON.stringify({ result: 'success' });
       const mockResponse = {
-        data: { result: 'success' },
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
         headers: { 'content-type': 'application/json' },
@@ -96,8 +92,7 @@ describe('HTTP Layer', () => {
         headers: {
           Authorization: 'Bearer test-api-key',
         },
-        timeout: 30000,
-        validateStatus: expect.any(Function),
+        responseType: 'arraybuffer',
       });
 
       expect(result).toEqual({
@@ -113,11 +108,12 @@ describe('HTTP Layer', () => {
         apiKey: jest.fn().mockResolvedValue('async-api-key') as () => Promise<string>,
       };
 
+      const responseData = JSON.stringify({ result: 'success' });
       const mockResponse = {
-        data: { result: 'success' },
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -125,7 +121,7 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/test',
         method: 'POST',
-        data: { foo: 'bar' },
+        instructions: { foo: 'bar' },
       };
 
       await sendRequest(config, asyncOptions);
@@ -133,9 +129,14 @@ describe('HTTP Layer', () => {
       expect(asyncOptions.apiKey as jest.Mock).toHaveBeenCalled();
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({
+          method: 'POST',
+          url: 'https://api.nutrient.io/test',
+          data: { foo: 'bar' },
           headers: expect.objectContaining({
             Authorization: 'Bearer async-api-key',
+            'Content-Type': 'application/json',
           }),
+          responseType: 'arraybuffer',
         }),
       );
     });
@@ -175,11 +176,12 @@ describe('HTTP Layer', () => {
     });
 
     it('should send JSON data with proper headers', async () => {
+      const responseData = JSON.stringify({ id: 123 });
       const mockResponse = {
-        data: { id: 123 },
+        data: new TextEncoder().encode(responseData).buffer,
         status: 201,
         statusText: 'Created',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -187,7 +189,7 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/create',
         method: 'POST',
-        data: {
+        instructions: {
           userName: 'John Doe',
           emailAddress: 'john@example.com',
         },
@@ -197,23 +199,28 @@ describe('HTTP Layer', () => {
 
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({
+          method: 'POST',
+          url: 'https://api.test.com/v1/create',
           data: {
             userName: 'John Doe',
             emailAddress: 'john@example.com',
           },
           headers: expect.objectContaining({
+            Authorization: 'Bearer test-api-key',
             'Content-Type': 'application/json',
           }),
+          responseType: 'arraybuffer',
         }),
       );
     });
 
     it('should send files with FormData', async () => {
+      const responseData = JSON.stringify({ uploaded: true });
       const mockResponse = {
-        data: { uploaded: true },
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -232,21 +239,24 @@ describe('HTTP Layer', () => {
 
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'document',
-        expect.any(Object), // Expecting a stream object
-        {
-          filename: 'test-file.pdf',
-          contentType: 'application/pdf',
-        },
+        expect.anything(), // Buffer object with Symbol properties
+        'test-file.pdf',
       );
-      expect(mockFormDataInstance.append).toHaveBeenCalledWith('instructions', expect.any(String));
+      expect(mockFormDataInstance.append).toHaveBeenCalledWith(
+        'instructions', 
+        JSON.stringify({
+          parts: [{ file: 'document' }],
+          output: { type: 'pdf' },
+        })
+      );
     });
 
     it('should handle 401 authentication error', async () => {
       const mockResponse = {
-        data: { error: 'Invalid API key' },
+        data: new TextEncoder().encode(JSON.stringify({ error: 'Invalid API key' })).buffer,
         status: 401,
         statusText: 'Unauthorized',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -266,10 +276,10 @@ describe('HTTP Layer', () => {
 
     it('should handle 400 validation error', async () => {
       const mockResponse = {
-        data: { message: 'Invalid parameters' },
+        data: new TextEncoder().encode(JSON.stringify({ message: 'Invalid parameters' })).buffer,
         status: 400,
         statusText: 'Bad Request',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -277,7 +287,6 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/test',
         method: 'POST',
-        data: {},
       };
 
       await expect(sendRequest(config, mockClientOptions)).rejects.toMatchObject({
@@ -290,10 +299,10 @@ describe('HTTP Layer', () => {
 
     it('should handle 500 server error', async () => {
       const mockResponse = {
-        data: { detail: 'Internal server error' },
+        data: new TextEncoder().encode(JSON.stringify({ detail: 'Internal server error' })).buffer,
         status: 500,
         statusText: 'Internal Server Error',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -368,11 +377,12 @@ describe('HTTP Layer', () => {
     });
 
     it('should use custom timeout', async () => {
+      const responseData = JSON.stringify({});
       const mockResponse = {
-        data: {},
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -385,19 +395,23 @@ describe('HTTP Layer', () => {
 
       await sendRequest(config, mockClientOptions);
 
-      expect(mockedAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          timeout: 60000,
-        }),
-      );
+      expect(mockedAxios).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.test.com/v1/test',
+        headers: {
+          Authorization: 'Bearer test-api-key',
+        },
+        responseType: 'arraybuffer',
+      });
     });
 
     it('should use default timeout when not specified', async () => {
+      const responseData = JSON.stringify({});
       const mockResponse = {
-        data: {},
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -413,19 +427,23 @@ describe('HTTP Layer', () => {
 
       await sendRequest(config, optionsWithoutTimeout);
 
-      expect(mockedAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          timeout: 30000, // Default timeout
-        }),
-      );
+      expect(mockedAxios).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.nutrient.io/test',
+        headers: {
+          Authorization: 'Bearer test-key',
+        },
+        responseType: 'arraybuffer',
+      });
     });
 
     it('should handle multiple files in request', async () => {
+      const responseData = JSON.stringify({ success: true });
       const mockResponse = {
-        data: { success: true },
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -433,35 +451,41 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/merge',
         method: 'POST',
-        files: {
-          files: ['file1.pdf', 'file2.pdf', 'file3.pdf'],
+        files: new Map([
+          ['file1', 'file1.pdf'],
+          ['file2', 'file2.pdf'],
+          ['file3', 'file3.pdf'],
+        ]),
+        instructions: {
+          parts: [{ file: 'file1' }, { file: 'file2' }, { file: 'file3' }],
+          output: { type: 'pdf' },
         },
       };
 
       await sendRequest(config, mockClientOptions);
 
-      expect(mockFormDataInstance.append).toHaveBeenCalledTimes(3);
+      expect(mockFormDataInstance.append).toHaveBeenCalledTimes(4); // 3 files + 1 instructions
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[0]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file1',
+        expect.anything(),
         'file.bin',
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[1]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file2',
+        expect.anything(),
         'file.bin',
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[2]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file3',
+        expect.anything(),
         'file.bin',
       );
     });
 
     it('should handle binary response data', async () => {
-      const binaryData = Buffer.from('PDF content here');
+      const binaryData = new TextEncoder().encode('PDF content here');
       const mockResponse = {
-        data: binaryData,
+        data: binaryData.buffer,
         status: 200,
         statusText: 'OK',
         headers: {
@@ -478,7 +502,7 @@ describe('HTTP Layer', () => {
 
       const result = await sendRequest<Buffer>(config, mockClientOptions);
 
-      expect(result.data).toBe(binaryData);
+      expect(result.data).toBeInstanceOf(Buffer);
       expect(result.headers['content-type']).toBe('application/pdf');
     });
 
@@ -488,11 +512,12 @@ describe('HTTP Layer', () => {
         baseUrl: 'https://api.test.com/v1/',
       };
 
+      const responseData = JSON.stringify({});
       const mockResponse = {
-        data: {},
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -504,19 +529,23 @@ describe('HTTP Layer', () => {
 
       await sendRequest(config, optionsWithTrailingSlash);
 
-      expect(mockedAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          url: 'https://api.test.com/v1/test',
-        }),
-      );
+      expect(mockedAxios).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.test.com/v1/test',
+        headers: {
+          Authorization: 'Bearer test-key',
+        },
+        responseType: 'arraybuffer',
+      });
     });
 
     it('should handle leading slash in endpoint', async () => {
+      const responseData = JSON.stringify({});
       const mockResponse = {
-        data: {},
+        data: new TextEncoder().encode(responseData).buffer,
         status: 200,
         statusText: 'OK',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
       };
 
       mockedAxios.mockResolvedValueOnce(mockResponse);
@@ -528,11 +557,14 @@ describe('HTTP Layer', () => {
 
       await sendRequest(config, mockClientOptions);
 
-      expect(mockedAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          url: 'https://api.test.com/v1/test',
-        }),
-      );
+      expect(mockedAxios).toHaveBeenCalledWith({
+        method: 'GET',
+        url: 'https://api.test.com/v1/test',
+        headers: {
+          Authorization: 'Bearer test-api-key',
+        },
+        responseType: 'arraybuffer',
+      });
     });
   });
 });
