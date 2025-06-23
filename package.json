@@ -53,8 +53,7 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build && npm run test",
-    "generate:types": "openapi-typescript dws-api-spec.yml -o ./generated/api-types.ts",
-    "commit": "cz"
+    "generate:types": "openapi-typescript dws-api-spec.yml -o ./generated/api-types.ts"
   },
   "dependencies": {
     "axios": "^1.7.2",
@@ -65,8 +64,6 @@
     "@types/node": "^20.14.0",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
-    "commitizen": "^4.3.1",
-    "cz-conventional-changelog": "^3.3.0",
     "dotenv": "^16.4.5",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",

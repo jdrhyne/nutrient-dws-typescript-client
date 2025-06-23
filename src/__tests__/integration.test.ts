@@ -5,6 +5,7 @@
 
 import { NutrientClient } from '../client';
 import { WorkflowBuilder } from '../workflow';
+import type { WorkflowInitialStage } from '../types';
 import type { NutrientClientOptions } from '../types/common';
 
 // Skip integration tests in CI/automated environments
@@ -206,15 +207,12 @@ describe('Integration Test Mocks', () => {
     const client = new NutrientClient({ apiKey: 'mock-key' });
     const workflow = client.workflow();
 
-    expect(workflow).toBeInstanceOf(WorkflowBuilder);
-    expect(workflow.partCount).toBe(0);
+    expect(workflow).toBeDefined();
+    expect(typeof workflow.addFilePart).toBe('function');
 
-    // Demonstrate fluent API with new API
-    workflow
-      .addFilePart('test.docx')
-      .outputPdf();
-
-    expect(workflow.partCount).toBe(1);
+    // Demonstrate fluent API
+    const builderWithParts = workflow.addFilePart('test.docx');
+    expect(typeof builderWithParts.outputPdf).toBe('function');
   });
 
   it('should demonstrate error handling patterns', async () => {

@@ -72,16 +72,6 @@ Use scopes to indicate which part of the codebase is affected:
 
 ### Making Commits
 
-#### Option 1: Using Commitizen (Recommended)
-```bash
-# Stage your changes
-git add .
-
-# Use commitizen for guided commit creation
-npm run commit
-```
-
-#### Option 2: Manual Commits
 ```bash
 # Ensure your commit message follows the convention
 git commit -m "feat(client): add document conversion method"

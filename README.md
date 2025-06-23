@@ -337,9 +337,6 @@ We follow strict development standards to ensure code quality and maintainabilit
 
 3. **Use conventional commits**:
    ```bash
-   # Option 1: Use commitizen (recommended)
-   npm run commit
-
    # Option 2: Manual commit with conventional format
    git commit -m "feat(client): add document conversion method"
    ```

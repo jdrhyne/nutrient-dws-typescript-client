@@ -179,6 +179,12 @@ export class NutrientClient {
     file: FileInput,
     targetFormat: 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'image',
   ): Promise<WorkflowResult> {
+    const supportedFormats = ['pdf', 'pdfa', 'docx', 'xlsx', 'pptx', 'image'] as const;
+    
+    if (!supportedFormats.includes(targetFormat as any)) {
+      throw new ValidationError(`Unsupported target format: ${targetFormat}. Supported formats: ${supportedFormats.join(', ')}`);
+    }
+
     const workflowBuilder = this.workflow().addFilePart(file);
 
     switch (targetFormat) {
@@ -194,6 +200,8 @@ export class NutrientClient {
         return workflowBuilder.outputOffice('pptx').execute();
       case 'image':
         return workflowBuilder.outputImage().execute();
+      default:
+        throw new ValidationError(`Unsupported target format: ${targetFormat}`);
     }
   }
 }
