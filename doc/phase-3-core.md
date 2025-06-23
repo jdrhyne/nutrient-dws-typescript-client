@@ -19,12 +19,10 @@
 ### 3. HTTP Layer (src/http.ts)
 - Implement sendRequest function
 - Handle authentication (string | async function)
-- Case transformation (camelCase ↔ snake_case)
 - FormData construction
 - Error response handling
 
 ### 4. Utilities
-- Case transformation helpers
 - Environment detection (Node/browser)
 - Type guards and validators
 

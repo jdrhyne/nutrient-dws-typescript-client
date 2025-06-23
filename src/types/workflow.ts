@@ -6,13 +6,13 @@ import type { components } from '../generated/api-types';
  * Maps output types to their specific output structures
  */
 export type OutputTypeMap = {
-  'pdf': { blob: Blob; mimeType: 'application/pdf'; filename?: string };
-  'pdfa': { blob: Blob; mimeType: 'application/pdf'; filename?: string };
-  'image': { blob: Blob; mimeType: `image/${string}`; filename?: string };
-  'json-content': { blob: Blob; mimeType: 'application/json'; filename?: string };
-  'docx': { blob: Blob; mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'; filename?: string };
-  'xlsx': { blob: Blob; mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; filename?: string };
-  'pptx': { blob: Blob; mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'; filename?: string };
+  'pdf': { buffer: Uint8Array; mimeType: 'application/pdf'; filename?: string };
+  'pdfa': { buffer: Uint8Array; mimeType: 'application/pdf'; filename?: string };
+  'image': { buffer: Uint8Array; mimeType: `image/${string}`; filename?: string };
+  'docx': { buffer: Uint8Array; mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'; filename?: string };
+  'xlsx': { buffer: Uint8Array; mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; filename?: string };
+  'pptx': { buffer: Uint8Array; mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'; filename?: string };
+  'json-content': { data: components['schemas']['BuildResponseJsonContents'] };
 };
 
 /**
@@ -103,7 +103,6 @@ export interface WorkflowWithActionsStage {
 export interface WorkflowWithOutputStage<TOutput extends keyof OutputTypeMap | undefined = undefined> {
   execute(options?: WorkflowExecuteOptions): Promise<TypedWorkflowResult<TOutput>>;
   dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult>;
-  getOutput(): TypedWorkflowResult<TOutput>['output'];
 }
 
 /**
@@ -126,8 +125,8 @@ export interface WorkflowConfig {
  * Represents an output file with its content and metadata
  */
 export interface WorkflowOutput {
-  /** The file content as a Blob */
-  blob: Blob;
+  /** The file content as a Uint8Array buffer */
+  buffer: Uint8Array;
   /** The MIME type of the output file */
   mimeType: string;
   /** Optional filename if available */

@@ -11,7 +11,7 @@ import type {
   WorkflowWithOutputStage,
   WorkflowWithPartsStage,
 } from '../types';
-import type { components } from '../types/nutrient-api';
+import type { components } from '../generated/api-types'
 import { ValidationError } from '../errors';
 import * as workflowModule from '../workflow';
 import * as inputsModule from '../inputs';
@@ -31,7 +31,6 @@ interface MockWorkflowWithOutputStage<T extends keyof OutputTypeMap | undefined 
   dryRun: jest.MockedFunction<
     (options?: Pick<WorkflowExecuteOptions, 'timeout'>) => Promise<WorkflowDryRunResult>
   >;
-  getOutput: jest.MockedFunction<() => TypedWorkflowResult<T>['output']>;
 }
 
 interface MockWorkflowWithPartsStage extends WorkflowWithPartsStage {
@@ -255,9 +254,8 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ success: true, output: { blob: new Blob() } }),
+        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
         dryRun: jest.fn(),
-        getOutput: jest.fn(),
       } as MockWorkflowWithOutputStage;
 
       mockWorkflowInstance = {
@@ -276,7 +274,6 @@ describe('NutrientClient', () => {
         outputJson: jest.fn().mockReturnValue(mockOutputStage),
         execute: mockOutputStage.execute,
         dryRun: mockOutputStage.dryRun,
-        getOutput: mockOutputStage.getOutput,
       } as MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
       mockWorkflow.mockReturnValue(mockWorkflowInstance);
     });
@@ -323,9 +320,8 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ success: true, output: { blob: new Blob() } }),
+        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
         dryRun: jest.fn(),
-        getOutput: jest.fn(),
       } as MockWorkflowWithOutputStage;
 
       mockWorkflowInstance = {
@@ -344,7 +340,6 @@ describe('NutrientClient', () => {
         outputJson: jest.fn().mockReturnValue(mockOutputStage),
         execute: mockOutputStage.execute,
         dryRun: mockOutputStage.dryRun,
-        getOutput: mockOutputStage.getOutput,
       } as MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
       mockWorkflow.mockReturnValue(mockWorkflowInstance);
     });
@@ -408,9 +403,8 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ success: true, output: { blob: new Blob() } }),
+        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
         dryRun: jest.fn(),
-        getOutput: jest.fn(),
       } as MockWorkflowWithOutputStage;
 
       mockWorkflowInstance = {
@@ -429,7 +423,6 @@ describe('NutrientClient', () => {
         outputJson: jest.fn().mockReturnValue(mockOutputStage),
         execute: mockOutputStage.execute,
         dryRun: mockOutputStage.dryRun,
-        getOutput: mockOutputStage.getOutput,
       } as MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
       mockWorkflow.mockReturnValue(mockWorkflowInstance);
     });

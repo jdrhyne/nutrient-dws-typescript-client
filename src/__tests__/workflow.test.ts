@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { WorkflowBuilder } from '../workflow';
-import type { NutrientClientOptions } from '../types/common';
-import type { WorkflowExecuteOptions } from '../types/workflow';
+import type { NutrientClientOptions } from '../types';
+import type { WorkflowExecuteOptions } from '../types';
 import { ValidationError } from '../errors';
 import * as inputsModule from '../inputs';
 import * as httpModule from '../http';
@@ -24,7 +24,7 @@ describe('WorkflowBuilder', () => {
     baseUrl: 'https://api.test.com/v1',
   };
 
-  let workflow: WorkflowBuilder;
+  let workflow: WorkflowBuilder<'pdf'>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -406,7 +406,7 @@ describe('WorkflowBuilder', () => {
 
       expect(result.success).toBe(true);
       expect(result.output).toBeDefined();
-      expect(result.output?.blob).toBe(mockBlob);
+      expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
       expect(result.output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
@@ -473,10 +473,8 @@ describe('WorkflowBuilder', () => {
         headers: {},
       });
 
-      await workflow.execute();
-
-      const output = workflow.getOutput();
-      expect(output?.blob).toBe(mockBlob);
+      const { output } = await workflow.execute();
+      expect(output?.buffer).toBeInstanceOf(Uint8Array);
       expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
@@ -491,11 +489,10 @@ describe('WorkflowBuilder', () => {
         headers: {},
       });
 
-      await workflow.execute();
+      const { output } = await workflow.execute();
 
-      const output = workflow.getOutput();
       expect(output).toBeDefined();
-      expect(output?.blob).toBe(mockBlob);
+      expect(output?.buffer).toBeInstanceOf(Uint8Array);
       expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     });
 
@@ -513,7 +510,7 @@ describe('WorkflowBuilder', () => {
       const result = await workflow.execute();
 
       expect(result.success).toBe(true);
-      expect(result.output?.blob).toBe(mockJsonResponse);
+      expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
       expect(result.output?.mimeType).toBe('application/json');
     });
 
@@ -531,7 +528,7 @@ describe('WorkflowBuilder', () => {
       const result = await workflow.execute();
 
       expect(result.success).toBe(true);
-      expect(result.output?.blob).toBe(mockBlob);
+      expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
       expect(result.output?.mimeType).toBe('application/pdf'); // Should be determined from output type
     });
   });

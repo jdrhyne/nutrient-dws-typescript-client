@@ -1,12 +1,12 @@
 import { BuildActions, BuildOutputs } from '../build';
-import type { components } from '../types/nutrient-api';
+import type { components } from '../generated/api-types';
 import type { FileInput } from '../types';
 
 describe('BuildActions', () => {
   describe('ocr()', () => {
     it('should create OCR action with single language', () => {
       const action = BuildActions.ocr('english');
-      
+
       expect(action).toEqual({
         type: 'ocr',
         language: 'english',
@@ -16,7 +16,7 @@ describe('BuildActions', () => {
     it('should create OCR action with multiple languages', () => {
       const languages: components['schemas']['OcrLanguage'][] = ['english', 'spanish'];
       const action = BuildActions.ocr(languages);
-      
+
       expect(action).toEqual({
         type: 'ocr',
         language: ['english', 'spanish'],
@@ -27,7 +27,7 @@ describe('BuildActions', () => {
   describe('rotate()', () => {
     it('should create rotation action for 90 degrees', () => {
       const action = BuildActions.rotate(90);
-      
+
       expect(action).toEqual({
         type: 'rotate',
         rotateBy: 90,
@@ -36,7 +36,7 @@ describe('BuildActions', () => {
 
     it('should create rotation action for 180 degrees', () => {
       const action = BuildActions.rotate(180);
-      
+
       expect(action).toEqual({
         type: 'rotate',
         rotateBy: 180,
@@ -45,7 +45,7 @@ describe('BuildActions', () => {
 
     it('should create rotation action for 270 degrees', () => {
       const action = BuildActions.rotate(270);
-      
+
       expect(action).toEqual({
         type: 'rotate',
         rotateBy: 270,
@@ -61,12 +61,13 @@ describe('BuildActions', () => {
 
     it('should create text watermark action with minimal options', () => {
       const action = BuildActions.watermarkText('CONFIDENTIAL', defaultDimensions);
-      
+
       expect(action).toEqual({
         type: 'watermark',
         text: 'CONFIDENTIAL',
         width: { value: 100, unit: '%' },
         height: { value: 100, unit: '%' },
+        rotation: 0,
       });
     });
 
@@ -86,7 +87,7 @@ describe('BuildActions', () => {
       };
 
       const action = BuildActions.watermarkText('DRAFT', options);
-      
+
       expect(action).toEqual({
         type: 'watermark',
         text: 'DRAFT',
@@ -115,12 +116,13 @@ describe('BuildActions', () => {
     it('should create image watermark action with minimal options', () => {
       const image: FileInput = 'logo.png';
       const action = BuildActions.watermarkImage(image, defaultDimensions);
-      
+
       expect(action).toEqual({
         type: 'watermark',
         image: 'logo.png',
         width: { value: 100, unit: '%' },
         height: { value: 100, unit: '%' },
+        rotation: 0,
       });
     });
 
@@ -137,7 +139,7 @@ describe('BuildActions', () => {
       };
 
       const action = BuildActions.watermarkImage(image, options);
-      
+
       expect(action).toEqual({
         type: 'watermark',
         image: 'watermark.png',
@@ -156,7 +158,7 @@ describe('BuildActions', () => {
   describe('flatten()', () => {
     it('should create flatten action without annotation IDs', () => {
       const action = BuildActions.flatten();
-      
+
       expect(action).toEqual({
         type: 'flatten',
       });
@@ -165,7 +167,7 @@ describe('BuildActions', () => {
     it('should create flatten action with annotation IDs', () => {
       const annotationIds = ['ann1', 'ann2', 123];
       const action = BuildActions.flatten(annotationIds);
-      
+
       expect(action).toEqual({
         type: 'flatten',
         annotationIds: ['ann1', 'ann2', 123],
@@ -177,7 +179,7 @@ describe('BuildActions', () => {
     it('should create apply Instant JSON action', () => {
       const file: FileInput = 'annotations.json';
       const action = BuildActions.applyInstantJson(file);
-      
+
       expect(action).toEqual({
         type: 'applyInstantJson',
         file: 'annotations.json',
@@ -189,7 +191,7 @@ describe('BuildActions', () => {
     it('should create apply XFDF action', () => {
       const file: FileInput = 'annotations.xfdf';
       const action = BuildActions.applyXfdf(file);
-      
+
       expect(action).toEqual({
         type: 'applyXfdf',
         file: 'annotations.xfdf',
@@ -200,7 +202,7 @@ describe('BuildActions', () => {
   describe('applyRedactions()', () => {
     it('should create apply redactions action', () => {
       const action = BuildActions.applyRedactions();
-      
+
       expect(action).toEqual({
         type: 'applyRedactions',
       });
@@ -212,7 +214,7 @@ describe('BuildOutputs', () => {
   describe('pdf()', () => {
     it('should create PDF output with no options', () => {
       const output = BuildOutputs.pdf();
-      
+
       expect(output).toEqual({
         type: 'pdf',
       });
@@ -229,7 +231,7 @@ describe('BuildOutputs', () => {
       };
 
       const output = BuildOutputs.pdf(options);
-      
+
       expect(output).toEqual({
         type: 'pdf',
         metadata: { title: 'Test Document' },
@@ -245,7 +247,7 @@ describe('BuildOutputs', () => {
   describe('pdfa()', () => {
     it('should create PDF/A output with no options', () => {
       const output = BuildOutputs.pdfa();
-      
+
       expect(output).toEqual({
         type: 'pdfa',
       });
@@ -262,7 +264,7 @@ describe('BuildOutputs', () => {
       };
 
       const output = BuildOutputs.pdfa(options);
-      
+
       expect(output).toEqual({
         type: 'pdfa',
         conformance: 'pdfa-1b',
@@ -278,7 +280,7 @@ describe('BuildOutputs', () => {
   describe('image()', () => {
     it('should create image output with default options', () => {
       const output = BuildOutputs.image();
-      
+
       expect(output).toEqual({
         type: 'image',
       });
@@ -292,7 +294,7 @@ describe('BuildOutputs', () => {
       };
 
       const output = BuildOutputs.image(options);
-      
+
       expect(output).toEqual({
         type: 'image',
         format: 'png',

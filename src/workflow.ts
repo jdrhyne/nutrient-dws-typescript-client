@@ -1,15 +1,15 @@
-import type { 
-  FileInput, 
-  WorkflowDryRunResult, 
-  WorkflowExecuteOptions, 
-  OutputTypeMap, 
+import type {
+  FileInput,
+  NutrientClientOptions,
+  OutputTypeMap,
   TypedWorkflowResult,
+  WorkflowDryRunResult,
+  WorkflowExecuteOptions,
   WorkflowInitialStage,
-  WorkflowWithPartsStage,
   WorkflowWithActionsStage,
-  WorkflowWithOutputStage
+  WorkflowWithOutputStage,
+  WorkflowWithPartsStage,
 } from './types';
-import type { NutrientClientOptions } from './types';
 import { NutrientError, ValidationError } from './errors';
 import { validateFileInput } from './inputs';
 import { sendRequest } from './http';
@@ -34,19 +34,9 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   private clientOptions: NutrientClientOptions;
 
   /**
-   * Current working file data (result of previous step)
-   */
-  private currentFile: Blob | null = null;
-
-  /**
-   * Last execution output
-   */
-  private lastOutput: TypedWorkflowResult<TOutput>['output'] = undefined;
-
-  /**
    * Files to be sent in the request
    */
-  private files: Record<string, unknown> = {};
+  private files: Map<string, unknown> = new Map<string, unknown>();
 
   /**
    * Current file index for generating unique file keys
@@ -75,16 +65,16 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    * @returns The workflow builder for chaining
    */
   addFilePart(
-    file: FileInput, 
+    file: FileInput,
     options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): this {
     if (!validateFileInput(file)) {
       throw new ValidationError('Invalid file input provided to workflow', { file });
     }
 
     const fileKey = `file_${this.fileIndex++}`;
-    this.files[fileKey] = file;
+    this.files.set(fileKey, file);
 
     const filePart: components['schemas']['FilePart'] = {
       file: fileKey,
@@ -104,12 +94,12 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    * @returns The workflow builder for chaining
    */
   addHtmlPart(
-    html: string | Blob, 
+    html: string | Blob,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): this {
     const htmlKey = `html_${this.fileIndex++}`;
-    this.files[htmlKey] = html;
+    this.files.set(htmlKey, html);
 
     const htmlPart: components['schemas']['HTMLPart'] = {
       html: htmlKey,
@@ -129,7 +119,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    */
   addNewPage(
     options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): this {
     const newPagePart: components['schemas']['NewPagePart'] = {
       page: 'new',
@@ -153,7 +143,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
     options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
       layer?: string;
     },
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): this {
     const { layer, ...restOptions } = options ?? {};
 
@@ -234,7 +224,9 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    * @param options - Image output options
    * @returns The workflow builder for chaining
    */
-  outputImage(options?: Omit<components['schemas']['ImageOutput'], 'type'>): WorkflowBuilder<'image'> {
+  outputImage(
+    options?: Omit<components['schemas']['ImageOutput'], 'type'>,
+  ): WorkflowBuilder<'image'> {
     this.buildInstructions.output = {
       type: 'image',
       ...options,
@@ -259,20 +251,14 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    * @param options - JSON output options
    * @returns The workflow builder for chaining
    */
-  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowBuilder<'json-content'> {
+  outputJson(
+    options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
+  ): WorkflowBuilder<'json-content'> {
     this.buildInstructions.output = {
       type: 'json-content',
       ...options,
     } as components['schemas']['JSONContentOutput'];
     return this as WorkflowBuilder<'json-content'>;
-  }
-
-  /**
-   * Gets the output from the last execution
-   * @returns The output from the last execution, or undefined if no execution has occurred
-   */
-  getOutput(): TypedWorkflowResult<TOutput>['output'] {
-    return this.lastOutput;
   }
 
   /**
@@ -308,32 +294,35 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
       options?.onProgress?.(1, 1);
 
       // Execute the build API request
-      const response = await sendRequest<Blob>(
+      const response = await sendRequest<
+        string | components['schemas']['BuildResponseJsonContents']
+      >(
         {
           endpoint: '/build',
           method: 'POST',
           files: this.files,
-          data: {
-            instructions: this.buildInstructions,
-          },
+          instructions: this.buildInstructions,
           timeout: options?.timeout,
         },
         this.clientOptions,
       );
 
-      // Store the result
-      this.currentFile = response.data;
+      const mimeType = response.headers['content-type'] ?? this.determineMimeTypeFromOutput();
 
-      // Store output if available
-      if (this.currentFile) {
-        const mimeType = response.headers['content-type'] ?? this.determineMimeTypeFromOutput();
+      // Check if this is a JSON content output
+      const isJsonOutput = this.buildInstructions.output?.type === 'json-content';
+
+      if (isJsonOutput && typeof response.data === 'object') {
         result.output = {
-          blob: this.currentFile,
+          data: response.data,
+        } as TypedWorkflowResult<TOutput>['output'];
+      } else if (typeof response.data === 'string') {
+        result.output = {
+          buffer: new Uint8Array(Buffer.from(response.data, 'binary')),
           mimeType,
         } as TypedWorkflowResult<TOutput>['output'];
-
-        // Store the output for getOutput method
-        this.lastOutput = result.output;
+      } else {
+        throw new NutrientError('Unexpected response from build API');
       }
 
       result.success = true;
@@ -342,7 +331,8 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
       result.success = false;
       result.errors?.push({
         step: 0,
-        error: error instanceof Error ? error : new NutrientError('Unknown error in workflow execution'),
+        error:
+          error instanceof Error ? error : new NutrientError('Unknown error in workflow execution'),
       });
     }
 
@@ -351,11 +341,11 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
 
   /**
    * Performs a dry run of the workflow to analyze it without executing
-   * 
+   *
    * This method uses the analyze_build endpoint to validate the workflow and calculate
    * the credit cost without actually executing the workflow. It's useful for checking
    * if a workflow is valid and understanding the resource requirements before execution.
-   * 
+   *
    * @param options - Execution options (timeout)
    * @returns Promise resolving to workflow dry run results including analysis data
    */
@@ -373,9 +363,8 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
         {
           endpoint: '/analyze_build',
           method: 'POST',
-          data: {
-            instructions: this.buildInstructions,
-          },
+          files: this.files,
+          instructions: this.buildInstructions,
           timeout: options?.timeout,
         },
         this.clientOptions,
@@ -388,7 +377,8 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
       result.success = false;
       result.errors?.push({
         step: 0,
-        error: error instanceof Error ? error : new NutrientError('Unknown error in workflow dry run'),
+        error:
+          error instanceof Error ? error : new NutrientError('Unknown error in workflow dry run'),
       });
     }
 
@@ -427,17 +417,18 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
         return 'application/octet-stream';
     }
   }
-
-
-
 }
 
 /**
  * Staged workflow builder that implements the builder pattern with method restrictions
  */
-class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = undefined> 
-  implements WorkflowInitialStage, WorkflowWithPartsStage, WorkflowWithActionsStage, WorkflowWithOutputStage<TOutput> {
-
+class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = undefined>
+  implements
+    WorkflowInitialStage,
+    WorkflowWithPartsStage,
+    WorkflowWithActionsStage,
+    WorkflowWithOutputStage<TOutput>
+{
   private builder: WorkflowBuilder<TOutput>;
 
   constructor(clientOptions: NutrientClientOptions) {
@@ -451,18 +442,18 @@ class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = un
   }
 
   addFilePart(
-    file: FileInput, 
+    file: FileInput,
     options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage {
     this.builder.addFilePart(file, options, actions);
     return this as WorkflowWithPartsStage;
   }
 
   addHtmlPart(
-    html: string | Blob, 
+    html: string | Blob,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage {
     this.builder.addHtmlPart(html, options, actions);
     return this as WorkflowWithPartsStage;
@@ -470,7 +461,7 @@ class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = un
 
   addNewPage(
     options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage {
     this.builder.addNewPage(options, actions);
     return this as WorkflowWithPartsStage;
@@ -481,7 +472,7 @@ class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = un
     options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
       layer?: string;
     },
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage {
     this.builder.addDocumentPart(documentId, options, actions);
     return this as WorkflowWithPartsStage;
@@ -504,17 +495,23 @@ class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = un
     return this as WorkflowWithOutputStage;
   }
 
-  outputPdf(options?: Omit<components['schemas']['PDFOutput'], 'type'>): WorkflowWithOutputStage<'pdf'> {
+  outputPdf(
+    options?: Omit<components['schemas']['PDFOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdf'> {
     this.builder.outputPdf(options);
     return this as WorkflowWithOutputStage<'pdf'>;
   }
 
-  outputPdfA(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowWithOutputStage<'pdfa'> {
+  outputPdfA(
+    options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdfa'> {
     this.builder.outputPdfA(options);
     return this as WorkflowWithOutputStage<'pdfa'>;
   }
 
-  outputImage(options?: Omit<components['schemas']['ImageOutput'], 'type'>): WorkflowWithOutputStage<'image'> {
+  outputImage(
+    options?: Omit<components['schemas']['ImageOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'image'> {
     this.builder.outputImage(options);
     return this as WorkflowWithOutputStage<'image'>;
   }
@@ -524,7 +521,9 @@ class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = un
     return this as unknown as WorkflowWithOutputStage<T>;
   }
 
-  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowWithOutputStage<'json-content'> {
+  outputJson(
+    options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'json-content'> {
     this.builder.outputJson(options);
     return this as WorkflowWithOutputStage<'json-content'>;
   }
@@ -536,10 +535,6 @@ class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = un
 
   async dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult> {
     return this.builder.dryRun(options);
-  }
-
-  getOutput(): TypedWorkflowResult<TOutput>['output'] {
-    return this.builder.getOutput();
   }
 }
 

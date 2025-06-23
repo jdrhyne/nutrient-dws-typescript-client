@@ -12,7 +12,6 @@
 ### 2. Type Generation
 - Generate base types from OpenAPI
 - Create type transformation utilities
-- Implement camelCase/snake_case converters
 
 ### 3. Manual Type Extensions
 - Create NutrientClientOptions interface

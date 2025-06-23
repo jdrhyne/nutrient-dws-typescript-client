@@ -1,16 +1,10 @@
-import axios, { type AxiosResponse, type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import FormData from 'form-data';
-import { objectCamelToSnake } from './utils/case-transform';
-import { processFileInput, type NormalizedFileData } from './inputs';
+import { type NormalizedFileData, processFileInput } from './inputs';
 import { isNode } from './utils/environment';
-import {
-  NutrientError,
-  APIError,
-  NetworkError,
-  AuthenticationError,
-  ValidationError,
-} from './errors';
+import { APIError, AuthenticationError, NetworkError, NutrientError, ValidationError } from './errors';
 import type { NutrientClientOptions } from './types/common';
+import { components } from './generated/api-types';
 
 /**
  * HTTP request configuration for API calls
@@ -18,8 +12,8 @@ import type { NutrientClientOptions } from './types/common';
 export interface RequestConfig {
   endpoint: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  data?: Record<string, unknown>;
-  files?: Record<string, unknown>;
+  instructions?: components['schemas']['BuildInstructions'];
+  files?: Map<string, unknown>;
   headers?: Record<string, string>;
   timeout?: number;
 }
@@ -62,10 +56,7 @@ export async function sendRequest<T = unknown>(
       validateStatus: () => true, // Handle all status codes manually
     };
 
-    // Handle request body
-    if (config.files ?? config.data) {
-      await prepareRequestBody(axiosConfig, config);
-    }
+    await prepareRequestBody(axiosConfig, config);
 
     // Make request
     const response: AxiosResponse = await axios(axiosConfig);
@@ -110,11 +101,14 @@ async function prepareRequestBody(
   axiosConfig: AxiosRequestConfig,
   config: RequestConfig,
 ): Promise<void> {
-  const hasFiles = config.files && Object.keys(config.files).length > 0;
-
-  if (hasFiles) {
+  if (config.files && config.files.size > 0) {
+    if (!config.instructions) {
+      throw new ValidationError('File uploads require instructions', {
+        files: config.files,
+      });
+    }
     // Use FormData for file uploads
-    const formData = await createFormData(config.files!, config.data);
+    const formData = await createFormData(config.files, config.instructions);
     axiosConfig.data = formData;
 
     // Set appropriate headers for FormData
@@ -126,9 +120,9 @@ async function prepareRequestBody(
       };
     }
     // Browser FormData sets boundary automatically
-  } else if (config.data) {
-    // JSON request
-    axiosConfig.data = objectCamelToSnake(config.data as { [key: string]: string | number | boolean | null | undefined });
+  } else if (config.instructions) {
+    // JSON only request
+    axiosConfig.data = config.instructions;
     axiosConfig.headers = {
       ...axiosConfig.headers,
       'Content-Type': 'application/json',
@@ -140,37 +134,18 @@ async function prepareRequestBody(
  * Creates FormData with files and additional data
  */
 async function createFormData(
-  files: Record<string, unknown>,
-  data?: Record<string, unknown>,
+  files: Map<string, unknown>,
+  instructions: components['schemas']['BuildInstructions'],
 ): Promise<FormData | globalThis.FormData> {
-  // Use appropriate FormData implementation
   const FormDataImpl = isNode() ? FormData : globalThis.FormData;
   const formData = new FormDataImpl();
 
-  // Add files
-  for (const [key, value] of Object.entries(files)) {
-    if (Array.isArray(value)) {
-      // Handle multiple files
-      for (let i = 0; i < value.length; i++) {
-        const normalizedFile = await processFileInput(value[i] as never);
-        appendFileToFormData(formData, `${key}[${i}]`, normalizedFile);
-      }
-    } else {
-      // Handle single file
-      const normalizedFile = await processFileInput(value as never);
-      appendFileToFormData(formData, key, normalizedFile);
-    }
+  for (const [key, value] of files) {
+    const normalizedFile = await processFileInput(value as never);
+    appendFileToFormData(formData, key, normalizedFile);
   }
 
-  // Add additional data fields
-  if (data) {
-    const snakeCaseData = objectCamelToSnake(data as { [key: string]: string | number | boolean | null | undefined });
-    for (const [key, value] of Object.entries(snakeCaseData as Record<string, unknown>)) {
-      if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    }
-  }
+  formData.append('instructions', JSON.stringify(instructions));
 
   return formData;
 }
@@ -195,8 +170,14 @@ function appendFileToFormData(
         filename: file.filename,
         contentType: file.contentType,
       });
+    } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
+      // Handle ReadableStream (including fs.ReadStream)
+      formData.append(key, file.data as NodeJS.ReadableStream, {
+        filename: file.filename,
+        contentType: file.contentType,
+      });
     } else {
-      throw new ValidationError('Node.js environment expects Buffer or Uint8Array for file data', {
+      throw new ValidationError('Node.js environment expects Buffer, Uint8Array, or ReadableStream for file data', {
         dataType: typeof file.data,
       });
     }

@@ -27,22 +27,8 @@ async function main() {
 
     const result = await client
       .workflow()
-      .addFilePart(path.join(__dirname, 'assets/example.docx'))
-      .applyAction(BuildActions.watermarkText('DRAFT', {
-        width: { value: 50, unit: '%' },
-        height: { value: 50, unit: '%' },
-        top: { value: 10, unit: '%' },
-        right: { value: 10, unit: '%' },
-        opacity: 0.5,
-        fontSize: 36,
-      }))
-      .applyAction(BuildActions.flatten())
-      .outputPdf({
-        optimize: {
-          linearize: true,
-          imageOptimizationQuality: 2,
-        }
-      })
+      .addFilePart(path.join(__dirname, 'assets/example.pdf'))
+      .outputPdf()
       .execute({
         onProgress: (current, total) => {
           console.log(`  Processing step ${current} of ${total}...`);
@@ -50,10 +36,9 @@ async function main() {
       });
 
     if (result.success) {
-      // Get the final output
       const finalOutput = result.output
       if (finalOutput) {
-        const buffer = Buffer.from(await finalOutput.blob.arrayBuffer());
+        const buffer = Buffer.from(finalOutput.buffer);
         await fs.writeFile('output/workflow-result.pdf', buffer);
         console.log('✓ Workflow completed successfully');
       }
@@ -67,29 +52,18 @@ async function main() {
     const complexResult = await client
       .workflow()
       .addFilePart(path.join(__dirname, 'assets/example.docx'))
-      .applyAction(BuildActions.watermarkText('CONFIDENTIAL - DO NOT DISTRIBUTE', {
-        width: { value: 100, unit: '%' },
-        height: { value: 100, unit: '%' },
-        opacity: 0.2,
-        fontSize: 48,
-        rotation: 45,
-      }))
+      .applyAction(BuildActions.rotate(90))
       .applyAction(BuildActions.ocr('english'))
-      .outputPdf({
-        optimize: {
-          linearize: true,
-          imageOptimizationQuality: 1,
-        }
-      })
+      .outputPdf()
       .execute();
 
     if (complexResult.success) {
       // Get the final output
-      const finalOutput = result.output
+      const finalOutput = complexResult.output
       if (finalOutput) {
-        const buffer = Buffer.from(await finalOutput.blob.arrayBuffer());
-        await fs.writeFile('output/workflow-result.pdf', buffer);
-        console.log('✓ Workflow completed successfully');
+        const buffer = Buffer.from(finalOutput.buffer);
+        await fs.writeFile('output/workflow-complex-result.pdf', buffer);
+        console.log('✓ Complex workflow completed successfully');
       }
     } else {
       console.error('Workflow failed:', JSON.stringify(complexResult.errors, null, 2));
@@ -103,32 +77,23 @@ async function main() {
       .addFilePart(path.join(__dirname, 'assets/example.pdf'))
       .addFilePart(path.join(__dirname, 'assets/example.pdf'))
       .addFilePart(path.join(__dirname, 'assets/example.pdf'))
-      .applyAction(BuildActions.watermarkText('© 2024 My Company', {
-        width: { value: 30, unit: '%' },
-        height: { value: 10, unit: '%' },
-        bottom: { value: 5, unit: '%' },
-        left: { value: 50, unit: '%' },
-        opacity: 0.7,
-        fontSize: 12,
-      }))
       .applyAction(BuildActions.flatten())
       .outputPdf({
         optimize: {
-          linearize: true,
-          imageOptimizationQuality: 2,
+          linearize: true
         }
       })
       .execute();
 
     if (mergeResult.success) {
-      const finalOutput = result.output
+      const finalOutput = mergeResult.output
       if (finalOutput) {
-        const buffer = Buffer.from(await finalOutput.blob.arrayBuffer());
-        await fs.writeFile('output/workflow-result.pdf', buffer);
-        console.log('✓ Workflow completed successfully');
+        const buffer = Buffer.from(finalOutput.buffer);
+        await fs.writeFile('output/workflow-merge-result.pdf', buffer);
+        console.log('✓ Merge workflow completed successfully');
       }
     } else {
-      console.error('Workflow failed:', JSON.stringify(complexResult.errors, null, 2));
+      console.error('Workflow failed:', JSON.stringify(mergeResult.errors, null, 2));
     }
 
     // Example 4: Error handling in workflows

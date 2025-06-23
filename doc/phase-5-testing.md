@@ -8,7 +8,6 @@
 - Error handling tests
 - Input handler tests
 - HTTP layer tests (mocked)
-- Case transformation tests
 
 ### 2. Integration Tests
 - Client initialization
