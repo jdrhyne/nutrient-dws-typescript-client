@@ -200,8 +200,6 @@ describe('Integration Test Mocks', () => {
     });
 
     expect(client).toBeInstanceOf(NutrientClient);
-    expect(client.getApiKey()).toBe('mock-api-key');
-    expect(client.getBaseUrl()).toBe('https://api.nutrient.io');
   });
 
   it('should demonstrate workflow builder pattern', () => {

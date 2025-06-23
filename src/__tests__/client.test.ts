@@ -38,20 +38,17 @@ describe('NutrientClient', () => {
     it('should create client with valid options', () => {
       const client = new NutrientClient(validOptions);
       expect(client).toBeDefined();
-      expect(client.getApiKey()).toBe('test-api-key');
-      expect(client.getBaseUrl()).toBe('https://api.test.com/v1');
     });
 
     it('should create client with minimal options', () => {
       const client = new NutrientClient({ apiKey: 'test-key' });
-      expect(client.getApiKey()).toBe('test-key');
-      expect(client.getBaseUrl()).toBe('https://api.nutrient.io');
+      expect(client).toBeDefined();
     });
 
     it('should create client with async API key function', () => {
       const asyncApiKey = async (): Promise<string> => 'async-key';
       const client = new NutrientClient({ apiKey: asyncApiKey });
-      expect(client.getApiKey()).toBe(asyncApiKey);
+      expect(client).toBeDefined();
     });
 
     it('should throw ValidationError for missing options', () => {
@@ -126,32 +123,6 @@ describe('NutrientClient', () => {
     });
   });
 
-  describe('getApiKey', () => {
-    it('should return string API key', () => {
-      const client = new NutrientClient({ apiKey: 'string-key' });
-      expect(client.getApiKey()).toBe('string-key');
-    });
 
-    it('should return function API key', () => {
-      const asyncApiKey = async (): Promise<string> => 'async-key';
-      const client = new NutrientClient({ apiKey: asyncApiKey });
-      expect(client.getApiKey()).toBe(asyncApiKey);
-    });
-  });
-
-  describe('getBaseUrl', () => {
-    it('should return custom base URL', () => {
-      const client = new NutrientClient({
-        apiKey: 'test-key',
-        baseUrl: 'https://custom.api.com/v2',
-      });
-      expect(client.getBaseUrl()).toBe('https://custom.api.com/v2');
-    });
-
-    it('should return default base URL when not specified', () => {
-      const client = new NutrientClient({ apiKey: 'test-key' });
-      expect(client.getBaseUrl()).toBe('https://api.nutrient.io');
-    });
-  });
 
 });

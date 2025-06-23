@@ -82,20 +82,4 @@ export class NutrientClient {
   workflow(): WorkflowInitialStage {
     return workflow(this.options);
   }
-
-
-  /**
-   * Gets the current API key (for debugging purposes)
-   * Note: This will not resolve async functions
-   */
-  getApiKey(): string | (() => Promise<string>) {
-    return this.options.apiKey;
-  }
-
-  /**
-   * Gets the current base URL
-   */
-  getBaseUrl(): string {
-    return this.options.baseUrl ?? 'https://api.nutrient.io';
-  }
 }
