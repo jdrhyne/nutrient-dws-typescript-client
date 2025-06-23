@@ -284,4 +284,39 @@ export const BuildOutputs = {
       type,
     };
   },
+
+  /**
+   * Get MIME type and filename for a given output configuration
+   * @param output - The output configuration
+   * @returns MIME type and optional filename
+   */
+  getMimeTypeForOutput(output: components['schemas']['BuildOutput']): { mimeType: string; filename?: string } {
+    switch (output.type) {
+      case 'pdf':
+      case 'pdfa':
+        return { mimeType: 'application/pdf', filename: 'output.pdf' };
+      case 'image':
+        const format = (output as any).format || 'png';
+        return { mimeType: `image/${format}`, filename: `output.${format}` };
+      case 'docx':
+        return { 
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          filename: 'output.docx'
+        };
+      case 'xlsx':
+        return {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: 'output.xlsx'
+        };
+      case 'pptx':
+        return {
+          mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          filename: 'output.pptx'
+        };
+      case 'json-content':
+        return { mimeType: 'application/json', filename: 'output.json' };
+      default:
+        return { mimeType: 'application/octet-stream', filename: 'output' };
+    }
+  },
 };

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { WorkflowBuilder } from '../workflow';
+import { WorkflowBuilder } from '../builders/workflow';
 import type { NutrientClientOptions } from '../types';
 import type { WorkflowExecuteOptions } from '../types';
-import { ValidationError } from '../errors';
+import { ValidationError, NutrientError } from '../errors';
 import * as inputsModule from '../inputs';
 import * as httpModule from '../http';
 import { BuildActions } from '../build';
@@ -170,8 +170,11 @@ describe('WorkflowBuilder', () => {
 
   describe('validation', () => {
     it('should validate workflow has parts before execution', async () => {
-      await expect(workflow.execute()).rejects.toThrow(ValidationError);
-      await expect(workflow.execute()).rejects.toThrow('Workflow has no parts to execute');
+      const result = await workflow.execute();
+      expect(result.success).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors?.[0]?.error).toBeInstanceOf(ValidationError);
+      expect(result.errors?.[0]?.error.message).toBe('Workflow has no parts to execute');
     });
 
     it('should auto-add default output if none specified', async () => {
@@ -204,11 +207,9 @@ describe('WorkflowBuilder', () => {
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: '/build',
+          endpoint: 'build',
           method: 'POST',
-          files: expect.objectContaining({
-            file_0: 'test.pdf',
-          }),
+          files: expect.any(Map),
           data: expect.objectContaining({
             instructions: expect.objectContaining({
               parts: expect.arrayContaining([
@@ -243,7 +244,7 @@ describe('WorkflowBuilder', () => {
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: '/build',
+          endpoint: 'build',
           method: 'POST',
           data: expect.objectContaining({
             instructions: expect.objectContaining({
@@ -355,12 +356,7 @@ describe('WorkflowBuilder', () => {
       expect(result.success).toBe(true);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          files: expect.objectContaining({
-            file_0: 'test.pdf',
-            file_1: 'file1.pdf',
-            file_2: 'file2.pdf',
-            file_3: 'file3.pdf',
-          }),
+          files: expect.any(Map),
           data: expect.objectContaining({
             instructions: expect.objectContaining({
               parts: expect.arrayContaining([
@@ -387,8 +383,9 @@ describe('WorkflowBuilder', () => {
 
       await workflow.execute(options);
 
-      expect(onProgress).toHaveBeenCalledTimes(1);
-      expect(onProgress).toHaveBeenNthCalledWith(1, 1, 1);
+      expect(onProgress).toHaveBeenCalledTimes(2);
+      expect(onProgress).toHaveBeenNthCalledWith(1, 2, 3);
+      expect(onProgress).toHaveBeenNthCalledWith(2, 3, 3);
     });
 
     it('should store output with default name', async () => {
@@ -429,7 +426,8 @@ describe('WorkflowBuilder', () => {
       const result = await workflow.execute();
       expect(result.success).toBe(false);
       expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]?.error).toBe(error);
+      expect(result.errors?.[0]?.error).toBeInstanceOf(NutrientError);
+      expect(result.errors?.[0]?.error.message).toContain(error.message);
     });
 
     it('should handle execution errors', async () => {
@@ -441,7 +439,8 @@ describe('WorkflowBuilder', () => {
       const result = await workflow.execute();
       expect(result.success).toBe(false);
       expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]?.error).toBe(error);
+      expect(result.errors?.[0]?.error).toBeInstanceOf(NutrientError);
+      expect(result.errors?.[0]?.error.message).toContain(error.message);
     });
 
     it('should handle timeout option', async () => {
@@ -576,7 +575,7 @@ describe('WorkflowBuilder', () => {
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: '/analyze_build',
+          endpoint: 'analyze_build',
           method: 'POST',
           data: expect.objectContaining({
             instructions: expect.objectContaining({
@@ -633,7 +632,7 @@ describe('WorkflowBuilder', () => {
       expect(result.analysis).toEqual(mockAnalysisResponse);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: '/analyze_build',
+          endpoint: 'analyze_build',
           method: 'POST',
           data: expect.objectContaining({
             instructions: expect.objectContaining({
@@ -691,7 +690,8 @@ describe('WorkflowBuilder', () => {
 
       expect(result.success).toBe(false);
       expect(result.errors).toHaveLength(1);
-      expect(result.errors?.[0]?.error).toBe(error);
+      expect(result.errors?.[0]?.error).toBeInstanceOf(NutrientError);
+      expect(result.errors?.[0]?.error.message).toContain(error.message);
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
     });
 
@@ -699,8 +699,11 @@ describe('WorkflowBuilder', () => {
       // Clear all parts by creating a new workflow instance
       workflow = new WorkflowBuilder(mockClientOptions);
 
-      await expect(workflow.dryRun()).rejects.toThrow(ValidationError);
-      await expect(workflow.dryRun()).rejects.toThrow('Workflow has no parts to execute');
+      const result = await workflow.dryRun();
+      expect(result.success).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors?.[0]?.error).toBeInstanceOf(ValidationError);
+      expect(result.errors?.[0]?.error.message).toBe('Workflow has no parts to execute');
     });
   });
 });

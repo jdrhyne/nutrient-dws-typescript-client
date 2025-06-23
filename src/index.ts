@@ -1,6 +1,12 @@
 // Main exports
 export { NutrientClient } from './client';
-export { BuildActions } from './build';
+export { BuildActions, BuildOutputs } from './build';
+
+// Builder exports
+export {
+  WorkflowBuilder,
+  StagedWorkflowBuilder,
+} from './builders';
 
 // Error exports
 export {
@@ -45,7 +51,15 @@ export type {
   WorkflowConfig,
   WorkflowResult,
   WorkflowExecuteOptions,
+  WorkflowInitialStage,
+  WorkflowWithPartsStage,
+  WorkflowWithActionsStage,
+  WorkflowWithOutputStage,
+  OutputTypeMap,
+  TypedWorkflowResult,
+  WorkflowDryRunResult,
 } from './types';
+
 
 // Utility exports
 export { validateFileInput, processFileInput, type NormalizedFileData } from './inputs';

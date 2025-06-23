@@ -6,8 +6,9 @@ A TypeScript client library for [Nutrient Document Web Services (DWS) API](https
 
 - 🌐 **Isomorphic**: Works in both Node.js and browser environments
 - 🔒 **Type-safe**: Full TypeScript support with comprehensive type definitions
-- 🚀 **Workflow API**: Powerful document assembly with the Workflow API for complex document workflows
-- 🔗 **Fluent interface**: Chain operations with WorkflowBuilder and BuildApiBuilder
+- 🚀 **Unified Architecture**: Consistent builder pattern across all APIs
+- 🔗 **Fluent interface**: Intuitive method chaining with staged interfaces
+- 🎯 **Direct API mapping**: Builders map directly to REST endpoints
 - 🔐 **Flexible authentication**: Support for API keys and async token providers
 - 📦 **Multiple module formats**: ESM and CommonJS builds
 - 🧪 **Well-tested**: Comprehensive test suite with high coverage
@@ -37,33 +38,44 @@ const client = new NutrientClient({
   apiKey: 'your-api-key-here'
 });
 
-// Use WorkflowBuilder for document processing
-const result = await client
+// Simple conversion using convenience method
+const result = await client.convert('document.docx', 'pdf');
+
+// Or use the workflow builder for more control
+const workflowResult = await client
   .workflow()
-  .input('path/to/document.docx')
-  .convert('pdf')
+  .addFilePart('document.docx')
+  .outputPdf()
   .execute();
 ```
 
 ### Workflow Builder
 
-For sequential document processing workflows:
+The workflow builder provides a composable API for complex document processing:
 
 ```typescript
 const result = await client
   .workflow()
-  .input('path/to/document.docx')
-  .convert('pdf', { quality: 90 })
-  .compress('high')
-  .watermark('CONFIDENTIAL', { 
-    position: 'center',
-    opacity: 0.3,
-    fontSize: 48 
+  .addFilePart('document.pdf')
+  .addFilePart('appendix.pdf')
+  .applyAction(BuildActions.watermarkText('CONFIDENTIAL', {
+    opacity: 0.5,
+    fontSize: 48
+  }))
+  .outputPdf({ 
+    optimize: { 
+      mrcCompression: true,
+      imageOptimizationQuality: 2 
+    } 
   })
   .execute();
 
-// Access the processed document
-const processedBlob = result.outputs.get('_final');
+// Check the result
+if (result.success && result.output) {
+  // Access the processed document
+  const buffer = result.output.buffer;
+  const mimeType = result.output.mimeType;
+}
 ```
 
 ## Authentication
@@ -90,6 +102,51 @@ const client = new NutrientClient({
     return token;
   }
 });
+```
+
+## Architectural Principles
+
+This library follows a unified architectural approach based on these principles:
+
+### 1. Fluent Builder Pattern
+All APIs use method chaining for an intuitive, readable interface:
+```typescript
+const result = await client.workflow()
+  .addFilePart(file)
+  .applyAction(action)
+  .outputPdf()
+  .execute();
+```
+
+### 2. Staged Interfaces
+Methods are available only at appropriate stages, providing compile-time safety:
+- Stage 1: Add parts (files, HTML, pages)
+- Stage 2: Apply actions (optional)
+- Stage 3: Set output format
+- Stage 4: Execute or dry run
+
+### 3. Direct API Mapping
+Builders map directly to REST endpoints, making the API predictable and easy to understand.
+
+### 4. Consistent Error Handling
+All operations return a result object with success status and errors:
+```typescript
+if (!result.success) {
+  result.errors?.forEach(error => {
+    console.error(`Step ${error.step}: ${error.error.message}`);
+  });
+}
+```
+
+### 5. Type Safety
+Full TypeScript support with generics ensures type-safe outputs:
+```typescript
+// TypeScript knows this returns JSON content
+const result = await client.workflow()
+  .addFilePart('doc.pdf')
+  .outputJson()
+  .execute();
+// result.output.data is properly typed
 ```
 
 ## API Reference

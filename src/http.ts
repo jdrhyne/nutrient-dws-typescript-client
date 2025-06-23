@@ -4,7 +4,7 @@ import { type NormalizedFileData, processFileInput } from './inputs';
 import { isNode } from './utils/environment';
 import { APIError, AuthenticationError, NetworkError, NutrientError, ValidationError } from './errors';
 import type { NutrientClientOptions } from './types/common';
-import { components } from './generated/api-types';
+import type { components } from './generated/api-types';
 
 /**
  * HTTP request configuration for API calls
@@ -12,6 +12,7 @@ import { components } from './generated/api-types';
 export interface RequestConfig {
   endpoint: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  data?: unknown;
   instructions?: components['schemas']['BuildInstructions'];
   files?: Map<string, unknown>;
   headers?: Record<string, string>;
@@ -102,13 +103,15 @@ async function prepareRequestBody(
   config: RequestConfig,
 ): Promise<void> {
   if (config.files && config.files.size > 0) {
-    if (!config.instructions) {
-      throw new ValidationError('File uploads require instructions', {
+    // For file uploads, we need either instructions or data
+    const payload = config.instructions || config.data;
+    if (!payload) {
+      throw new ValidationError('File uploads require instructions or data', {
         files: config.files,
       });
     }
     // Use FormData for file uploads
-    const formData = await createFormData(config.files, config.instructions);
+    const formData = await createFormData(config.files, payload);
     axiosConfig.data = formData;
 
     // Set appropriate headers for FormData
@@ -120,13 +123,16 @@ async function prepareRequestBody(
       };
     }
     // Browser FormData sets boundary automatically
-  } else if (config.instructions) {
-    // JSON only request
-    axiosConfig.data = config.instructions;
-    axiosConfig.headers = {
-      ...axiosConfig.headers,
-      'Content-Type': 'application/json',
-    };
+  } else {
+    // JSON only request - prefer instructions for Build API, fallback to data
+    const payload = config.instructions || config.data;
+    if (payload) {
+      axiosConfig.data = payload;
+      axiosConfig.headers = {
+        ...axiosConfig.headers,
+        'Content-Type': 'application/json',
+      };
+    }
   }
 }
 
@@ -135,7 +141,7 @@ async function prepareRequestBody(
  */
 async function createFormData(
   files: Map<string, unknown>,
-  instructions: components['schemas']['BuildInstructions'],
+  payload: unknown,
 ): Promise<FormData | globalThis.FormData> {
   const FormDataImpl = isNode() ? FormData : globalThis.FormData;
   const formData = new FormDataImpl();
@@ -145,7 +151,12 @@ async function createFormData(
     appendFileToFormData(formData, key, normalizedFile);
   }
 
-  formData.append('instructions', JSON.stringify(instructions));
+  // For Build API, use 'instructions'; for other APIs, use 'data'
+  if (payload && typeof payload === 'object' && 'parts' in payload) {
+    formData.append('instructions', JSON.stringify(payload));
+  } else {
+    formData.append('data', JSON.stringify(payload));
+  }
 
   return formData;
 }
@@ -172,7 +183,7 @@ function appendFileToFormData(
       });
     } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
       // Handle ReadableStream (including fs.ReadStream)
-      formData.append(key, file.data as NodeJS.ReadableStream, {
+      formData.append(key, file.data, {
         filename: file.filename,
         contentType: file.contentType,
       });

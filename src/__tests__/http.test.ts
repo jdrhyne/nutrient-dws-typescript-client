@@ -222,7 +222,7 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/upload',
         method: 'POST',
-        files: new Map([['document', 'test-file.pdf']]),
+        files: new Map([['document', new Uint8Array([1, 2, 3, 4])]]), // Use Uint8Array instead of string
         instructions: {
           parts: [{ file: 'document' }],
           output: { type: 'pdf' },
@@ -233,11 +233,8 @@ describe('HTTP Layer', () => {
 
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'document',
-        expect.any(Object), // Expecting a stream object
-        {
-          filename: 'test-file.pdf',
-          contentType: 'application/pdf',
-        },
+        expect.any(Object), // Expecting a Blob or similar object
+        'file.bin' // Default filename for binary data
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith('instructions', expect.any(String));
     });
@@ -434,28 +431,38 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/merge',
         method: 'POST',
-        files: {
-          files: ['file1.pdf', 'file2.pdf', 'file3.pdf'],
+        files: new Map([
+          ['file1', new Uint8Array([1, 2, 3])],
+          ['file2', new Uint8Array([4, 5, 6])],
+          ['file3', new Uint8Array([7, 8, 9])],
+        ]),
+        instructions: {
+          parts: [{ file: 'file1' }, { file: 'file2' }, { file: 'file3' }],
+          output: { type: 'pdf' },
         },
       };
 
       await sendRequest(config, mockClientOptions);
 
-      expect(mockFormDataInstance.append).toHaveBeenCalledTimes(3);
+      expect(mockFormDataInstance.append).toHaveBeenCalledTimes(4); // 3 files + 1 instructions
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[0]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file1',
+        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
         'file.bin',
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[1]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file2',
+        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
         'file.bin',
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[2]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file3',
+        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
         'file.bin',
+      );
+      expect(mockFormDataInstance.append).toHaveBeenCalledWith(
+        'instructions',
+        expect.any(String), // JSON stringified instructions
       );
     });
 

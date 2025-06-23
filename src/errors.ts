@@ -63,6 +63,38 @@ export class NutrientError extends Error {
     }
     return result;
   }
+
+  /**
+   * Wraps an unknown error into a NutrientError
+   * @param error - The error to wrap
+   * @param message - Optional message to prepend
+   * @returns A NutrientError instance
+   */
+  static wrap(error: unknown, message?: string): NutrientError {
+    if (error instanceof NutrientError) {
+      return error;
+    }
+
+    if (error instanceof Error) {
+      const wrappedMessage = message ? `${message}: ${error.message}` : error.message;
+      return new NutrientError(
+        wrappedMessage,
+        'WRAPPED_ERROR',
+        { 
+          originalError: error.name,
+          originalMessage: error.message,
+          stack: error.stack 
+        }
+      );
+    }
+
+    const errorMessage = message || 'An unknown error occurred';
+    return new NutrientError(
+      errorMessage,
+      'UNKNOWN_ERROR',
+      { originalError: String(error) }
+    );
+  }
 }
 
 /**
