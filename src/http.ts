@@ -114,7 +114,7 @@ async function prepareRequestBody(
 
   if (hasFiles) {
     // Use FormData for file uploads
-    const formData = await createFormData(config.files, config.data);
+    const formData = await createFormData(config.files!, config.data);
     axiosConfig.data = formData;
 
     // Set appropriate headers for FormData
@@ -128,7 +128,7 @@ async function prepareRequestBody(
     // Browser FormData sets boundary automatically
   } else if (config.data) {
     // JSON request
-    axiosConfig.data = objectCamelToSnake(config.data);
+    axiosConfig.data = objectCamelToSnake(config.data as { [key: string]: string | number | boolean | null | undefined });
     axiosConfig.headers = {
       ...axiosConfig.headers,
       'Content-Type': 'application/json',
@@ -157,15 +157,15 @@ async function createFormData(
       }
     } else {
       // Handle single file
-      const normalizedFile = await processFileInput(value);
+      const normalizedFile = await processFileInput(value as never);
       appendFileToFormData(formData, key, normalizedFile);
     }
   }
 
   // Add additional data fields
   if (data) {
-    const snakeCaseData = objectCamelToSnake(data);
-    for (const [key, value] of Object.entries(snakeCaseData)) {
+    const snakeCaseData = objectCamelToSnake(data as { [key: string]: string | number | boolean | null | undefined });
+    for (const [key, value] of Object.entries(snakeCaseData as Record<string, unknown>)) {
       if (value !== undefined && value !== null) {
         formData.append(key, String(value));
       }
@@ -275,14 +275,14 @@ function extractErrorMessage(data: unknown): string | null {
     const errorData = data as Record<string, unknown>;
 
     // Common error message fields
-    if (typeof errorData.message === 'string') {
-      return errorData.message;
+    if (typeof errorData['message'] === 'string') {
+      return errorData['message'];
     }
-    if (typeof errorData.error === 'string') {
-      return errorData.error;
+    if (typeof errorData['error'] === 'string') {
+      return errorData['error'];
     }
-    if (typeof errorData.detail === 'string') {
-      return errorData.detail;
+    if (typeof errorData['detail'] === 'string') {
+      return errorData['detail'];
     }
   }
 
