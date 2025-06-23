@@ -48,7 +48,7 @@ describe('Environment Detection', () => {
       expect(capabilities.environment).toBe('node');
       expect(capabilities.hasFetch).toBe(true);
       expect(capabilities.hasFormData).toBe(true);
-      expect(capabilities.hasFileAPI).toBe(true); // File/Blob polyfills exist in test env
+      expect(capabilities.hasFileAPI).toBe(false); // File/Blob not available in pure Node.js
       expect(capabilities.hasNodeFS).toBe(true);
     });
   });
@@ -74,7 +74,7 @@ describe('Environment Detection', () => {
       expect(capabilities.environment).toBe('node'); // Node takes precedence
       expect(capabilities.hasFetch).toBe(true);
       expect(capabilities.hasFormData).toBe(true);
-      expect(capabilities.hasFileAPI).toBe(true); // File/Blob polyfills exist in test env
+      expect(capabilities.hasFileAPI).toBe(false); // File/Blob not available in test env
       expect(capabilities.hasNodeFS).toBe(true);
     });
   });
@@ -99,7 +99,7 @@ describe('Environment Detection', () => {
       expect(capabilities.environment).toBe('node');
       expect(capabilities.hasFetch).toBe(true);
       expect(capabilities.hasFormData).toBe(true);
-      expect(capabilities.hasFileAPI).toBe(true); // File/Blob polyfills exist in test env
+      expect(capabilities.hasFileAPI).toBe(false); // File/Blob not available in test env
       expect(capabilities.hasNodeFS).toBe(true);
     });
   });

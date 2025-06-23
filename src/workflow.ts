@@ -14,7 +14,7 @@ import { NutrientError, ValidationError } from './errors';
 import { validateFileInput } from './inputs';
 import { sendRequest } from './http';
 import { BuildOutputs } from './build';
-import type { components } from './types/nutrient-api';
+import type { components } from './generated/api-types';
 
 /**
  * Fluent interface for building and executing document processing workflows

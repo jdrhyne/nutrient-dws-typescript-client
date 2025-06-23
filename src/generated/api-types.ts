@@ -377,12 +377,18 @@ export interface components {
        * @enum {string}
        */
       type: "watermark";
-      width: Record<string, never> & components["schemas"]["WatermarkDimension"];
-      height: Record<string, never> & components["schemas"]["WatermarkDimension"];
-      top?: Record<string, never> & components["schemas"]["WatermarkDimension"];
-      right?: Record<string, never> & components["schemas"]["WatermarkDimension"];
-      bottom?: Record<string, never> & components["schemas"]["WatermarkDimension"];
-      left?: Record<string, never> & components["schemas"]["WatermarkDimension"];
+      /** @description Width of the watermark in PDF points. */
+      width: components["schemas"]["WatermarkDimension"];
+      /** @description Height of the watermark in PDF points. */
+      height: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the top edge of a page. */
+      top?: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the right edge of a page. */
+      right?: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the bottom edge of a page. */
+      bottom?: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the left edge of a page. */
+      left?: components["schemas"]["WatermarkDimension"];
       /**
        * @description Rotation of the watermark in counterclockwise degrees.
        *

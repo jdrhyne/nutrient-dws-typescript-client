@@ -1744,41 +1744,29 @@ components:
           enum:
             - watermark
         width:
-          allOf:
-            - type: object
-              description: |
-                Width of the watermark in PDF points.
-            - $ref: '#/components/schemas/WatermarkDimension'
+          description: |
+            Width of the watermark in PDF points.
+          $ref: '#/components/schemas/WatermarkDimension'
         height:
-          allOf:
-            - type: object
-              description: |
-                Height of the watermark in PDF points.
-            - $ref: '#/components/schemas/WatermarkDimension'
+          description: |
+            Height of the watermark in PDF points.
+          $ref: '#/components/schemas/WatermarkDimension'
         top:
-          allOf:
-            - type: object
-              description: |
-                Offset of the watermark from the top edge of a page.
-            - $ref: '#/components/schemas/WatermarkDimension'
+          description: |
+            Offset of the watermark from the top edge of a page.
+          $ref: '#/components/schemas/WatermarkDimension'
         right:
-          allOf:
-            - type: object
-              description: |
-                Offset of the watermark from the right edge of a page.
-            - $ref: '#/components/schemas/WatermarkDimension'
+          description: |
+            Offset of the watermark from the right edge of a page.
+          $ref: '#/components/schemas/WatermarkDimension'
         bottom:
-          allOf:
-            - type: object
-              description: |
-                Offset of the watermark from the bottom edge of a page.
-            - $ref: '#/components/schemas/WatermarkDimension'
+          description: |
+            Offset of the watermark from the bottom edge of a page.
+          $ref: '#/components/schemas/WatermarkDimension'
         left:
-          allOf:
-            - type: object
-              description: |
-                Offset of the watermark from the left edge of a page.
-            - $ref: '#/components/schemas/WatermarkDimension'
+          description: |
+            Offset of the watermark from the left edge of a page.
+          $ref: '#/components/schemas/WatermarkDimension'
         rotation:
           type: number
           description: |

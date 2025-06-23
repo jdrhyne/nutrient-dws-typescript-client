@@ -1,10 +1,7 @@
-import type { components } from './types/nutrient-api';
+import type { components } from './generated/api-types';
 import type { FileInput } from './types';
 
-const DEFAULT_DIMENSION = { value: 100, unit: '%' as const } as Record<string, never> & {
-  value: number;
-  unit: '%' | 'pt';
-};
+const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
 
 /**
  * Factory functions for creating common build actions
@@ -44,12 +41,14 @@ export const BuildActions = {
     options: Partial<Omit<components['schemas']['TextWatermarkAction'], 'type' | 'text'>> = {
       width: DEFAULT_DIMENSION,
       height: DEFAULT_DIMENSION,
+      rotation: 0
     },
   ): components['schemas']['TextWatermarkAction'] {
     return {
       type: 'watermark',
       text,
       ...options,
+      rotation: options.rotation ?? 0,
       width: options.width ?? DEFAULT_DIMENSION,
       height: options.height ?? DEFAULT_DIMENSION,
     };
@@ -65,12 +64,14 @@ export const BuildActions = {
     options: Partial<Omit<components['schemas']['ImageWatermarkAction'], 'type' | 'image'>> = {
       width: DEFAULT_DIMENSION,
       height: DEFAULT_DIMENSION,
+      rotation: 0,
     },
   ): components['schemas']['ImageWatermarkAction'] {
     return {
       type: 'watermark',
       image: image as components['schemas']['FileHandle'],
       ...options,
+      rotation: options.rotation ?? 0,
       width: options.width ?? DEFAULT_DIMENSION,
       height: options.height ?? DEFAULT_DIMENSION,
     };
@@ -116,22 +117,14 @@ export const BuildActions = {
    */
   createRedactionsText(
     text: string,
-    options?: {
-      caseSensitive?: boolean;
-      includeAnnotations?: boolean;
-      start?: number;
-      limit?: number;
-    },
+    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsText'], 'text'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'text',
       strategyOptions: {
         text,
-        caseSensitive: options?.caseSensitive,
-        includeAnnotations: options?.includeAnnotations,
-        start: options?.start,
-        limit: options?.limit,
+        ...options,
       },
     };
   },
@@ -143,22 +136,14 @@ export const BuildActions = {
    */
   createRedactionsRegex(
     regex: string,
-    options?: {
-      caseSensitive?: boolean;
-      includeAnnotations?: boolean;
-      start?: number;
-      limit?: number;
-    },
+    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsRegex'], 'regex'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'regex',
       strategyOptions: {
         regex,
-        caseSensitive: options?.caseSensitive,
-        includeAnnotations: options?.includeAnnotations,
-        start: options?.start,
-        limit: options?.limit,
+        ...options
       },
     };
   },
@@ -170,20 +155,14 @@ export const BuildActions = {
    */
   createRedactionsPreset(
     preset: components['schemas']['SearchPreset'],
-    options?: {
-      includeAnnotations?: boolean;
-      start?: number;
-      limit?: number;
-    },
+    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsPreset'], 'preset'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'preset',
       strategyOptions: {
         preset,
-        includeAnnotations: options?.includeAnnotations,
-        start: options?.start,
-        limit: options?.limit,
+        ...options,
       },
     };
   },

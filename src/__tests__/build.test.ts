@@ -288,7 +288,7 @@ describe('BuildOutputs', () => {
       const options = {
         format: 'png' as const,
         dpi: 300,
-        pageSelection: { start: 1, end: 5 },
+        pages: { start: 1, end: 5 },
       };
 
       const output = BuildOutputs.image(options);
@@ -297,7 +297,7 @@ describe('BuildOutputs', () => {
         type: 'image',
         format: 'png',
         dpi: 300,
-        page_selection: { start: 1, end: 5 },
+        pages: { start: 1, end: 5 },
       });
     });
   });

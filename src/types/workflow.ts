@@ -1,6 +1,6 @@
 import type { Operation } from './operations';
 import type { FileInput } from './inputs';
-import type { components } from '../types/nutrient-api';
+import type { components } from '../generated/api-types';
 
 /**
  * Maps output types to their specific output structures
