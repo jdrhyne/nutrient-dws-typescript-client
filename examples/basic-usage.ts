@@ -8,6 +8,7 @@
  * - Adding watermarks
  */
 
+import 'dotenv/config';
 import { NutrientClient } from '@nutrient/dws-client';
 import * as fs from 'fs/promises';
 import * as path from 'path';

@@ -5,6 +5,7 @@
  * and process documents with various operations.
  */
 
+import 'dotenv/config';
 import { NutrientClient, BuildActions, BuildOutputs } from '../src';
 
 // Initialize the client

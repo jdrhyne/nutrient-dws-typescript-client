@@ -5,9 +5,15 @@
  * to chain multiple document operations together in a single workflow.
  */
 
-import { NutrientClient, BuildActions } from '../src/index';
+import 'dotenv/config';
+import { NutrientClient, BuildActions } from '../src';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Initialize the client
 const client = new NutrientClient({
@@ -21,7 +27,7 @@ async function main() {
 
     const result = await client
       .workflow()
-      .addFilePart('path/to/document.docx')
+      .addFilePart(path.join(__dirname, 'assets/example.docx'))
       .applyAction(BuildActions.watermarkText('DRAFT', {
         width: { value: 50, unit: '%' },
         height: { value: 50, unit: '%' },
@@ -51,6 +57,8 @@ async function main() {
         await fs.writeFile('output/workflow-result.pdf', buffer);
         console.log('✓ Workflow completed successfully');
       }
+    } else {
+      console.error('Workflow failed:', JSON.stringify(result.errors, null, 2));
     }
 
     // Example 2: Complex workflow with multiple outputs
@@ -58,7 +66,7 @@ async function main() {
 
     const complexResult = await client
       .workflow()
-      .addFilePart('path/to/report.docx')
+      .addFilePart(path.join(__dirname, 'assets/example.docx'))
       .applyAction(BuildActions.watermarkText('CONFIDENTIAL - DO NOT DISTRIBUTE', {
         width: { value: 100, unit: '%' },
         height: { value: 100, unit: '%' },
@@ -83,6 +91,8 @@ async function main() {
         await fs.writeFile('output/workflow-result.pdf', buffer);
         console.log('✓ Workflow completed successfully');
       }
+    } else {
+      console.error('Workflow failed:', JSON.stringify(complexResult.errors, null, 2));
     }
 
     // Example 3: Merge and process workflow
@@ -90,9 +100,9 @@ async function main() {
 
     const mergeResult = await client
       .workflow()
-      .addFilePart('path/to/chapter1.pdf')
-      .addFilePart('path/to/chapter2.pdf')
-      .addFilePart('path/to/chapter3.pdf')
+      .addFilePart(path.join(__dirname, 'assets/example.pdf'))
+      .addFilePart(path.join(__dirname, 'assets/example.pdf'))
+      .addFilePart(path.join(__dirname, 'assets/example.pdf'))
       .applyAction(BuildActions.watermarkText('© 2024 My Company', {
         width: { value: 30, unit: '%' },
         height: { value: 10, unit: '%' },
@@ -117,6 +127,8 @@ async function main() {
         await fs.writeFile('output/workflow-result.pdf', buffer);
         console.log('✓ Workflow completed successfully');
       }
+    } else {
+      console.error('Workflow failed:', JSON.stringify(complexResult.errors, null, 2));
     }
 
     // Example 4: Error handling in workflows

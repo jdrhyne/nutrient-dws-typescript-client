@@ -35,7 +35,16 @@ Interactive web interface demonstrating:
    npm install
    ```
 
-2. Set your API key:
+2. Set your API key using a `.env` file (recommended):
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+
+   # Edit .env and set your API key
+   # NUTRIENT_API_KEY=your-api-key-here
+   ```
+
+   Alternatively, you can set it as an environment variable:
    ```bash
    export NUTRIENT_API_KEY="your-api-key-here"
    ```
