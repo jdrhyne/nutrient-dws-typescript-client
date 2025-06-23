@@ -492,7 +492,7 @@ describe('WorkflowBuilder', () => {
       const result = await jsonWorkflow.execute();
 
       expect(result.success).toBe(true);
-      expect(result.output?.data).toBeDefined()
+      expect(result.output?.data).toBeDefined();
     });
 
     it('should fallback to determined mimetype when content-type header is missing', async () => {

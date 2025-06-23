@@ -1,16 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 import axios from 'axios';
 import { sendRequest } from '../http';
 import type { RequestConfig } from '../http';
-import type { NutrientClientOptions } from '../types/common';
+import type { NutrientClientOptions } from '../types';
 import { AuthenticationError } from '../errors';
 
 // Mock axios
 jest.mock('axios');
 const mockedAxios = axios as jest.MockedFunction<typeof axios>;
 
-// Mock axios.isAxiosError
-mockedAxios.isAxiosError = jest.fn();
+// Create a proper mock for isAxiosError
+const mockIsAxiosError = jest.fn() as unknown as jest.MockedFunction<typeof axios.isAxiosError>;
+mockedAxios.isAxiosError = mockIsAxiosError;
 
 // Mock form-data with a simple implementation
 const mockFormDataInstance = {
@@ -64,7 +64,7 @@ describe('HTTP Layer', () => {
     });
     // Reset axios mocks
     mockedAxios.mockClear();
-    (mockedAxios.isAxiosError as jest.Mock).mockReturnValue(false);
+    mockIsAxiosError.mockReturnValue(false);
   });
 
   describe('sendRequest', () => {
@@ -121,7 +121,7 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/test',
         method: 'POST',
-        instructions: { foo: 'bar' },
+        instructions: { parts: [] },
       };
 
       await sendRequest(config, asyncOptions);
@@ -131,7 +131,7 @@ describe('HTTP Layer', () => {
         expect.objectContaining({
           method: 'POST',
           url: 'https://api.nutrient.io/test',
-          data: { foo: 'bar' },
+          data: expect.objectContaining({ parts: [] }) as Record<string, unknown>,
           headers: expect.objectContaining({
             Authorization: 'Bearer async-api-key',
             'Content-Type': 'application/json',
@@ -190,8 +190,7 @@ describe('HTTP Layer', () => {
         endpoint: '/create',
         method: 'POST',
         instructions: {
-          userName: 'John Doe',
-          emailAddress: 'john@example.com',
+          parts: [],
         },
       };
 
@@ -201,10 +200,7 @@ describe('HTTP Layer', () => {
         expect.objectContaining({
           method: 'POST',
           url: 'https://api.test.com/v1/create',
-          data: {
-            userName: 'John Doe',
-            emailAddress: 'john@example.com',
-          },
+          data: expect.objectContaining({ parts: [] }) as Record<string, unknown>,
           headers: expect.objectContaining({
             Authorization: 'Bearer test-api-key',
             'Content-Type': 'application/json',
@@ -328,7 +324,7 @@ describe('HTTP Layer', () => {
       };
 
       mockedAxios.mockRejectedValueOnce(networkError);
-      (mockedAxios.isAxiosError as jest.Mock).mockReturnValue(true);
+      mockIsAxiosError.mockReturnValue(true);
 
       const config: RequestConfig = {
         endpoint: '/test',
@@ -349,7 +345,7 @@ describe('HTTP Layer', () => {
       };
 
       mockedAxios.mockRejectedValueOnce(configError);
-      (mockedAxios.isAxiosError as jest.Mock).mockReturnValue(true);
+      mockIsAxiosError.mockReturnValue(true);
 
       const config: RequestConfig = {
         endpoint: '/test',
