@@ -1,5 +1,6 @@
 // Main exports
 export { NutrientClient } from './client';
+export { BuildActions } from './build';
 
 // Error exports
 export {

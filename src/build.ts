@@ -1,6 +1,11 @@
 import type { components } from './types/nutrient-api';
 import type { FileInput } from './types';
 
+const DEFAULT_DIMENSION = { value: 100, unit: '%' as const } as Record<string, never> & {
+  value: number;
+  unit: '%' | 'pt';
+};
+
 /**
  * Factory functions for creating common build actions
  */
@@ -36,47 +41,18 @@ export const BuildActions = {
    */
   watermarkText(
     text: string,
-    options: {
-      width: components['schemas']['WatermarkDimension'];
-      height: components['schemas']['WatermarkDimension'];
-      opacity?: number;
-      rotation?: number;
-      fontSize?: number;
-      fontColor?: string;
-      fontFamily?: string;
-      fontStyle?: ('bold' | 'italic')[];
-      top?: components['schemas']['WatermarkDimension'];
-      left?: components['schemas']['WatermarkDimension'];
-      right?: components['schemas']['WatermarkDimension'];
-      bottom?: components['schemas']['WatermarkDimension'];
+    options: Partial<Omit<components['schemas']['TextWatermarkAction'], 'type' | 'text'>> = {
+      width: DEFAULT_DIMENSION,
+      height: DEFAULT_DIMENSION,
     },
   ): components['schemas']['TextWatermarkAction'] {
-    const action: components['schemas']['TextWatermarkAction'] = {
+    return {
       type: 'watermark',
       text,
-      width: {} as Record<string, never> & typeof options.width,
-      height: {} as Record<string, never> & typeof options.height,
-      ...(options.opacity !== undefined && { opacity: options.opacity }),
-      ...(options.rotation !== undefined && { rotation: options.rotation }),
-      ...(options.fontSize !== undefined && { fontSize: options.fontSize }),
-      ...(options.fontColor && { fontColor: options.fontColor }),
-      ...(options.fontFamily && { fontFamily: options.fontFamily }),
-      ...(options.fontStyle && { fontStyle: options.fontStyle }),
-      ...(options.top && { top: {} as Record<string, never> & typeof options.top }),
-      ...(options.left && { left: {} as Record<string, never> & typeof options.left }),
-      ...(options.right && { right: {} as Record<string, never> & typeof options.right }),
-      ...(options.bottom && { bottom: {} as Record<string, never> & typeof options.bottom }),
+      ...options,
+      width: options.width ?? DEFAULT_DIMENSION,
+      height: options.height ?? DEFAULT_DIMENSION,
     };
-    // Override with proper values
-    (action.width as components['schemas']['WatermarkDimension']) = options.width;
-    (action.height as components['schemas']['WatermarkDimension']) = options.height;
-    if (options.top) (action.top as components['schemas']['WatermarkDimension']) = options.top;
-    if (options.left) (action.left as components['schemas']['WatermarkDimension']) = options.left;
-    if (options.right)
-      (action.right as components['schemas']['WatermarkDimension']) = options.right;
-    if (options.bottom)
-      (action.bottom as components['schemas']['WatermarkDimension']) = options.bottom;
-    return action;
   },
 
   /**
@@ -86,39 +62,18 @@ export const BuildActions = {
    */
   watermarkImage(
     image: FileInput,
-    options: {
-      width: components['schemas']['WatermarkDimension'];
-      height: components['schemas']['WatermarkDimension'];
-      opacity?: number;
-      rotation?: number;
-      top?: components['schemas']['WatermarkDimension'];
-      left?: components['schemas']['WatermarkDimension'];
-      right?: components['schemas']['WatermarkDimension'];
-      bottom?: components['schemas']['WatermarkDimension'];
+    options: Partial<Omit<components['schemas']['ImageWatermarkAction'], 'type' | 'image'>> = {
+      width: DEFAULT_DIMENSION,
+      height: DEFAULT_DIMENSION,
     },
   ): components['schemas']['ImageWatermarkAction'] {
-    const action: components['schemas']['ImageWatermarkAction'] = {
+    return {
       type: 'watermark',
       image: image as components['schemas']['FileHandle'],
-      width: {} as Record<string, never> & typeof options.width,
-      height: {} as Record<string, never> & typeof options.height,
-      ...(options.opacity !== undefined && { opacity: options.opacity }),
-      ...(options.rotation !== undefined && { rotation: options.rotation }),
-      ...(options.top && { top: {} as Record<string, never> & typeof options.top }),
-      ...(options.left && { left: {} as Record<string, never> & typeof options.left }),
-      ...(options.right && { right: {} as Record<string, never> & typeof options.right }),
-      ...(options.bottom && { bottom: {} as Record<string, never> & typeof options.bottom }),
+      ...options,
+      width: options.width ?? DEFAULT_DIMENSION,
+      height: options.height ?? DEFAULT_DIMENSION,
     };
-    // Override with proper values
-    (action.width as components['schemas']['WatermarkDimension']) = options.width;
-    (action.height as components['schemas']['WatermarkDimension']) = options.height;
-    if (options.top) (action.top as components['schemas']['WatermarkDimension']) = options.top;
-    if (options.left) (action.left as components['schemas']['WatermarkDimension']) = options.left;
-    if (options.right)
-      (action.right as components['schemas']['WatermarkDimension']) = options.right;
-    if (options.bottom)
-      (action.bottom as components['schemas']['WatermarkDimension']) = options.bottom;
-    return action;
   },
 
   /**
@@ -139,7 +94,7 @@ export const BuildActions = {
   applyInstantJson(file: FileInput): components['schemas']['ApplyInstantJsonAction'] {
     return {
       type: 'applyInstantJson',
-      file: file as never, // Will be processed by sendRequest
+      file: file as components['schemas']['FileHandle'],
     };
   },
 
@@ -150,7 +105,7 @@ export const BuildActions = {
   applyXfdf(file: FileInput): components['schemas']['ApplyXfdfAction'] {
     return {
       type: 'applyXfdf',
-      file: file as never, // Will be processed by sendRequest
+      file: file as components['schemas']['FileHandle'],
     };
   },
 
@@ -166,7 +121,6 @@ export const BuildActions = {
       includeAnnotations?: boolean;
       start?: number;
       limit?: number;
-      content?: Partial<components['schemas']['RedactionAnnotation']>;
     },
   ): components['schemas']['CreateRedactionsAction'] {
     return {
@@ -179,8 +133,7 @@ export const BuildActions = {
         start: options?.start,
         limit: options?.limit,
       },
-      ...(options?.content && { content: options.content }),
-    } as components['schemas']['CreateRedactionsAction'];
+    };
   },
 
   /**
@@ -195,7 +148,6 @@ export const BuildActions = {
       includeAnnotations?: boolean;
       start?: number;
       limit?: number;
-      content?: Partial<components['schemas']['RedactionAnnotation']>;
     },
   ): components['schemas']['CreateRedactionsAction'] {
     return {
@@ -208,8 +160,7 @@ export const BuildActions = {
         start: options?.start,
         limit: options?.limit,
       },
-      ...(options?.content && { content: options.content }),
-    } as components['schemas']['CreateRedactionsAction'];
+    };
   },
 
   /**
@@ -223,7 +174,6 @@ export const BuildActions = {
       includeAnnotations?: boolean;
       start?: number;
       limit?: number;
-      content?: Partial<components['schemas']['RedactionAnnotation']>;
     },
   ): components['schemas']['CreateRedactionsAction'] {
     return {
@@ -235,8 +185,7 @@ export const BuildActions = {
         start: options?.start,
         limit: options?.limit,
       },
-      ...(options?.content && { content: options.content }),
-    } as components['schemas']['CreateRedactionsAction'];
+    };
   },
 
   /**
