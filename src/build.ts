@@ -1,7 +1,7 @@
 import type { components } from './generated/api-types';
 import type { FileInput } from './types';
 
-const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
+const DEFAULT_DIMENSION = { value: 100, unit: '%' as const };
 
 /**
  * Factory functions for creating common build actions
@@ -41,7 +41,7 @@ export const BuildActions = {
     options: Partial<Omit<components['schemas']['TextWatermarkAction'], 'type' | 'text'>> = {
       width: DEFAULT_DIMENSION,
       height: DEFAULT_DIMENSION,
-      rotation: 0
+      rotation: 0,
     },
   ): components['schemas']['TextWatermarkAction'] {
     return {
@@ -143,7 +143,7 @@ export const BuildActions = {
       strategy: 'regex',
       strategyOptions: {
         regex,
-        ...options
+        ...options,
       },
     };
   },

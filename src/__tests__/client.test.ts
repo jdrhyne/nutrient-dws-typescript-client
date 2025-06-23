@@ -11,7 +11,7 @@ import type {
   WorkflowWithOutputStage,
   WorkflowWithPartsStage,
 } from '../types';
-import type { components } from '../generated/api-types'
+import type { components } from '../generated/api-types';
 import { ValidationError } from '../errors';
 import * as workflowModule from '../workflow';
 import * as inputsModule from '../inputs';
@@ -254,7 +254,9 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
+        execute: jest
+          .fn()
+          .mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
         dryRun: jest.fn(),
       } as MockWorkflowWithOutputStage;
 
@@ -320,7 +322,9 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
+        execute: jest
+          .fn()
+          .mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
         dryRun: jest.fn(),
       } as MockWorkflowWithOutputStage;
 
@@ -403,7 +407,9 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
+        execute: jest
+          .fn()
+          .mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
         dryRun: jest.fn(),
       } as MockWorkflowWithOutputStage;
 

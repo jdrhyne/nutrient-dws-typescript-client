@@ -21,7 +21,7 @@ export interface NutrientClientOptions {
    * };
    */
   apiKey: string | (() => Promise<string>);
-  
+
   /**
    * The base URL for the Nutrient DWS API.
    * @default 'https://api.nutrient.io/v1'

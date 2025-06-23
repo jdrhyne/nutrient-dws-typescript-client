@@ -52,18 +52,18 @@ export interface UrlInput {
 /**
  * Union type for all possible file inputs
  */
-export type FileInput = 
-  | BrowserFileInput 
-  | BlobInput 
-  | FilePathInput 
-  | BufferInput 
-  | Uint8ArrayInput 
+export type FileInput =
+  | BrowserFileInput
+  | BlobInput
+  | FilePathInput
+  | BufferInput
+  | Uint8ArrayInput
   | UrlInput
-  | File          // Browser File object
-  | Blob          // Browser Blob object
-  | Buffer        // Node.js Buffer
-  | Uint8Array    // Raw binary data
-  | string;       // File path or URL
+  | File // Browser File object
+  | Blob // Browser Blob object
+  | Buffer // Node.js Buffer
+  | Uint8Array // Raw binary data
+  | string; // File path or URL
 
 /**
  * Type guard to check if input is a browser File

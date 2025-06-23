@@ -110,10 +110,7 @@ describe.skip('Integration Tests', () => {
         apiKey: 'invalid-key', // This should cause authentication errors
       });
 
-      const result = await workflow
-        .input('nonexistent-file.pdf')
-        .convert('pdf')
-        .execute();
+      const result = await workflow.input('nonexistent-file.pdf').convert('pdf').execute();
 
       expect(result.success).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -172,17 +169,18 @@ describe.skip('Integration Tests', () => {
     it('should handle concurrent requests', async () => {
       if (!shouldRunIntegrationTests) return;
 
-      const testBlobs = Array.from({ length: 3 }, (_, i) => 
-        new Blob([`Test document ${i + 1}`], { type: 'text/plain' })
+      const testBlobs = Array.from(
+        { length: 3 },
+        (_, i) => new Blob([`Test document ${i + 1}`], { type: 'text/plain' }),
       );
 
       const startTime = Date.now();
-      const promises = testBlobs.map(blob => client.convert(blob, 'pdf'));
+      const promises = testBlobs.map((blob) => client.convert(blob, 'pdf'));
       const results = await Promise.all(promises);
       const endTime = Date.now();
 
       expect(results).toHaveLength(3);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result).toBeInstanceOf(Blob);
         expect(result.size).toBeGreaterThan(0);
       });
@@ -220,10 +218,7 @@ describe('Integration Test Mocks', () => {
 
     // These will fail in unit tests but demonstrate the patterns
     try {
-      await client.workflow()
-        .addFilePart('invalid-file')
-        .outputPdf()
-        .execute();
+      await client.workflow().addFilePart('invalid-file').outputPdf().execute();
     } catch (error) {
       expect(error).toBeDefined();
     }

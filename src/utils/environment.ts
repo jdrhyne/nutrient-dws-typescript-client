@@ -27,7 +27,8 @@ export function isWebWorker(): boolean {
   return (
     typeof self !== 'undefined' &&
     typeof (globalThis as unknown as { importScripts?: unknown }).importScripts === 'function' &&
-    typeof (globalThis as unknown as { WorkerGlobalScope?: unknown }).WorkerGlobalScope !== 'undefined'
+    typeof (globalThis as unknown as { WorkerGlobalScope?: unknown }).WorkerGlobalScope !==
+      'undefined'
   );
 }
 

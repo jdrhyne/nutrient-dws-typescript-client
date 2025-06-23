@@ -1,9 +1,14 @@
-import type { FileInput, NutrientClientOptions, WorkflowInitialStage, WorkflowResult } from './types';
+import type {
+  FileInput,
+  NutrientClientOptions,
+  WorkflowInitialStage,
+  WorkflowResult,
+} from './types';
 import { ValidationError } from './errors';
 import { workflow } from './workflow';
 import type { components } from './generated/api-types';
 
-const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
+const DEFAULT_DIMENSION = { value: 100, unit: '%' as const };
 
 /**
  * Main client for interacting with the Nutrient Document Web Services API.
@@ -179,9 +184,11 @@ export class NutrientClient {
     targetFormat: 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'image',
   ): Promise<WorkflowResult> {
     const supportedFormats = ['pdf', 'pdfa', 'docx', 'xlsx', 'pptx', 'image'] as const;
-    
+
     if (!supportedFormats.includes(targetFormat)) {
-      throw new ValidationError(`Unsupported target format: ${targetFormat}. Supported formats: ${supportedFormats.join(', ')}`);
+      throw new ValidationError(
+        `Unsupported target format: ${targetFormat}. Supported formats: ${supportedFormats.join(', ')}`,
+      );
     }
 
     const workflowBuilder = this.workflow().addFilePart(file);

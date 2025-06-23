@@ -6,12 +6,24 @@ import type { components } from '../generated/api-types';
  * Maps output types to their specific output structures
  */
 export type OutputTypeMap = {
-  'pdf': { buffer: Uint8Array; mimeType: 'application/pdf'; filename?: string };
-  'pdfa': { buffer: Uint8Array; mimeType: 'application/pdf'; filename?: string };
-  'image': { buffer: Uint8Array; mimeType: `image/${string}`; filename?: string };
-  'docx': { buffer: Uint8Array; mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'; filename?: string };
-  'xlsx': { buffer: Uint8Array; mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; filename?: string };
-  'pptx': { buffer: Uint8Array; mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'; filename?: string };
+  pdf: { buffer: Uint8Array; mimeType: 'application/pdf'; filename?: string };
+  pdfa: { buffer: Uint8Array; mimeType: 'application/pdf'; filename?: string };
+  image: { buffer: Uint8Array; mimeType: `image/${string}`; filename?: string };
+  docx: {
+    buffer: Uint8Array;
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    filename?: string;
+  };
+  xlsx: {
+    buffer: Uint8Array;
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    filename?: string;
+  };
+  pptx: {
+    buffer: Uint8Array;
+    mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    filename?: string;
+  };
   'json-content': { data: components['schemas']['BuildResponseJsonContents'] };
 };
 
@@ -23,25 +35,25 @@ export type OutputTypeMap = {
 export interface WorkflowInitialStage {
   addPart(part: components['schemas']['Part']): WorkflowWithPartsStage;
   addFilePart(
-    file: FileInput, 
+    file: FileInput,
     options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
   addHtmlPart(
-    html: string | Blob, 
+    html: string,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
   addNewPage(
     options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
   addDocumentPart(
     documentId: string,
     options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
       layer?: string;
     },
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
 }
 
@@ -50,25 +62,25 @@ export interface WorkflowWithPartsStage {
   // Part methods (can add more parts)
   addPart(part: components['schemas']['Part']): WorkflowWithPartsStage;
   addFilePart(
-    file: FileInput, 
+    file: FileInput,
     options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
   addHtmlPart(
-    html: string | Blob, 
+    html: string,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
   addNewPage(
     options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
   addDocumentPart(
     documentId: string,
     options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
       layer?: string;
     },
-    actions?: components['schemas']['BuildAction'][]
+    actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage;
 
   // Action methods
@@ -77,11 +89,19 @@ export interface WorkflowWithPartsStage {
 
   // Output methods
   output(output: components['schemas']['BuildOutput']): WorkflowWithOutputStage;
-  outputPdf(options?: Omit<components['schemas']['PDFOutput'], 'type'>): WorkflowWithOutputStage<'pdf'>;
-  outputPdfA(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowWithOutputStage<'pdfa'>;
-  outputImage(options?: Omit<components['schemas']['ImageOutput'], 'type'>): WorkflowWithOutputStage<'image'>;
+  outputPdf(
+    options?: Omit<components['schemas']['PDFOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdf'>;
+  outputPdfA(
+    options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdfa'>;
+  outputImage(
+    options?: Omit<components['schemas']['ImageOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'image'>;
   outputOffice<T extends 'docx' | 'xlsx' | 'pptx'>(format: T): WorkflowWithOutputStage<T>;
-  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowWithOutputStage<'json-content'>;
+  outputJson(
+    options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'json-content'>;
 }
 
 // Stage 3: After actions added - more actions and output methods available
@@ -92,15 +112,25 @@ export interface WorkflowWithActionsStage {
 
   // Output methods
   output(output: components['schemas']['BuildOutput']): WorkflowWithOutputStage;
-  outputPdf(options?: Omit<components['schemas']['PDFOutput'], 'type'>): WorkflowWithOutputStage<'pdf'>;
-  outputPdfA(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowWithOutputStage<'pdfa'>;
-  outputImage(options?: Omit<components['schemas']['ImageOutput'], 'type'>): WorkflowWithOutputStage<'image'>;
+  outputPdf(
+    options?: Omit<components['schemas']['PDFOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdf'>;
+  outputPdfA(
+    options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdfa'>;
+  outputImage(
+    options?: Omit<components['schemas']['ImageOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'image'>;
   outputOffice<T extends 'docx' | 'xlsx' | 'pptx'>(format: T): WorkflowWithOutputStage<T>;
-  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowWithOutputStage<'json-content'>;
+  outputJson(
+    options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'json-content'>;
 }
 
 // Stage 4: After output set - only execute and dryRun available
-export interface WorkflowWithOutputStage<TOutput extends keyof OutputTypeMap | undefined = undefined> {
+export interface WorkflowWithOutputStage<
+  TOutput extends keyof OutputTypeMap | undefined = undefined,
+> {
   execute(options?: WorkflowExecuteOptions): Promise<TypedWorkflowResult<TOutput>>;
   dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult>;
 }
@@ -151,7 +181,7 @@ export interface WorkflowResult {
 export type TypedWorkflowResult<T extends keyof OutputTypeMap | undefined> = {
   success: boolean;
   output?: T extends keyof OutputTypeMap ? OutputTypeMap[T] : WorkflowOutput;
-  errors?: Array<{ step: number; error: Error; }>;
+  errors?: Array<{ step: number; error: Error }>;
 };
 
 /**

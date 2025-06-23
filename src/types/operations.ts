@@ -3,12 +3,7 @@ import type { FileInput } from './inputs';
 /**
  * Available operations in the Nutrient DWS API
  */
-export type OperationType = 
-  | 'convert' 
-  | 'merge' 
-  | 'compress' 
-  | 'extract' 
-  | 'watermark';
+export type OperationType = 'convert' | 'merge' | 'compress' | 'extract' | 'watermark';
 
 /**
  * Base operation interface
@@ -72,9 +67,9 @@ export interface WatermarkOperation extends BaseOperation {
 /**
  * Union type for all operations
  */
-export type Operation = 
-  | ConvertOperation 
-  | MergeOperation 
-  | CompressOperation 
-  | ExtractOperation 
+export type Operation =
+  | ConvertOperation
+  | MergeOperation
+  | CompressOperation
+  | ExtractOperation
   | WatermarkOperation;

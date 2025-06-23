@@ -48,7 +48,6 @@ jest.mock('../inputs', () => ({
   }),
 }));
 
-
 // Mock environment detection
 jest.mock('../utils/environment', () => ({
   isNode: jest.fn().mockReturnValue(true),

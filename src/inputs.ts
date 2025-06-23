@@ -1,5 +1,5 @@
 import type { FileInput } from './types/inputs';
-import { isFile, isBlob, isBuffer, isUint8Array, isUrl } from './types/inputs';
+import { isFile, isBlob, isBuffer, isUint8Array } from './types/inputs';
 import { isNode, isBrowser } from './utils/environment';
 import { ValidationError } from './errors';
 
@@ -7,7 +7,7 @@ import { ValidationError } from './errors';
  * Normalized file data for internal processing
  */
 export interface NormalizedFileData {
-  data: Buffer | Uint8Array | Blob | NodeJS.ReadableStream;
+  data: string | Buffer | Uint8Array | Blob | NodeJS.ReadableStream;
   filename: string;
   contentType?: string;
 }
@@ -18,9 +18,7 @@ export interface NormalizedFileData {
  */
 export async function processFileInput(input: FileInput): Promise<NormalizedFileData> {
   if (typeof input === 'string') {
-    if (isUrl(input)) {
-      return await processUrlInput(input);
-    } else if (isNode()) {
+    if (isNode()) {
       return await processFilePathInput(input);
     } else {
       throw new ValidationError('File path inputs are only supported in Node.js environment', {
@@ -163,11 +161,11 @@ async function processFilePathInput(filePath: string): Promise<NormalizedFileDat
     }
 
     // Create read stream instead of reading entire file into memory
-    const readStream = fs.createReadStream(filePath);
+    const fileBuffer = await fs.promises.readFile(filePath);
     const filename = path.basename(filePath);
 
     return {
-      data: readStream,
+      data: fileBuffer,
       filename,
     };
   } catch (error) {

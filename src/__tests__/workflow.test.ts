@@ -32,7 +32,7 @@ describe('WorkflowBuilder', () => {
     // Default mocks
     mockValidateFileInput.mockReturnValue(true);
     mockSendRequest.mockResolvedValue({
-      data: new Blob(['mock response'], { type: 'application/pdf' }),
+      data: 'mock response',
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -82,7 +82,7 @@ describe('WorkflowBuilder', () => {
       const result = workflow.addHtmlPart(
         '<html><body>Hello</body></html>',
         { assets: ['style.css'] },
-        [BuildActions.rotate(90)]
+        [BuildActions.rotate(90)],
       );
 
       expect(result).toBe(workflow);
@@ -97,10 +97,7 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should add new page with options and actions', () => {
-      const result = workflow.addNewPage(
-        { pageCount: 3 },
-        [BuildActions.rotate(90)]
-      );
+      const result = workflow.addNewPage({ pageCount: 3 }, [BuildActions.rotate(90)]);
 
       expect(result).toBe(workflow);
     });
@@ -114,11 +111,9 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should add document part with options and actions', () => {
-      const result = workflow.addDocumentPart(
-        'doc-id-123',
-        { layer: 'layer1' },
-        [BuildActions.rotate(90)]
-      );
+      const result = workflow.addDocumentPart('doc-id-123', { layer: 'layer1' }, [
+        BuildActions.rotate(90),
+      ]);
 
       expect(result).toBe(workflow);
     });
@@ -126,10 +121,7 @@ describe('WorkflowBuilder', () => {
 
   describe('applyActions', () => {
     it('should apply actions to workflow', () => {
-      const result = workflow.applyActions([
-        BuildActions.ocr('english'),
-        BuildActions.flatten()
-      ]);
+      const result = workflow.applyActions([BuildActions.ocr('english'), BuildActions.flatten()]);
 
       expect(result).toBe(workflow);
     });
@@ -189,9 +181,8 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should execute workflow using Build API', async () => {
-      const mockBlob = new Blob(['converted content'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: 'converted content',
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -209,16 +200,14 @@ describe('WorkflowBuilder', () => {
           files: expect.objectContaining({
             file_0: 'test.pdf',
           }),
-          data: expect.objectContaining({
-            instructions: expect.objectContaining({
-              parts: expect.arrayContaining([
-                expect.objectContaining({
-                  file: 'file_0',
-                }),
-              ]),
-              output: expect.objectContaining({
-                type: 'pdf',
+          instructions: expect.objectContaining({
+            parts: expect.arrayContaining([
+              expect.objectContaining({
+                file: 'file_0',
               }),
+            ]),
+            output: expect.objectContaining({
+              type: 'pdf',
             }),
           }),
         }),
@@ -245,21 +234,19 @@ describe('WorkflowBuilder', () => {
         expect.objectContaining({
           endpoint: '/build',
           method: 'POST',
-          data: expect.objectContaining({
-            instructions: expect.objectContaining({
-              parts: expect.arrayContaining([
-                expect.objectContaining({
-                  file: expect.any(String),
-                }),
-              ]),
-              actions: expect.arrayContaining([
-                expect.objectContaining({
-                  type: 'flatten',
-                }),
-              ]),
-              output: expect.objectContaining({
-                type: 'docx',
+          instructions: expect.objectContaining({
+            parts: expect.arrayContaining([
+              expect.objectContaining({
+                file: expect.any(String),
               }),
+            ]),
+            actions: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'flatten',
+              }),
+            ]),
+            output: expect.objectContaining({
+              type: 'docx',
             }),
           }),
         }),
@@ -283,17 +270,15 @@ describe('WorkflowBuilder', () => {
       expect(result.success).toBe(true);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            instructions: expect.objectContaining({
-              actions: expect.arrayContaining([
-                expect.objectContaining({
-                  type: 'ocr',
-                  language: 'english',
-                }),
-              ]),
-              output: expect.objectContaining({
-                type: 'json-content',
+          instructions: expect.objectContaining({
+            actions: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'ocr',
+                language: 'english',
               }),
+            ]),
+            output: expect.objectContaining({
+              type: 'json-content',
             }),
           }),
         }),
@@ -302,11 +287,13 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should execute watermark workflow with correct action', async () => {
-      workflow.applyAction(BuildActions.watermarkText('CONFIDENTIAL', {
-        width: { value: 50, unit: '%' },
-        height: { value: 50, unit: '%' },
-        opacity: 0.5,
-      }));
+      workflow.applyAction(
+        BuildActions.watermarkText('CONFIDENTIAL', {
+          width: { value: 50, unit: '%' },
+          height: { value: 50, unit: '%' },
+          opacity: 0.5,
+        }),
+      );
 
       const mockBlob = new Blob(['watermarked'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
@@ -321,16 +308,14 @@ describe('WorkflowBuilder', () => {
       expect(result.success).toBe(true);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            instructions: expect.objectContaining({
-              actions: expect.arrayContaining([
-                expect.objectContaining({
-                  type: 'watermark',
-                  text: 'CONFIDENTIAL',
-                  opacity: 0.5,
-                }),
-              ]),
-            }),
+          instructions: expect.objectContaining({
+            actions: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'watermark',
+                text: 'CONFIDENTIAL',
+                opacity: 0.5,
+              }),
+            ]),
           }),
         }),
         mockClientOptions,
@@ -361,17 +346,15 @@ describe('WorkflowBuilder', () => {
             file_2: 'file2.pdf',
             file_3: 'file3.pdf',
           }),
-          data: expect.objectContaining({
-            instructions: expect.objectContaining({
-              parts: expect.arrayContaining([
-                expect.objectContaining({ file: 'file_0' }),
-                expect.objectContaining({ file: 'file_1' }),
-                expect.objectContaining({ file: 'file_2' }),
-                expect.objectContaining({ file: 'file_3' }),
-              ]),
-              output: expect.objectContaining({
-                type: 'pdf',
-              }),
+          instructions: expect.objectContaining({
+            parts: expect.arrayContaining([
+              expect.objectContaining({ file: 'file_0' }),
+              expect.objectContaining({ file: 'file_1' }),
+              expect.objectContaining({ file: 'file_2' }),
+              expect.objectContaining({ file: 'file_3' }),
+            ]),
+            output: expect.objectContaining({
+              type: 'pdf',
             }),
           }),
         }),
@@ -407,7 +390,9 @@ describe('WorkflowBuilder', () => {
       expect(result.success).toBe(true);
       expect(result.output).toBeDefined();
       expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
-      expect(result.output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      expect(result.output?.mimeType).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
     });
 
     it('should handle Build API errors', async () => {
@@ -475,7 +460,9 @@ describe('WorkflowBuilder', () => {
 
       const { output } = await workflow.execute();
       expect(output?.buffer).toBeInstanceOf(Uint8Array);
-      expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      expect(output?.mimeType).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
     });
 
     it('should get workflow output', async () => {
@@ -493,7 +480,9 @@ describe('WorkflowBuilder', () => {
 
       expect(output).toBeDefined();
       expect(output?.buffer).toBeInstanceOf(Uint8Array);
-      expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      expect(output?.mimeType).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
     });
 
     it('should set correct mimetype for JSON output', async () => {
@@ -547,18 +536,18 @@ describe('WorkflowBuilder', () => {
               unit_cost: 2,
               units: 1,
               cost: 2,
-              usage: ['$.actions[0]']
-            }
+              usage: ['$.actions[0]'],
+            },
           ],
           annotation_api: [
             {
               unit_cost: 0.5,
               units: 3,
               cost: 1.5,
-              usage: ['$.parts[0].actions[0]']
-            }
-          ]
-        }
+              usage: ['$.parts[0].actions[0]'],
+            },
+          ],
+        },
       };
 
       mockSendRequest.mockResolvedValueOnce({
@@ -578,14 +567,12 @@ describe('WorkflowBuilder', () => {
         expect.objectContaining({
           endpoint: '/analyze_build',
           method: 'POST',
-          data: expect.objectContaining({
-            instructions: expect.objectContaining({
-              parts: expect.arrayContaining([
-                expect.objectContaining({
-                  file: 'file_0',
-                }),
-              ]),
-            }),
+          instructions: expect.objectContaining({
+            parts: expect.arrayContaining([
+              expect.objectContaining({
+                file: 'file_0',
+              }),
+            ]),
           }),
         }),
         mockClientOptions,
@@ -606,18 +593,18 @@ describe('WorkflowBuilder', () => {
               unit_cost: 2,
               units: 2,
               cost: 4,
-              usage: ['$.actions[0]']
-            }
+              usage: ['$.actions[0]'],
+            },
           ],
           document_editor_api: [
             {
               unit_cost: 1.5,
               units: 1,
               cost: 1.5,
-              usage: ['$.parts[1].actions[0]']
-            }
-          ]
-        }
+              usage: ['$.parts[1].actions[0]'],
+            },
+          ],
+        },
       };
 
       mockSendRequest.mockResolvedValueOnce({
@@ -635,27 +622,25 @@ describe('WorkflowBuilder', () => {
         expect.objectContaining({
           endpoint: '/analyze_build',
           method: 'POST',
-          data: expect.objectContaining({
-            instructions: expect.objectContaining({
-              parts: expect.arrayContaining([
-                expect.objectContaining({
-                  file: expect.any(String),
-                }),
-                expect.objectContaining({
-                  file: expect.any(String),
-                  actions: expect.arrayContaining([
-                    expect.objectContaining({
-                      type: 'rotate',
-                    }),
-                  ]),
-                }),
-              ]),
-              actions: expect.arrayContaining([
-                expect.objectContaining({
-                  type: 'ocr',
-                }),
-              ]),
-            }),
+          instructions: expect.objectContaining({
+            parts: expect.arrayContaining([
+              expect.objectContaining({
+                file: expect.any(String),
+              }),
+              expect.objectContaining({
+                file: expect.any(String),
+                actions: expect.arrayContaining([
+                  expect.objectContaining({
+                    type: 'rotate',
+                  }),
+                ]),
+              }),
+            ]),
+            actions: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'ocr',
+              }),
+            ]),
           }),
         }),
         mockClientOptions,

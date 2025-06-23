@@ -10,6 +10,7 @@ import type {
   WorkflowWithOutputStage,
   WorkflowWithPartsStage,
 } from './types';
+import { isUrl } from './types';
 import { NutrientError, ValidationError } from './errors';
 import { validateFileInput } from './inputs';
 import { sendRequest } from './http';
@@ -94,18 +95,21 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    * @returns The workflow builder for chaining
    */
   addHtmlPart(
-    html: string | Blob,
+    html: string,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
     actions?: components['schemas']['BuildAction'][],
   ): this {
-    const htmlKey = `html_${this.fileIndex++}`;
-    this.files.set(htmlKey, html);
-
     const htmlPart: components['schemas']['HTMLPart'] = {
-      html: htmlKey,
+      html,
       ...options,
       ...(actions && actions.length > 0 ? { actions } : {}),
     };
+
+    if (isUrl(html)) {
+      htmlPart.html = {
+        url: html,
+      };
+    }
 
     this.buildInstructions.parts.push(htmlPart);
     return this;
@@ -295,7 +299,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
 
       // Execute the build API request
       const response = await sendRequest<
-        string | components['schemas']['BuildResponseJsonContents']
+        Buffer | components['schemas']['BuildResponseJsonContents']
       >(
         {
           endpoint: '/build',
@@ -309,20 +313,20 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
 
       const mimeType = response.headers['content-type'] ?? this.determineMimeTypeFromOutput();
 
-      // Check if this is a JSON content output
-      const isJsonOutput = this.buildInstructions.output?.type === 'json-content';
-
-      if (isJsonOutput && typeof response.data === 'object') {
+      if (mimeType === 'application/json') {
         result.output = {
-          data: response.data,
+          data: response.data
         } as TypedWorkflowResult<TOutput>['output'];
-      } else if (typeof response.data === 'string') {
+      } else if (Buffer.isBuffer(response.data)) {
         result.output = {
-          buffer: new Uint8Array(Buffer.from(response.data, 'binary')),
+          buffer: new Uint8Array(response.data),
           mimeType,
         } as TypedWorkflowResult<TOutput>['output'];
-      } else {
-        throw new NutrientError('Unexpected response from build API');
+      } else if (response.data instanceof Uint8Array) {
+        result.output = {
+          buffer: response.data,
+          mimeType,
+        } as TypedWorkflowResult<TOutput>['output'];
       }
 
       result.success = true;
@@ -451,7 +455,7 @@ class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = un
   }
 
   addHtmlPart(
-    html: string | Blob,
+    html: string,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
     actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage {

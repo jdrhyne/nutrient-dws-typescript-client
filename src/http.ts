@@ -1,10 +1,16 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import FormData from 'form-data';
 import { type NormalizedFileData, processFileInput } from './inputs';
+import {
+  APIError,
+  AuthenticationError,
+  NetworkError,
+  NutrientError,
+  ValidationError,
+} from './errors';
+import type { NutrientClientOptions } from './types';
+import type { components } from './generated/api-types';
 import { isNode } from './utils/environment';
-import { APIError, AuthenticationError, NetworkError, NutrientError, ValidationError } from './errors';
-import type { NutrientClientOptions } from './types/common';
-import { components } from './generated/api-types';
 
 /**
  * HTTP request configuration for API calls
@@ -30,38 +36,29 @@ export interface ApiResponse<T = unknown> {
 
 /**
  * Sends HTTP request to Nutrient DWS API
- * Handles authentication, file uploads, and error conversion
  */
 export async function sendRequest<T = unknown>(
   config: RequestConfig,
   clientOptions: NutrientClientOptions,
 ): Promise<ApiResponse<T>> {
   try {
-    // Resolve API key (string or async function)
     const apiKey = await resolveApiKey(clientOptions.apiKey);
-
-    // Build full URL
     const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io';
     const url = `${baseUrl.replace(/\/$/, '')}/${config.endpoint.replace(/^\//, '')}`;
 
-    // Prepare request configuration
+    // Use arraybuffer for cross-platform binary data support
     const axiosConfig: AxiosRequestConfig = {
       method: config.method,
       url,
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        ...config.headers,
       },
-      timeout: config.timeout ?? 30000, // 30 second default timeout
-      validateStatus: () => true, // Handle all status codes manually
+      responseType: config.instructions?.output?.type === 'json-content' ? 'json' : 'arraybuffer',
     };
 
     await prepareRequestBody(axiosConfig, config);
+    const response = await axios(axiosConfig);
 
-    // Make request
-    const response: AxiosResponse = await axios(axiosConfig);
-
-    // Handle response
     return handleResponse<T>(response);
   } catch (error) {
     throw convertError(error, config);
@@ -108,18 +105,12 @@ async function prepareRequestBody(
       });
     }
     // Use FormData for file uploads
-    const formData = await createFormData(config.files, config.instructions);
-    axiosConfig.data = formData;
+    axiosConfig.data = await createFormData(config.files, config.instructions);
 
     // Set appropriate headers for FormData
-    if (isNode() && formData instanceof FormData) {
-      // Node.js FormData sets its own headers
-      axiosConfig.headers = {
-        ...axiosConfig.headers,
-        ...formData.getHeaders(),
-      };
-    }
-    // Browser FormData sets boundary automatically
+    axiosConfig.headers = {
+      ...axiosConfig.headers,
+    };
   } else if (config.instructions) {
     // JSON only request
     axiosConfig.data = config.instructions;
@@ -136,9 +127,8 @@ async function prepareRequestBody(
 async function createFormData(
   files: Map<string, unknown>,
   instructions: components['schemas']['BuildInstructions'],
-): Promise<FormData | globalThis.FormData> {
-  const FormDataImpl = isNode() ? FormData : globalThis.FormData;
-  const formData = new FormDataImpl();
+): Promise<FormData> {
+  const formData = new FormData();
 
   for (const [key, value] of files) {
     const normalizedFile = await processFileInput(value as never);
@@ -161,25 +151,16 @@ function appendFileToFormData(
   if (isNode() && formData instanceof FormData) {
     // Node.js FormData
     if (Buffer.isBuffer(file.data)) {
-      formData.append(key, file.data, {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
+      formData.append(key, file.data, file.filename);
     } else if (file.data instanceof Uint8Array) {
-      formData.append(key, Buffer.from(file.data), {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
-    } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
-      // Handle ReadableStream (including fs.ReadStream)
-      formData.append(key, file.data as NodeJS.ReadableStream, {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
+      formData.append(key, Buffer.from(file.data), file.filename);
     } else {
-      throw new ValidationError('Node.js environment expects Buffer, Uint8Array, or ReadableStream for file data', {
-        dataType: typeof file.data,
-      });
+      throw new ValidationError(
+        'Node.js environment expects Buffer, Uint8Array, or ReadableStream for file data',
+        {
+          dataType: typeof file.data,
+        },
+      );
     }
   } else {
     // Browser FormData
@@ -201,22 +182,26 @@ function appendFileToFormData(
  */
 function handleResponse<T>(response: AxiosResponse): ApiResponse<T> {
   const { status, statusText, headers } = response;
-  const data = response.data as unknown;
 
-  // Check for error status codes
   if (status >= 400) {
-    throw createHttpError(status, statusText, data);
+    throw createHttpError(status, statusText, response.data);
   }
 
-  // Handle different response types
   let responseData: T;
-
   const contentType = response.headers['content-type'] as string;
+
   if (contentType?.includes('application/json')) {
-    responseData = data as T;
+    const arrayBuffer = response.data as ArrayBuffer;
+    const text = new TextDecoder('utf-8').decode(arrayBuffer);
+    responseData = JSON.parse(text) as T;
   } else {
-    // Handle binary responses (files)
-    responseData = data as T;
+    const arrayBuffer = response.data as ArrayBuffer;
+    if (isNode()) {
+      responseData = Buffer.from(arrayBuffer) as T;
+    } else {
+      // In browsers, you might want to return ArrayBuffer or Uint8Array
+      responseData = new Uint8Array(arrayBuffer) as T;
+    }
   }
 
   return {
@@ -252,19 +237,31 @@ function createHttpError(status: number, statusText: string, data: unknown): Nut
  * Extracts error message from response data
  */
 function extractErrorMessage(data: unknown): string | null {
-  if (typeof data === 'object' && data !== null) {
-    const errorData = data as Record<string, unknown>;
+  let errorData: Record<string, unknown>;
 
-    // Common error message fields
-    if (typeof errorData['message'] === 'string') {
-      return errorData['message'];
+  // Handle ArrayBuffer data (common in error responses)
+  if (data instanceof ArrayBuffer) {
+    try {
+      const text = new TextDecoder('utf-8').decode(data);
+      errorData = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return null;
     }
-    if (typeof errorData['error'] === 'string') {
-      return errorData['error'];
-    }
-    if (typeof errorData['detail'] === 'string') {
-      return errorData['detail'];
-    }
+  } else if (typeof data === 'object' && data !== null) {
+    errorData = data as Record<string, unknown>;
+  } else {
+    return null;
+  }
+
+  // Common error message fields
+  if (typeof errorData['message'] === 'string') {
+    return errorData['message'];
+  }
+  if (typeof errorData['error'] === 'string') {
+    return errorData['error'];
+  }
+  if (typeof errorData['detail'] === 'string') {
+    return errorData['detail'];
   }
 
   return null;
