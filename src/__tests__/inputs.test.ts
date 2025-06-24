@@ -1,5 +1,5 @@
 import { validateFileInput, processFileInput } from '../inputs';
-import type { FileInput } from '../types/inputs';
+import type { FileInput } from '../types';
 import { ValidationError } from '../errors';
 import {
   setupBrowserEnvironment,

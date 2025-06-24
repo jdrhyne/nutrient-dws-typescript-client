@@ -297,7 +297,6 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
       // Call progress callback if provided
       options?.onProgress?.(1, 1);
 
-      // Execute the build API request
       const response = await sendRequest<
         Buffer | components['schemas']['BuildResponseJsonContents']
       >(

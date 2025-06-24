@@ -217,10 +217,7 @@ function handleResponse<T>(response: AxiosResponse): ApiResponse<T> {
  */
 function createHttpError(status: number, statusText: string, data: unknown): NutrientError {
   const message = extractErrorMessage(data) ?? `HTTP ${status}: ${statusText}`;
-  const details =
-    typeof data === 'object' && data !== null
-      ? (data as Record<string, unknown>)
-      : { response: data };
+  const details = extractErrorDetails(data) ?? { response: data };
 
   if (status === 401 || status === 403) {
     return new AuthenticationError(message, details, status);
@@ -262,6 +259,49 @@ function extractErrorMessage(data: unknown): string | null {
   }
   if (typeof errorData['detail'] === 'string') {
     return errorData['detail'];
+  }
+
+  return null;
+}
+
+/**
+ * Extracts error details from response data, ensuring proper conversion from Buffer/ArrayBuffer
+ */
+function extractErrorDetails(data: unknown): Record<string, unknown> | null {
+  // Handle ArrayBuffer data (common in error responses)
+  if (data instanceof ArrayBuffer) {
+    try {
+      const text = new TextDecoder('utf-8').decode(data);
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  // Handle direct Buffer instances (Node.js environment)
+  if (isNode() && Buffer.isBuffer(data)) {
+    try {
+      const text = new TextDecoder('utf-8').decode(data);
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  // Handle Buffer.toJSON() format (Node.js environment)
+  if (typeof data === 'object' && data !== null && 'type' in data && (data as any).type === 'Buffer') {
+    try {
+      const buffer = Buffer.from((data as any).data);
+      const text = new TextDecoder('utf-8').decode(buffer);
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  // Handle regular objects
+  if (typeof data === 'object' && data !== null) {
+    return data as Record<string, unknown>;
   }
 
   return null;

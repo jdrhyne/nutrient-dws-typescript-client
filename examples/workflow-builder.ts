@@ -17,7 +17,8 @@ const __dirname = dirname(__filename);
 
 // Initialize the client
 const client = new NutrientClient({
-  apiKey: process.env.NUTRIENT_API_KEY || 'your-api-key-here',
+  apiKey: 'secret',
+  baseUrl: 'http://127.0.0.1:5000/api',
 });
 
 async function main() {
@@ -28,6 +29,7 @@ async function main() {
     const result = await client
       .workflow()
       .addFilePart(path.join(__dirname, 'assets/example.pdf'))
+      .applyAction(BuildActions.watermarkText('MY DOCUMENT'))
       .outputPdf()
       .execute({
         onProgress: (current, total) => {
@@ -46,72 +48,72 @@ async function main() {
       console.error('Workflow failed:', JSON.stringify(result.errors, null, 2));
     }
 
-    // Example 2: Complex workflow with multiple outputs
-    console.log('\nRunning complex workflow with multiple outputs...');
-
-    const complexResult = await client
-      .workflow()
-      .addFilePart(path.join(__dirname, 'assets/example.docx'))
-      .applyAction(BuildActions.rotate(90))
-      .applyAction(BuildActions.ocr('english'))
-      .outputPdf()
-      .execute();
-
-    if (complexResult.success) {
-      // Get the final output
-      const finalOutput = complexResult.output
-      if (finalOutput) {
-        const buffer = Buffer.from(finalOutput.buffer);
-        await fs.writeFile('output/workflow-complex-result.pdf', buffer);
-        console.log('✓ Complex workflow completed successfully');
-      }
-    } else {
-      console.error('Workflow failed:', JSON.stringify(complexResult.errors, null, 2));
-    }
-
-    // Example 3: Merge and process workflow
-    console.log('\nRunning merge and process workflow...');
-
-    const mergeResult = await client
-      .workflow()
-      .addFilePart(path.join(__dirname, 'assets/example.pdf'))
-      .addFilePart(path.join(__dirname, 'assets/example.pdf'))
-      .addFilePart(path.join(__dirname, 'assets/example.pdf'))
-      .applyAction(BuildActions.flatten())
-      .outputPdf({
-        optimize: {
-          linearize: true
-        }
-      })
-      .execute();
-
-    if (mergeResult.success) {
-      const finalOutput = mergeResult.output
-      if (finalOutput) {
-        const buffer = Buffer.from(finalOutput.buffer);
-        await fs.writeFile('output/workflow-merge-result.pdf', buffer);
-        console.log('✓ Merge workflow completed successfully');
-      }
-    } else {
-      console.error('Workflow failed:', JSON.stringify(mergeResult.errors, null, 2));
-    }
-
-    // Example 4: Error handling in workflows
-    console.log('\nDemonstrating error handling...');
-
-    const errorResult = await client
-      .workflow()
-      .addFilePart('path/to/nonexistent-document.pdf') // This will fail
-      .applyAction(BuildActions.flatten())
-      .outputPdf()
-      .execute();
-
-    if (!errorResult.success) {
-      console.log('Workflow had errors (as expected):');
-      errorResult.errors?.forEach(({ step, error }) => {
-        console.log(`  Step ${step}: ${error.message}`);
-      });
-    }
+    // // Example 2: Complex workflow with multiple outputs
+    // console.log('\nRunning complex workflow with multiple outputs...');
+    //
+    // const complexResult = await client
+    //   .workflow()
+    //   .addFilePart(path.join(__dirname, 'assets/example.docx'))
+    //   .applyAction(BuildActions.rotate(90))
+    //   .applyAction(BuildActions.ocr('english'))
+    //   .outputPdf()
+    //   .execute();
+    //
+    // if (complexResult.success) {
+    //   // Get the final output
+    //   const finalOutput = complexResult.output
+    //   if (finalOutput) {
+    //     const buffer = Buffer.from(finalOutput.buffer);
+    //     await fs.writeFile('output/workflow-complex-result.pdf', buffer);
+    //     console.log('✓ Complex workflow completed successfully');
+    //   }
+    // } else {
+    //   console.error('Workflow failed:', JSON.stringify(complexResult.errors, null, 2));
+    // }
+    //
+    // // Example 3: Merge and process workflow
+    // console.log('\nRunning merge and process workflow...');
+    //
+    // const mergeResult = await client
+    //   .workflow()
+    //   .addFilePart(path.join(__dirname, 'assets/example.pdf'))
+    //   .addFilePart(path.join(__dirname, 'assets/example.pdf'))
+    //   .addFilePart(path.join(__dirname, 'assets/example.pdf'))
+    //   .applyAction(BuildActions.flatten())
+    //   .outputPdf({
+    //     optimize: {
+    //       linearize: true
+    //     }
+    //   })
+    //   .execute();
+    //
+    // if (mergeResult.success) {
+    //   const finalOutput = mergeResult.output
+    //   if (finalOutput) {
+    //     const buffer = Buffer.from(finalOutput.buffer);
+    //     await fs.writeFile('output/workflow-merge-result.pdf', buffer);
+    //     console.log('✓ Merge workflow completed successfully');
+    //   }
+    // } else {
+    //   console.error('Workflow failed:', JSON.stringify(mergeResult.errors, null, 2));
+    // }
+    //
+    // // Example 4: Error handling in workflows
+    // console.log('\nDemonstrating error handling...');
+    //
+    // const errorResult = await client
+    //   .workflow()
+    //   .addFilePart('path/to/nonexistent-document.pdf') // This will fail
+    //   .applyAction(BuildActions.flatten())
+    //   .outputPdf()
+    //   .execute();
+    //
+    // if (!errorResult.success) {
+    //   console.log('Workflow had errors (as expected):');
+    //   errorResult.errors?.forEach(({ step, error }) => {
+    //     console.log(`  Step ${step}: ${error.message}`);
+    //   });
+    // }
   } catch (error) {
     console.error('Error:', error);
     process.exit(1);

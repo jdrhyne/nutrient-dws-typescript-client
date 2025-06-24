@@ -135,7 +135,7 @@ describe('HTTP Layer', () => {
           headers: expect.objectContaining({
             Authorization: 'Bearer async-api-key',
             'Content-Type': 'application/json',
-          }),
+          }) as Record<string, string>,
           responseType: 'arraybuffer',
         }),
       );
@@ -204,7 +204,7 @@ describe('HTTP Layer', () => {
           headers: expect.objectContaining({
             Authorization: 'Bearer test-api-key',
             'Content-Type': 'application/json',
-          }),
+          }) as Record<string, string>,
           responseType: 'arraybuffer',
         }),
       );
@@ -288,6 +288,44 @@ describe('HTTP Layer', () => {
       await expect(sendRequest(config, mockClientOptions)).rejects.toMatchObject({
         name: 'ValidationError',
         message: 'Invalid parameters',
+        code: 'VALIDATION_ERROR',
+        statusCode: 400,
+      });
+    });
+
+    it('should handle error details as readable objects instead of Buffer', async () => {
+      const errorDetails = {
+        status: 400,
+        details: 'There was an error with one or more parts of the instructions.',
+        requestId: 'GEvRnql-FWJP7NIAAAFE',
+        failingPaths: [
+          {
+            path: '$.instructions.actions[0].width',
+            details: 'must be a positive integer or percentage',
+          },
+          {
+            path: '$.instructions.actions[0].height',
+            details: 'must be a positive integer or percentage',
+          },
+        ],
+      };
+
+      const mockResponse = {
+        data: new TextEncoder().encode(JSON.stringify(errorDetails)).buffer,
+        status: 400,
+        statusText: 'Bad Request',
+        headers: { 'content-type': 'application/json' },
+      };
+
+      mockedAxios.mockResolvedValueOnce(mockResponse);
+
+      const config: RequestConfig = {
+        endpoint: '/test',
+        method: 'POST',
+      };
+
+      await expect(sendRequest(config, mockClientOptions)).rejects.toMatchObject({
+        name: 'ValidationError',
         code: 'VALIDATION_ERROR',
         statusCode: 400,
       });
