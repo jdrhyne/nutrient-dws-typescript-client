@@ -33,3 +33,10 @@ Thumbs.db
 *.log
 tmp/
 temp/
+
+# Test/debug files
+test-*.ts
+test-*.cjs
+test-*.mjs
+debug-*.cjs
+debug-*.mjs

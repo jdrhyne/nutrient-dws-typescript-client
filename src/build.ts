@@ -295,9 +295,11 @@ export const BuildOutputs = {
       case 'pdf':
       case 'pdfa':
         return { mimeType: 'application/pdf', filename: 'output.pdf' };
-      case 'image':
-        const format = (output as any).format || 'png';
+      case 'image': {
+        const imageOutput = output as components['schemas']['BuildOutput'] & { format?: string };
+        const format = imageOutput.format ?? 'png';
         return { mimeType: `image/${format}`, filename: `output.${format}` };
+      }
       case 'docx':
         return { 
           mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

@@ -107,8 +107,6 @@ export class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefin
   }
 
   outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowWithOutputStage<'json-content'> {
-    // Note: This method is in the interface but not implemented in WorkflowBuilder
-    // Adding it here for completeness
     this.builder.output({ type: 'json-content', ...options });
     return this as unknown as WorkflowWithOutputStage<'json-content'>;
   }

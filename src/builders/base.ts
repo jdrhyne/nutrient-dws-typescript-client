@@ -26,7 +26,7 @@ export abstract class BaseBuilder<TResult = unknown> {
   ): Promise<T> {
     const config = {
       endpoint: path,
-      method: options.method || 'POST',
+      method: options.method ?? 'POST',
       data: options.data,
       files: options.files,
       timeout: options.timeout,

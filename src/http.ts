@@ -42,7 +42,7 @@ export async function sendRequest<T = unknown>(
     const apiKey = await resolveApiKey(clientOptions.apiKey);
 
     // Build full URL
-    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io';
+    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io/v1';
     const url = `${baseUrl.replace(/\/$/, '')}/${config.endpoint.replace(/^\//, '')}`;
 
     // Prepare request configuration
@@ -56,6 +56,11 @@ export async function sendRequest<T = unknown>(
       timeout: config.timeout ?? 30000, // 30 second default timeout
       validateStatus: () => true, // Handle all status codes manually
     };
+
+    // Set responseType for binary endpoints
+    if (config.endpoint === 'build') {
+      axiosConfig.responseType = 'arraybuffer';
+    }
 
     await prepareRequestBody(axiosConfig, config);
 
@@ -104,7 +109,7 @@ async function prepareRequestBody(
 ): Promise<void> {
   if (config.files && config.files.size > 0) {
     // For file uploads, we need either instructions or data
-    const payload = config.instructions || config.data;
+    const payload = config.instructions ?? config.data;
     if (!payload) {
       throw new ValidationError('File uploads require instructions or data', {
         files: config.files,
@@ -125,7 +130,7 @@ async function prepareRequestBody(
     // Browser FormData sets boundary automatically
   } else {
     // JSON only request - prefer instructions for Build API, fallback to data
-    const payload = config.instructions || config.data;
+    const payload = config.instructions ?? config.data;
     if (payload) {
       axiosConfig.data = payload;
       axiosConfig.headers = {

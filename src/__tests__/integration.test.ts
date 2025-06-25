@@ -8,7 +8,6 @@
  */
 
 import { NutrientClient } from '../client';
-import { WorkflowBuilder } from '../builders/workflow';
 import { BuildActions } from '../build';
 import type { NutrientClientOptions } from '../types/common';
 import * as fs from 'fs';
@@ -28,8 +27,8 @@ describeIntegration('Integration Tests with Live API', () => {
 
   beforeAll(() => {
     const options: NutrientClientOptions = {
-      apiKey: process.env.NUTRIENT_API_KEY!,
-      baseUrl: process.env.NUTRIENT_BASE_URL || 'https://api.nutrient.io/v1',
+      apiKey: process.env.NUTRIENT_API_KEY ?? '',
+      baseUrl: process.env.NUTRIENT_BASE_URL ?? 'https://api.nutrient.io/v1',
     };
 
     client = new NutrientClient(options);
@@ -158,10 +157,12 @@ describeIntegration('Integration Tests with Live API', () => {
 
         expect(result.success).toBe(true);
         expect(result.output).toBeDefined();
-        if (result.output && 'data' in result.output) {
-          expect(result.output.data).toBeDefined();
-          expect(typeof result.output.data).toBe('object');
-        }
+        // Type guard check for data property
+        const outputWithData = result.output as { data?: unknown };
+        const hasData = outputWithData && 'data' in outputWithData && outputWithData.data;
+        expect(hasData).toBeTruthy();
+        // Always check the type when data exists
+        expect(typeof (outputWithData?.data ?? {})).toBe('object');
       }, 30000);
     });
 
@@ -229,8 +230,8 @@ describeIntegration('Integration Tests with Live API', () => {
           },
         })
         .execute({
-          onProgress: (step, total) => {
-            console.log(`Progress: ${step}/${total}`);
+          onProgress: (_step, _total) => {
+            // Progress callback intentionally empty for tests
           },
         });
 
@@ -272,11 +273,11 @@ describeIntegration('Integration Tests with Live API', () => {
 
   describe('Error Handling', () => {
     it('should handle invalid file input gracefully', async () => {
-      const result = await client.convert(null as any, 'pdf');
+      const result = await client.convert(null as unknown as Buffer, 'pdf');
 
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();
-      expect(result.errors!.length).toBeGreaterThan(0);
+      expect(result.errors?.length ?? 0).toBeGreaterThan(0);
     }, 15000);
 
     it('should handle API errors with proper error types', async () => {
@@ -288,7 +289,7 @@ describeIntegration('Integration Tests with Live API', () => {
 
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();
-      expect(result.errors![0].error.name).toBe('AuthenticationError');
+      expect(result.errors?.[0]?.error.name).toBe('AuthenticationError');
     }, 15000);
 
     it('should handle network timeouts', async () => {
@@ -313,8 +314,6 @@ describeIntegration('Integration Tests with Live API', () => {
       const startTime = Date.now();
       const result = await client.compress(largePdf, 'high');
       const duration = Date.now() - startTime;
-
-      console.log(`Large file processing took ${duration}ms`);
       
       expect(result.success).toBe(true);
       expect(duration).toBeLessThan(60000); // Should complete within 60s
@@ -325,11 +324,7 @@ describeIntegration('Integration Tests with Live API', () => {
         client.convert(Buffer.from(`%PDF-1.4 doc${i}`), 'docx')
       );
 
-      const startTime = Date.now();
       const results = await Promise.all(operations);
-      const duration = Date.now() - startTime;
-
-      console.log(`Concurrent operations took ${duration}ms`);
 
       results.forEach(result => {
         expect(result.success).toBe(true);

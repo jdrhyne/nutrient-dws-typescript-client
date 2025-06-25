@@ -189,7 +189,7 @@ export class NutrientClient {
       case 'image':
         return builder.outputImage().execute();
       default:
-        throw new ValidationError(`Unsupported target format: ${targetFormat}`);
+        throw new ValidationError(`Unsupported target format: ${String(targetFormat)}`);
     }
   }
 
@@ -206,7 +206,7 @@ export class NutrientClient {
    * const result = await client.merge(['doc1.pdf', 'doc2.pdf', 'doc3.pdf']);
    * ```
    */
-  async merge(
+  merge(
     files: FileInput[],
     outputFormat: 'pdf' | 'pdfa' = 'pdf',
   ): Promise<WorkflowResult> {
@@ -219,7 +219,7 @@ export class NutrientClient {
       throw new ValidationError('First file is required');
     }
 
-    let builder: any = this.workflow().addFilePart(firstFile);
+    let builder = this.workflow().addFilePart(firstFile);
     
     for (const file of restFiles) {
       builder = builder.addFilePart(file);

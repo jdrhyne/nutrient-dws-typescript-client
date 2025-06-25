@@ -260,9 +260,9 @@ describe('Input Processing', () => {
         read: jest.fn(),
       };
 
-      mockFs.promises.access.mockResolvedValueOnce(undefined);
-      mockFs.createReadStream.mockReturnValueOnce(mockStream as any);
-      mockPath.basename.mockReturnValueOnce('document.pdf');
+      (mockFs.promises.access as jest.Mock).mockResolvedValueOnce(undefined);
+      (mockFs.createReadStream as jest.Mock).mockReturnValueOnce(mockStream as unknown as fs.ReadStream);
+      (mockPath.basename as jest.Mock).mockReturnValueOnce('document.pdf');
 
       const result = await processFileInput('/path/to/document.pdf');
 
@@ -274,8 +274,6 @@ describe('Input Processing', () => {
 
     // Skipped: Dynamic import mocking doesn't work well with jest.mock
     // These edge cases are covered by integration tests
-    // it('should handle file not found error', async () => {});
-    // it('should handle file read error', async () => {});
 
     it('should process structured file path input', async () => {
       // Since we can't easily mock isNode() in test env, test structured input instead
@@ -289,9 +287,9 @@ describe('Input Processing', () => {
         read: jest.fn(),
       };
 
-      mockFs.promises.access.mockResolvedValueOnce(undefined);
-      mockFs.createReadStream.mockReturnValueOnce(mockStream as any);
-      mockPath.basename.mockReturnValueOnce('document.pdf');
+      (mockFs.promises.access as jest.Mock).mockResolvedValueOnce(undefined);
+      (mockFs.createReadStream as jest.Mock).mockReturnValueOnce(mockStream as unknown as fs.ReadStream);
+      (mockPath.basename as jest.Mock).mockReturnValueOnce('document.pdf');
 
       const result = await processFileInput({ type: 'file-path', path: '/path/to/document.pdf' });
       expect(result.data).toBe(mockStream);

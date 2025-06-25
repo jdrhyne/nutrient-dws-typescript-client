@@ -88,7 +88,7 @@ export class NutrientError extends Error {
       );
     }
 
-    const errorMessage = message || 'An unknown error occurred';
+    const errorMessage = message ?? 'An unknown error occurred';
     return new NutrientError(
       errorMessage,
       'UNKNOWN_ERROR',

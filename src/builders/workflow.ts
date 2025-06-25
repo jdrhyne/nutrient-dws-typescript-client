@@ -124,7 +124,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   ): this {
     this.ensureNotExecuted();
     
-    const { layer, ...documentOptions } = options || {};
+    const { layer, ...documentOptions } = options ?? {};
     
     const documentPart: components['schemas']['DocumentPart'] = {
       document: { id: documentId, ...(layer && { layer }) },
@@ -288,7 +288,11 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
       this.currentStep = 3;
       options?.onProgress?.(this.currentStep, 3);
 
-      const { mimeType, filename } = BuildOutputs.getMimeTypeForOutput(this.buildInstructions.output!);
+      const outputConfig = this.buildInstructions.output;
+      if (!outputConfig) {
+        throw new Error('Output configuration is required');
+      }
+      const { mimeType, filename } = BuildOutputs.getMimeTypeForOutput(outputConfig);
       
       // Use standard ArrayBuffer to Uint8Array conversion for browser compatibility
       const buffer = new Uint8Array(response);
@@ -298,7 +302,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
         buffer,
         mimeType,
         filename,
-      } as any;
+      } as TOutput extends keyof OutputTypeMap ? OutputTypeMap[TOutput] : { buffer: Uint8Array; mimeType: string; filename?: string };
 
     } catch (error) {
       result.errors?.push({
