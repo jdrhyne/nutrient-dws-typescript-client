@@ -1,194 +1,7 @@
-import type { components } from './types/nutrient-api';
-import type { NutrientClientOptions } from './types/common';
+import type { components } from './generated/api-types';
 import type { FileInput } from './types';
-import { sendRequest } from './http';
-import { ValidationError } from './errors';
-import { validateFileInput } from './inputs';
 
-// Type aliases for better readability
-type BuildInstructions = components['schemas']['BuildInstructions'];
-type FilePart = components['schemas']['FilePart'];
-type HTMLPart = components['schemas']['HTMLPart'];
-type NewPagePart = components['schemas']['NewPagePart'];
-type BuildAction = components['schemas']['BuildAction'];
-type BuildOutput = components['schemas']['BuildOutput'];
-
-/**
- * Builder class for creating Build API instructions
- * Provides a fluent API for assembling PDF documents from multiple parts
- */
-export class BuildApiBuilder {
-  private instructions: BuildInstructions;
-  private options: NutrientClientOptions;
-
-  constructor(options: NutrientClientOptions) {
-    this.options = options;
-    this.instructions = {
-      parts: [],
-    };
-  }
-
-  /**
-   * Add a file part to the document
-   * @param file - File input (path, URL, Buffer, etc.)
-   * @param options - Additional options for the file part
-   */
-  addFile(
-    file: FileInput,
-    options?: {
-      password?: string;
-      pages?: { start?: number; end?: number };
-      contentType?: string;
-      actions?: BuildAction[];
-    },
-  ): this {
-    if (!validateFileInput(file)) {
-      throw new ValidationError('Invalid file input provided', { file });
-    }
-
-    const filePart: FilePart = {
-      file: file as never, // Will be processed by sendRequest
-      ...(options?.password && { password: options.password }),
-      ...(options?.pages && { pages: options.pages }),
-      ...(options?.contentType && { content_type: options.contentType }),
-      ...(options?.actions && { actions: options.actions }),
-    };
-
-    this.instructions.parts.push(filePart);
-    return this;
-  }
-
-  /**
-   * Add an HTML part to the document
-   * @param html - HTML content or file
-   * @param options - Additional options for the HTML part
-   */
-  addHtml(
-    html: FileInput,
-    options?: {
-      assets?: string[];
-      layout?: components['schemas']['PageLayout'];
-      actions?: BuildAction[];
-    },
-  ): this {
-    if (!validateFileInput(html)) {
-      throw new ValidationError('Invalid HTML input provided', { html });
-    }
-
-    const htmlPart: HTMLPart = {
-      html: html as never, // Will be processed by sendRequest
-      ...(options?.assets && { assets: options.assets }),
-      ...(options?.layout && { layout: options.layout }),
-      ...(options?.actions && { actions: options.actions }),
-    };
-
-    this.instructions.parts.push(htmlPart);
-    return this;
-  }
-
-  /**
-   * Add new blank pages to the document
-   * @param pageCount - Number of pages to add (default: 1)
-   * @param options - Additional options for the new pages
-   */
-  addNewPages(
-    pageCount?: number,
-    options?: {
-      layout?: components['schemas']['PageLayout'];
-      actions?: BuildAction[];
-    },
-  ): this {
-    const newPagePart: NewPagePart = {
-      page: 'new',
-      ...(pageCount && { pageCount }),
-      ...(options?.layout && { layout: options.layout }),
-      ...(options?.actions && { actions: options.actions }),
-    };
-
-    this.instructions.parts.push(newPagePart);
-    return this;
-  }
-
-  /**
-   * Apply actions to the entire assembled document
-   * @param actions - Actions to apply
-   */
-  withActions(actions: BuildAction[]): this {
-    if (!this.instructions.actions) {
-      this.instructions.actions = [];
-    }
-    this.instructions.actions.push(...actions);
-    return this;
-  }
-
-  /**
-   * Set the output format for the document
-   * @param output - Output configuration
-   */
-  setOutput(output: BuildOutput): this {
-    this.instructions.output = output;
-    return this;
-  }
-
-  /**
-   * Get the current build instructions
-   */
-  getInstructions(): BuildInstructions {
-    if (this.instructions.parts.length === 0) {
-      throw new ValidationError('At least one part must be added to build a document');
-    }
-    return this.instructions;
-  }
-
-  /**
-   * Execute the build operation
-   * @returns Promise resolving to the built document
-   */
-  async execute<T = Blob>(): Promise<T> {
-    const instructions = this.getInstructions();
-
-    // Prepare files map for multipart request
-    const files: Record<string, FileInput> = {};
-    let fileIndex = 0;
-
-    // Process parts to extract files
-    const processedParts = instructions.parts.map((part) => {
-      if ('file' in part) {
-        const fileKey = `file${fileIndex++}`;
-        files[fileKey] = part.file as FileInput;
-        return {
-          ...part,
-          file: fileKey, // Reference to multipart file
-        };
-      } else if ('html' in part) {
-        const htmlKey = `html${fileIndex++}`;
-        files[htmlKey] = part.html as FileInput;
-        return {
-          ...part,
-          html: htmlKey, // Reference to multipart file
-        };
-      }
-      return part;
-    });
-
-    const processedInstructions = {
-      ...instructions,
-      parts: processedParts,
-    };
-
-    const response = await sendRequest<T>(
-      {
-        endpoint: '/build',
-        method: 'POST',
-        files: Object.keys(files).length > 0 ? files : undefined,
-        data: { instructions: processedInstructions },
-      },
-      this.options,
-    );
-
-    return response.data;
-  }
-}
+const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
 
 /**
  * Factory functions for creating common build actions
@@ -225,47 +38,20 @@ export const BuildActions = {
    */
   watermarkText(
     text: string,
-    options: {
-      width: components['schemas']['WatermarkDimension'];
-      height: components['schemas']['WatermarkDimension'];
-      opacity?: number;
-      rotation?: number;
-      fontSize?: number;
-      fontColor?: string;
-      fontFamily?: string;
-      fontStyle?: ('bold' | 'italic')[];
-      top?: components['schemas']['WatermarkDimension'];
-      left?: components['schemas']['WatermarkDimension'];
-      right?: components['schemas']['WatermarkDimension'];
-      bottom?: components['schemas']['WatermarkDimension'];
+    options: Partial<Omit<components['schemas']['TextWatermarkAction'], 'type' | 'text'>> = {
+      width: DEFAULT_DIMENSION,
+      height: DEFAULT_DIMENSION,
+      rotation: 0
     },
   ): components['schemas']['TextWatermarkAction'] {
-    const action: components['schemas']['TextWatermarkAction'] = {
+    return {
       type: 'watermark',
       text,
-      width: {} as Record<string, never> & typeof options.width,
-      height: {} as Record<string, never> & typeof options.height,
-      ...(options.opacity !== undefined && { opacity: options.opacity }),
-      ...(options.rotation !== undefined && { rotation: options.rotation }),
-      ...(options.fontSize !== undefined && { fontSize: options.fontSize }),
-      ...(options.fontColor && { fontColor: options.fontColor }),
-      ...(options.fontFamily && { fontFamily: options.fontFamily }),
-      ...(options.fontStyle && { fontStyle: options.fontStyle }),
-      ...(options.top && { top: {} as Record<string, never> & typeof options.top }),
-      ...(options.left && { left: {} as Record<string, never> & typeof options.left }),
-      ...(options.right && { right: {} as Record<string, never> & typeof options.right }),
-      ...(options.bottom && { bottom: {} as Record<string, never> & typeof options.bottom }),
+      ...options,
+      rotation: options.rotation ?? 0,
+      width: options.width ?? DEFAULT_DIMENSION,
+      height: options.height ?? DEFAULT_DIMENSION,
     };
-    // Override with proper values
-    (action.width as components['schemas']['WatermarkDimension']) = options.width;
-    (action.height as components['schemas']['WatermarkDimension']) = options.height;
-    if (options.top) (action.top as components['schemas']['WatermarkDimension']) = options.top;
-    if (options.left) (action.left as components['schemas']['WatermarkDimension']) = options.left;
-    if (options.right)
-      (action.right as components['schemas']['WatermarkDimension']) = options.right;
-    if (options.bottom)
-      (action.bottom as components['schemas']['WatermarkDimension']) = options.bottom;
-    return action;
   },
 
   /**
@@ -275,39 +61,20 @@ export const BuildActions = {
    */
   watermarkImage(
     image: FileInput,
-    options: {
-      width: components['schemas']['WatermarkDimension'];
-      height: components['schemas']['WatermarkDimension'];
-      opacity?: number;
-      rotation?: number;
-      top?: components['schemas']['WatermarkDimension'];
-      left?: components['schemas']['WatermarkDimension'];
-      right?: components['schemas']['WatermarkDimension'];
-      bottom?: components['schemas']['WatermarkDimension'];
+    options: Partial<Omit<components['schemas']['ImageWatermarkAction'], 'type' | 'image'>> = {
+      width: DEFAULT_DIMENSION,
+      height: DEFAULT_DIMENSION,
+      rotation: 0,
     },
   ): components['schemas']['ImageWatermarkAction'] {
-    const action: components['schemas']['ImageWatermarkAction'] = {
+    return {
       type: 'watermark',
       image: image as components['schemas']['FileHandle'],
-      width: {} as Record<string, never> & typeof options.width,
-      height: {} as Record<string, never> & typeof options.height,
-      ...(options.opacity !== undefined && { opacity: options.opacity }),
-      ...(options.rotation !== undefined && { rotation: options.rotation }),
-      ...(options.top && { top: {} as Record<string, never> & typeof options.top }),
-      ...(options.left && { left: {} as Record<string, never> & typeof options.left }),
-      ...(options.right && { right: {} as Record<string, never> & typeof options.right }),
-      ...(options.bottom && { bottom: {} as Record<string, never> & typeof options.bottom }),
+      ...options,
+      rotation: options.rotation ?? 0,
+      width: options.width ?? DEFAULT_DIMENSION,
+      height: options.height ?? DEFAULT_DIMENSION,
     };
-    // Override with proper values
-    (action.width as components['schemas']['WatermarkDimension']) = options.width;
-    (action.height as components['schemas']['WatermarkDimension']) = options.height;
-    if (options.top) (action.top as components['schemas']['WatermarkDimension']) = options.top;
-    if (options.left) (action.left as components['schemas']['WatermarkDimension']) = options.left;
-    if (options.right)
-      (action.right as components['schemas']['WatermarkDimension']) = options.right;
-    if (options.bottom)
-      (action.bottom as components['schemas']['WatermarkDimension']) = options.bottom;
-    return action;
   },
 
   /**
@@ -328,7 +95,7 @@ export const BuildActions = {
   applyInstantJson(file: FileInput): components['schemas']['ApplyInstantJsonAction'] {
     return {
       type: 'applyInstantJson',
-      file: file as never, // Will be processed by sendRequest
+      file: file as components['schemas']['FileHandle'],
     };
   },
 
@@ -339,7 +106,7 @@ export const BuildActions = {
   applyXfdf(file: FileInput): components['schemas']['ApplyXfdfAction'] {
     return {
       type: 'applyXfdf',
-      file: file as never, // Will be processed by sendRequest
+      file: file as components['schemas']['FileHandle'],
     };
   },
 
@@ -350,26 +117,16 @@ export const BuildActions = {
    */
   createRedactionsText(
     text: string,
-    options?: {
-      caseSensitive?: boolean;
-      includeAnnotations?: boolean;
-      start?: number;
-      limit?: number;
-      content?: Partial<components['schemas']['RedactionAnnotation']>;
-    },
+    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsText'], 'text'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'text',
       strategyOptions: {
         text,
-        caseSensitive: options?.caseSensitive,
-        includeAnnotations: options?.includeAnnotations,
-        start: options?.start,
-        limit: options?.limit,
+        ...options,
       },
-      ...(options?.content && { content: options.content }),
-    } as components['schemas']['CreateRedactionsAction'];
+    };
   },
 
   /**
@@ -379,26 +136,16 @@ export const BuildActions = {
    */
   createRedactionsRegex(
     regex: string,
-    options?: {
-      caseSensitive?: boolean;
-      includeAnnotations?: boolean;
-      start?: number;
-      limit?: number;
-      content?: Partial<components['schemas']['RedactionAnnotation']>;
-    },
+    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsRegex'], 'regex'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'regex',
       strategyOptions: {
         regex,
-        caseSensitive: options?.caseSensitive,
-        includeAnnotations: options?.includeAnnotations,
-        start: options?.start,
-        limit: options?.limit,
+        ...options
       },
-      ...(options?.content && { content: options.content }),
-    } as components['schemas']['CreateRedactionsAction'];
+    };
   },
 
   /**
@@ -408,24 +155,16 @@ export const BuildActions = {
    */
   createRedactionsPreset(
     preset: components['schemas']['SearchPreset'],
-    options?: {
-      includeAnnotations?: boolean;
-      start?: number;
-      limit?: number;
-      content?: Partial<components['schemas']['RedactionAnnotation']>;
-    },
+    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsPreset'], 'preset'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'preset',
       strategyOptions: {
         preset,
-        includeAnnotations: options?.includeAnnotations,
-        start: options?.start,
-        limit: options?.limit,
+        ...options,
       },
-      ...(options?.content && { content: options.content }),
-    } as components['schemas']['CreateRedactionsAction'];
+    };
   },
 
   /**
@@ -544,5 +283,42 @@ export const BuildOutputs = {
     return {
       type,
     };
+  },
+
+  /**
+   * Get MIME type and filename for a given output configuration
+   * @param output - The output configuration
+   * @returns MIME type and optional filename
+   */
+  getMimeTypeForOutput(output: components['schemas']['BuildOutput']): { mimeType: string; filename?: string } {
+    switch (output.type) {
+      case 'pdf':
+      case 'pdfa':
+        return { mimeType: 'application/pdf', filename: 'output.pdf' };
+      case 'image': {
+        const imageOutput = output as components['schemas']['BuildOutput'] & { format?: string };
+        const format = imageOutput.format ?? 'png';
+        return { mimeType: `image/${format}`, filename: `output.${format}` };
+      }
+      case 'docx':
+        return { 
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          filename: 'output.docx'
+        };
+      case 'xlsx':
+        return {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: 'output.xlsx'
+        };
+      case 'pptx':
+        return {
+          mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          filename: 'output.pptx'
+        };
+      case 'json-content':
+        return { mimeType: 'application/json', filename: 'output.json' };
+      default:
+        return { mimeType: 'application/octet-stream', filename: 'output' };
+    }
   },
 };

@@ -2,7 +2,7 @@
 src/
 tests/
 examples/
-generated/
+src/generated/
 
 # Configuration files
 .eslintrc.json

@@ -1,7 +1,7 @@
 // Test setup and utilities
 
 // Type for global with test properties
-interface TestGlobal extends NodeJS.Global {
+interface TestGlobal {
   window?: {
     document: object;
     navigator: { userAgent: string };
@@ -15,7 +15,7 @@ interface TestGlobal extends NodeJS.Global {
   WorkerGlobalScope?: object;
 }
 
-const testGlobal = global as TestGlobal;
+const testGlobal = globalThis as unknown as TestGlobal;
 
 // Mock browser globals for environment detection tests
 export function setupBrowserEnvironment(): void {

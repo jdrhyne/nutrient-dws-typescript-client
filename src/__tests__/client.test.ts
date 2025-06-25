@@ -1,8 +1,19 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 import { NutrientClient } from '../client';
-import type { NutrientClientOptions } from '../types/common';
+import type {
+  FileInput,
+  NutrientClientOptions,
+  OutputTypeMap,
+  TypedWorkflowResult,
+  WorkflowDryRunResult,
+  WorkflowExecuteOptions,
+  WorkflowInitialStage,
+  WorkflowWithActionsStage,
+  WorkflowWithOutputStage,
+  WorkflowWithPartsStage,
+} from '../types';
+import type { components } from '../generated/api-types'
 import { ValidationError } from '../errors';
-import { WorkflowBuilder } from '../workflow';
+import * as workflowModule from '../workflow';
 import * as inputsModule from '../inputs';
 import * as httpModule from '../http';
 
@@ -11,11 +22,122 @@ jest.mock('../inputs');
 jest.mock('../http');
 jest.mock('../workflow');
 
+// Mock interfaces for workflow stages
+interface MockWorkflowWithOutputStage<T extends keyof OutputTypeMap | undefined = undefined>
+  extends WorkflowWithOutputStage<T> {
+  execute: jest.MockedFunction<
+    (options?: WorkflowExecuteOptions) => Promise<TypedWorkflowResult<T>>
+  >;
+  dryRun: jest.MockedFunction<
+    (options?: Pick<WorkflowExecuteOptions, 'timeout'>) => Promise<WorkflowDryRunResult>
+  >;
+}
+
+interface MockWorkflowWithPartsStage extends WorkflowWithPartsStage {
+  addPart: jest.MockedFunction<(part: components['schemas']['Part']) => WorkflowWithPartsStage>;
+  addFilePart: jest.MockedFunction<
+    (
+      file: FileInput,
+      options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
+      actions?: components['schemas']['BuildAction'][],
+    ) => WorkflowWithPartsStage
+  >;
+  addHtmlPart: jest.MockedFunction<
+    (
+      html: string | Blob,
+      options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
+      actions?: components['schemas']['BuildAction'][],
+    ) => WorkflowWithPartsStage
+  >;
+  addNewPage: jest.MockedFunction<
+    (
+      options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
+      actions?: components['schemas']['BuildAction'][],
+    ) => WorkflowWithPartsStage
+  >;
+  addDocumentPart: jest.MockedFunction<
+    (
+      documentId: string,
+      options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
+        layer?: string;
+      },
+      actions?: components['schemas']['BuildAction'][],
+    ) => WorkflowWithPartsStage
+  >;
+  applyActions: jest.MockedFunction<
+    (actions: components['schemas']['BuildAction'][]) => WorkflowWithActionsStage
+  >;
+  applyAction: jest.MockedFunction<
+    (action: components['schemas']['BuildAction']) => WorkflowWithActionsStage
+  >;
+  output: jest.MockedFunction<
+    (output: components['schemas']['BuildOutput']) => WorkflowWithOutputStage
+  >;
+  outputPdf: jest.MockedFunction<
+    (
+      options?: Omit<components['schemas']['PDFOutput'], 'type'>,
+    ) => MockWorkflowWithOutputStage<'pdf'>
+  >;
+  outputPdfA: jest.MockedFunction<
+    (
+      options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
+    ) => MockWorkflowWithOutputStage<'pdfa'>
+  >;
+  outputImage: jest.MockedFunction<
+    (
+      options?: Omit<components['schemas']['ImageOutput'], 'type'>,
+    ) => MockWorkflowWithOutputStage<'image'>
+  >;
+  outputOffice: jest.MockedFunction<
+    <T extends 'docx' | 'xlsx' | 'pptx'>(format: T) => MockWorkflowWithOutputStage<T>
+  >;
+  outputJson: jest.MockedFunction<
+    (
+      options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
+    ) => MockWorkflowWithOutputStage<'json-content'>
+  >;
+}
+
+interface MockWorkflowInitialStage extends WorkflowInitialStage {
+  addPart: jest.MockedFunction<(part: components['schemas']['Part']) => MockWorkflowWithPartsStage>;
+  addFilePart: jest.MockedFunction<
+    (
+      file: FileInput,
+      options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
+      actions?: components['schemas']['BuildAction'][],
+    ) => MockWorkflowWithPartsStage
+  >;
+  addHtmlPart: jest.MockedFunction<
+    (
+      html: string | Blob,
+      options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
+      actions?: components['schemas']['BuildAction'][],
+    ) => MockWorkflowWithPartsStage
+  >;
+  addNewPage: jest.MockedFunction<
+    (
+      options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
+      actions?: components['schemas']['BuildAction'][],
+    ) => MockWorkflowWithPartsStage
+  >;
+  addDocumentPart: jest.MockedFunction<
+    (
+      documentId: string,
+      options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
+        layer?: string;
+      },
+      actions?: components['schemas']['BuildAction'][],
+    ) => MockWorkflowWithPartsStage
+  >;
+}
+
 const mockValidateFileInput = inputsModule.validateFileInput as jest.MockedFunction<
   typeof inputsModule.validateFileInput
 >;
-const mockSendRequest = httpModule.sendRequest as jest.MockedFunction<typeof httpModule.sendRequest>;
-const MockWorkflowBuilder = WorkflowBuilder as jest.MockedClass<typeof WorkflowBuilder>;
+const mockSendRequest = httpModule.sendRequest as jest.MockedFunction<
+  typeof httpModule.sendRequest
+>;
+const mockWorkflow = workflowModule.workflow as jest.MockedFunction<typeof workflowModule.workflow>;
 
 describe('NutrientClient', () => {
   const validOptions: NutrientClientOptions = {
@@ -38,20 +160,17 @@ describe('NutrientClient', () => {
     it('should create client with valid options', () => {
       const client = new NutrientClient(validOptions);
       expect(client).toBeDefined();
-      expect(client.getApiKey()).toBe('test-api-key');
-      expect(client.getBaseUrl()).toBe('https://api.test.com/v1');
     });
 
     it('should create client with minimal options', () => {
       const client = new NutrientClient({ apiKey: 'test-key' });
-      expect(client.getApiKey()).toBe('test-key');
-      expect(client.getBaseUrl()).toBe('https://api.nutrient.io/v1'); // Default base URL
+      expect(client).toBeDefined();
     });
 
     it('should create client with async API key function', () => {
-      const asyncApiKey = async (): Promise<string> => 'async-key';
+      const asyncApiKey = (): Promise<string> => Promise.resolve('async-key');
       const client = new NutrientClient({ apiKey: asyncApiKey });
-      expect(client.getApiKey()).toBe(asyncApiKey);
+      expect(client).toBeDefined();
     });
 
     it('should throw ValidationError for missing options', () => {
@@ -65,9 +184,7 @@ describe('NutrientClient', () => {
 
     it('should throw ValidationError for missing API key', () => {
       expect(() => new NutrientClient({} as NutrientClientOptions)).toThrow(ValidationError);
-      expect(() => new NutrientClient({} as NutrientClientOptions)).toThrow(
-        'API key is required',
-      );
+      expect(() => new NutrientClient({} as NutrientClientOptions)).toThrow('API key is required');
     });
 
     it('should throw ValidationError for invalid API key type', () => {
@@ -97,419 +214,278 @@ describe('NutrientClient', () => {
     });
   });
 
-  describe('convert', () => {
+  describe('workflow()', () => {
     let client: NutrientClient;
+    let mockWorkflowInstance: MockWorkflowInitialStage;
 
     beforeEach(() => {
       client = new NutrientClient(validOptions);
+      mockWorkflowInstance = {
+        addPart: jest.fn().mockReturnThis(),
+        addFilePart: jest.fn().mockReturnThis(),
+        addHtmlPart: jest.fn().mockReturnThis(),
+        addNewPage: jest.fn().mockReturnThis(),
+        addDocumentPart: jest.fn().mockReturnThis(),
+      } as MockWorkflowInitialStage;
+      mockWorkflow.mockReturnValue(mockWorkflowInstance);
     });
 
-    it('should convert document successfully', async () => {
-      const mockBlob = new Blob(['converted content'], { type: 'application/pdf' });
-      mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
+    it('should create workflow instance', () => {
+      const workflow = client.workflow();
 
-      const result = await client.convert('test.docx', 'pdf', { quality: 90 });
-
-      expect(result).toBe(mockBlob);
-      expect(mockValidateFileInput).toHaveBeenCalledWith('test.docx');
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        {
-          endpoint: '/convert',
-          method: 'POST',
-          files: { file: 'test.docx' },
-          data: { targetFormat: 'pdf', quality: 90 },
-        },
-        validOptions,
-      );
+      expect(mockWorkflow).toHaveBeenCalledWith(validOptions);
+      expect(workflow).toBe(mockWorkflowInstance);
     });
 
-    it('should convert without options', async () => {
-      await client.convert('test.docx', 'pdf');
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { targetFormat: 'pdf' },
-        }),
-        validOptions,
-      );
-    });
-
-    it('should throw ValidationError for invalid file input', async () => {
-      mockValidateFileInput.mockReturnValue(false);
-
-      await expect(client.convert('invalid-file', 'pdf')).rejects.toThrow(ValidationError);
-      await expect(client.convert('invalid-file', 'pdf')).rejects.toThrow(
-        'Invalid file input provided',
-      );
-    });
-  });
-
-  describe('merge', () => {
-    let client: NutrientClient;
-
-    beforeEach(() => {
-      client = new NutrientClient(validOptions);
-    });
-
-    it('should merge documents successfully', async () => {
-      const mockBlob = new Blob(['merged content'], { type: 'application/pdf' });
-      mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
-
-      const files = ['file1.pdf', 'file2.pdf', 'file3.pdf'];
-      const result = await client.merge(files, 'pdf');
-
-      expect(result).toBe(mockBlob);
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        {
-          endpoint: '/merge',
-          method: 'POST',
-          files: {
-            'files[0]': 'file1.pdf',
-            'files[1]': 'file2.pdf',
-            'files[2]': 'file3.pdf',
-          },
-          data: { outputFormat: 'pdf' },
-        },
-        validOptions,
-      );
-    });
-
-    it('should merge without output format', async () => {
-      const files = ['file1.pdf', 'file2.pdf'];
-      await client.merge(files);
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { outputFormat: undefined },
-        }),
-        validOptions,
-      );
-    });
-
-    it('should throw ValidationError for insufficient files', async () => {
-      await expect(client.merge(['single-file.pdf'])).rejects.toThrow(ValidationError);
-      await expect(client.merge(['single-file.pdf'])).rejects.toThrow(
-        'At least 2 files are required for merge operation',
-      );
-
-      await expect(client.merge([])).rejects.toThrow(ValidationError);
-      await expect(client.merge([])).rejects.toThrow(
-        'At least 2 files are required for merge operation',
-      );
-    });
-
-    it('should throw ValidationError for non-array input', async () => {
-      await expect(client.merge('not-an-array' as unknown as string[])).rejects.toThrow(
-        ValidationError,
-      );
-    });
-
-    it('should throw ValidationError for invalid file in array', async () => {
-      mockValidateFileInput.mockImplementation((file) => file !== 'invalid-file');
-
-      await expect(client.merge(['valid-file.pdf', 'invalid-file'])).rejects.toThrow(
-        ValidationError,
-      );
-      await expect(client.merge(['valid-file.pdf', 'invalid-file'])).rejects.toThrow(
-        'Invalid file at index 1',
-      );
-    });
-
-    it('should throw ValidationError for null/undefined file in array', async () => {
-      await expect(client.merge(['valid-file.pdf', null as unknown as string])).rejects.toThrow(
-        ValidationError,
-      );
-      await expect(client.merge(['valid-file.pdf', null as unknown as string])).rejects.toThrow(
-        'Invalid file at index 1',
-      );
-    });
-  });
-
-  describe('compress', () => {
-    let client: NutrientClient;
-
-    beforeEach(() => {
-      client = new NutrientClient(validOptions);
-    });
-
-    it('should compress document successfully', async () => {
-      const mockBlob = new Blob(['compressed content'], { type: 'application/pdf' });
-      mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
-
-      const result = await client.compress('large-file.pdf', 'high');
-
-      expect(result).toBe(mockBlob);
-      expect(mockValidateFileInput).toHaveBeenCalledWith('large-file.pdf');
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        {
-          endpoint: '/compress',
-          method: 'POST',
-          files: { file: 'large-file.pdf' },
-          data: { compressionLevel: 'high' },
-        },
-        validOptions,
-      );
-    });
-
-    it('should compress without compression level', async () => {
-      await client.compress('file.pdf');
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { compressionLevel: undefined },
-        }),
-        validOptions,
-      );
-    });
-
-    it('should throw ValidationError for invalid file input', async () => {
-      mockValidateFileInput.mockReturnValue(false);
-
-      await expect(client.compress('invalid-file')).rejects.toThrow(ValidationError);
-      await expect(client.compress('invalid-file')).rejects.toThrow(
-        'Invalid file input provided',
-      );
-    });
-  });
-
-  describe('extractText', () => {
-    let client: NutrientClient;
-
-    beforeEach(() => {
-      client = new NutrientClient(validOptions);
-    });
-
-    it('should extract text successfully', async () => {
-      const mockResponse = {
-        text: 'Extracted text content',
-        metadata: { pages: 5, wordCount: 100 },
-      };
-      mockSendRequest.mockResolvedValueOnce({
-        data: mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
-
-      const result = await client.extractText('document.pdf', true);
-
-      expect(result).toBe(mockResponse);
-      expect(mockValidateFileInput).toHaveBeenCalledWith('document.pdf');
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        {
-          endpoint: '/extract',
-          method: 'POST',
-          files: { file: 'document.pdf' },
-          data: { includeMetadata: true },
-        },
-        validOptions,
-      );
-    });
-
-    it('should extract text without metadata', async () => {
-      const mockResponse = { text: 'Extracted text content' };
-      mockSendRequest.mockResolvedValueOnce({
-        data: mockResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
-
-      const result = await client.extractText('document.pdf');
-
-      expect(result).toBe(mockResponse);
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { includeMetadata: undefined },
-        }),
-        validOptions,
-      );
-    });
-
-    it('should throw ValidationError for invalid file input', async () => {
-      mockValidateFileInput.mockReturnValue(false);
-
-      await expect(client.extractText('invalid-file')).rejects.toThrow(ValidationError);
-      await expect(client.extractText('invalid-file')).rejects.toThrow(
-        'Invalid file input provided',
-      );
-    });
-  });
-
-  describe('watermark', () => {
-    let client: NutrientClient;
-
-    beforeEach(() => {
-      client = new NutrientClient(validOptions);
-    });
-
-    it('should add watermark successfully', async () => {
-      const mockBlob = new Blob(['watermarked content'], { type: 'application/pdf' });
-      mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
-
-      const result = await client.watermark('document.pdf', 'CONFIDENTIAL', {
-        position: 'center',
-        opacity: 0.5,
-        fontSize: 48,
-      });
-
-      expect(result).toBe(mockBlob);
-      expect(mockValidateFileInput).toHaveBeenCalledWith('document.pdf');
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        {
-          endpoint: '/watermark',
-          method: 'POST',
-          files: { file: 'document.pdf' },
-          data: {
-            watermarkText: 'CONFIDENTIAL',
-            position: 'center',
-            opacity: 0.5,
-            fontSize: 48,
-          },
-        },
-        validOptions,
-      );
-    });
-
-    it('should add watermark without options', async () => {
-      await client.watermark('document.pdf', 'DRAFT');
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { watermarkText: 'DRAFT' },
-        }),
-        validOptions,
-      );
-    });
-
-    it('should throw ValidationError for invalid file input', async () => {
-      mockValidateFileInput.mockReturnValue(false);
-
-      await expect(client.watermark('invalid-file', 'TEXT')).rejects.toThrow(ValidationError);
-      await expect(client.watermark('invalid-file', 'TEXT')).rejects.toThrow(
-        'Invalid file input provided',
-      );
-    });
-
-    it('should throw ValidationError for missing watermark text', async () => {
-      await expect(client.watermark('document.pdf', '')).rejects.toThrow(ValidationError);
-      await expect(client.watermark('document.pdf', '')).rejects.toThrow(
-        'Watermark text is required and must be a string',
-      );
-
-      await expect(
-        client.watermark('document.pdf', null as unknown as string),
-      ).rejects.toThrow(ValidationError);
-      await expect(
-        client.watermark('document.pdf', null as unknown as string),
-      ).rejects.toThrow('Watermark text is required and must be a string');
-    });
-
-    it('should throw ValidationError for invalid watermark text type', async () => {
-      await expect(
-        client.watermark('document.pdf', 123 as unknown as string),
-      ).rejects.toThrow(ValidationError);
-      await expect(
-        client.watermark('document.pdf', 123 as unknown as string),
-      ).rejects.toThrow('Watermark text is required and must be a string');
-    });
-  });
-
-  describe('buildWorkflow', () => {
-    let client: NutrientClient;
-
-    beforeEach(() => {
-      client = new NutrientClient(validOptions);
-    });
-
-    it('should create WorkflowBuilder instance', () => {
-      const workflow = client.buildWorkflow();
-
-      expect(MockWorkflowBuilder).toHaveBeenCalledWith(validOptions);
-      expect(workflow).toBeInstanceOf(WorkflowBuilder);
-    });
-
-    it('should pass client options to WorkflowBuilder', () => {
+    it('should pass client options to workflow', () => {
       const customOptions = { apiKey: 'custom-key', baseUrl: 'https://custom.api.com' };
       const customClient = new NutrientClient(customOptions);
 
-      customClient.buildWorkflow();
+      customClient.workflow();
 
-      expect(MockWorkflowBuilder).toHaveBeenCalledWith(customOptions);
+      expect(mockWorkflow).toHaveBeenCalledWith(customOptions);
     });
   });
 
-  describe('getApiKey', () => {
-    it('should return string API key', () => {
-      const client = new NutrientClient({ apiKey: 'string-key' });
-      expect(client.getApiKey()).toBe('string-key');
-    });
-
-    it('should return function API key', () => {
-      const asyncApiKey = async (): Promise<string> => 'async-key';
-      const client = new NutrientClient({ apiKey: asyncApiKey });
-      expect(client.getApiKey()).toBe(asyncApiKey);
-    });
-  });
-
-  describe('getBaseUrl', () => {
-    it('should return custom base URL', () => {
-      const client = new NutrientClient({
-        apiKey: 'test-key',
-        baseUrl: 'https://custom.api.com/v2',
-      });
-      expect(client.getBaseUrl()).toBe('https://custom.api.com/v2');
-    });
-
-    it('should return default base URL when not specified', () => {
-      const client = new NutrientClient({ apiKey: 'test-key' });
-      expect(client.getBaseUrl()).toBe('https://api.nutrient.io/v1');
-    });
-  });
-
-  describe('error handling integration', () => {
+  describe('ocr()', () => {
     let client: NutrientClient;
+    let mockWorkflowInstance: MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
 
     beforeEach(() => {
       client = new NutrientClient(validOptions);
+      const mockOutputStage = {
+        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
+        dryRun: jest.fn(),
+      } as MockWorkflowWithOutputStage;
+
+      mockWorkflowInstance = {
+        addPart: jest.fn().mockReturnThis(),
+        addFilePart: jest.fn().mockReturnThis(),
+        addHtmlPart: jest.fn().mockReturnThis(),
+        addNewPage: jest.fn().mockReturnThis(),
+        addDocumentPart: jest.fn().mockReturnThis(),
+        applyActions: jest.fn().mockReturnThis(),
+        applyAction: jest.fn().mockReturnThis(),
+        output: jest.fn().mockReturnThis(),
+        outputPdf: jest.fn().mockReturnValue(mockOutputStage),
+        outputPdfA: jest.fn().mockReturnValue(mockOutputStage),
+        outputImage: jest.fn().mockReturnValue(mockOutputStage),
+        outputOffice: jest.fn().mockReturnValue(mockOutputStage),
+        outputJson: jest.fn().mockReturnValue(mockOutputStage),
+        execute: mockOutputStage.execute,
+        dryRun: mockOutputStage.dryRun,
+      } as MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
+      mockWorkflow.mockReturnValue(mockWorkflowInstance);
     });
 
-    it('should propagate HTTP errors from sendRequest', async () => {
-      const httpError = new Error('Network error');
-      mockSendRequest.mockRejectedValueOnce(httpError);
+    it('should perform OCR with single language and default PDF output', async () => {
+      const file = 'test-file.pdf';
+      const language = 'english';
 
-      await expect(client.convert('test.pdf', 'docx')).rejects.toThrow(httpError);
+      await client.ocr(file, language);
+
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
+        { type: 'ocr', language: 'english' },
+      ]);
+      expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
+      expect(mockWorkflowInstance.execute).toHaveBeenCalled();
     });
 
-    it('should handle validation errors consistently across methods', async () => {
-      mockValidateFileInput.mockReturnValue(false);
+    it('should perform OCR with multiple languages', async () => {
+      const file = 'test-file.pdf';
+      const languages = ['english', 'spanish'] as components['schemas']['OcrLanguage'][];
 
-      await expect(client.convert('invalid', 'pdf')).rejects.toThrow('Invalid file input provided');
-      await expect(client.compress('invalid')).rejects.toThrow('Invalid file input provided');
-      await expect(client.extractText('invalid')).rejects.toThrow('Invalid file input provided');
-      await expect(client.watermark('invalid', 'text')).rejects.toThrow(
-        'Invalid file input provided',
-      );
+      await client.ocr(file, languages);
+
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
+        { type: 'ocr', language: ['english', 'spanish'] },
+      ]);
+    });
+
+    it('should perform OCR with PDF/A output format', async () => {
+      const file = 'test-file.pdf';
+      const language = 'english';
+
+      await client.ocr(file, language, 'pdfa');
+
+      expect(mockWorkflowInstance.outputPdfA).toHaveBeenCalled();
+      expect(mockWorkflowInstance.outputPdf).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('watermark()', () => {
+    let client: NutrientClient;
+    let mockWorkflowInstance: MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
+
+    beforeEach(() => {
+      client = new NutrientClient(validOptions);
+      const mockOutputStage = {
+        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
+        dryRun: jest.fn(),
+      } as MockWorkflowWithOutputStage;
+
+      mockWorkflowInstance = {
+        addPart: jest.fn().mockReturnThis(),
+        addFilePart: jest.fn().mockReturnThis(),
+        addHtmlPart: jest.fn().mockReturnThis(),
+        addNewPage: jest.fn().mockReturnThis(),
+        addDocumentPart: jest.fn().mockReturnThis(),
+        applyActions: jest.fn().mockReturnThis(),
+        applyAction: jest.fn().mockReturnThis(),
+        output: jest.fn().mockReturnThis(),
+        outputPdf: jest.fn().mockReturnValue(mockOutputStage),
+        outputPdfA: jest.fn().mockReturnValue(mockOutputStage),
+        outputImage: jest.fn().mockReturnValue(mockOutputStage),
+        outputOffice: jest.fn().mockReturnValue(mockOutputStage),
+        outputJson: jest.fn().mockReturnValue(mockOutputStage),
+        execute: mockOutputStage.execute,
+        dryRun: mockOutputStage.dryRun,
+      } as MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
+      mockWorkflow.mockReturnValue(mockWorkflowInstance);
+    });
+
+    it('should add text watermark with default options', async () => {
+      const file = 'test-file.pdf';
+      const text = 'CONFIDENTIAL';
+
+      await client.watermark(file, text);
+
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
+        expect.objectContaining({
+          type: 'watermark',
+          text: 'CONFIDENTIAL',
+          width: { value: 100, unit: '%' },
+          height: { value: 100, unit: '%' },
+        }),
+      ]);
+      expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
+    });
+
+    it('should add text watermark with custom options', async () => {
+      const file = 'test-file.pdf';
+      const text = 'DRAFT';
+      const options = {
+        opacity: 0.5,
+        fontSize: 24,
+        fontColor: '#ff0000',
+        rotation: 45,
+      };
+
+      await client.watermark(file, text, options);
+
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
+        expect.objectContaining({
+          type: 'watermark',
+          text: 'DRAFT',
+          opacity: 0.5,
+          fontSize: 24,
+          fontColor: '#ff0000',
+          rotation: 45,
+        }),
+      ]);
+    });
+
+    it('should add watermark with PDF/A output format', async () => {
+      const file = 'test-file.pdf';
+      const text = 'CONFIDENTIAL';
+
+      await client.watermark(file, text, {}, 'pdfa');
+
+      expect(mockWorkflowInstance.outputPdfA).toHaveBeenCalled();
+      expect(mockWorkflowInstance.outputPdf).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('convert()', () => {
+    let client: NutrientClient;
+    let mockWorkflowInstance: MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
+
+    beforeEach(() => {
+      client = new NutrientClient(validOptions);
+      const mockOutputStage = {
+        execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
+        dryRun: jest.fn(),
+      } as MockWorkflowWithOutputStage;
+
+      mockWorkflowInstance = {
+        addPart: jest.fn().mockReturnThis(),
+        addFilePart: jest.fn().mockReturnThis(),
+        addHtmlPart: jest.fn().mockReturnThis(),
+        addNewPage: jest.fn().mockReturnThis(),
+        addDocumentPart: jest.fn().mockReturnThis(),
+        applyActions: jest.fn().mockReturnThis(),
+        applyAction: jest.fn().mockReturnThis(),
+        output: jest.fn().mockReturnThis(),
+        outputPdf: jest.fn().mockReturnValue(mockOutputStage),
+        outputPdfA: jest.fn().mockReturnValue(mockOutputStage),
+        outputImage: jest.fn().mockReturnValue(mockOutputStage),
+        outputOffice: jest.fn().mockReturnValue(mockOutputStage),
+        outputJson: jest.fn().mockReturnValue(mockOutputStage),
+        execute: mockOutputStage.execute,
+        dryRun: mockOutputStage.dryRun,
+      } as MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
+      mockWorkflow.mockReturnValue(mockWorkflowInstance);
+    });
+
+    it('should convert to PDF', async () => {
+      const file = 'test-file.docx';
+
+      await client.convert(file, 'pdf');
+
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file);
+      expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
+      expect(mockWorkflowInstance.execute).toHaveBeenCalled();
+    });
+
+    it('should convert to PDF/A', async () => {
+      const file = 'test-file.docx';
+
+      await client.convert(file, 'pdfa');
+
+      expect(mockWorkflowInstance.outputPdfA).toHaveBeenCalled();
+    });
+
+    it('should convert to DOCX', async () => {
+      const file = 'test-file.pdf';
+
+      await client.convert(file, 'docx');
+
+      expect(mockWorkflowInstance.outputOffice).toHaveBeenCalledWith('docx');
+    });
+
+    it('should convert to XLSX', async () => {
+      const file = 'test-file.pdf';
+
+      await client.convert(file, 'xlsx');
+
+      expect(mockWorkflowInstance.outputOffice).toHaveBeenCalledWith('xlsx');
+    });
+
+    it('should convert to PPTX', async () => {
+      const file = 'test-file.pdf';
+
+      await client.convert(file, 'pptx');
+
+      expect(mockWorkflowInstance.outputOffice).toHaveBeenCalledWith('pptx');
+    });
+
+    it('should convert to image', async () => {
+      const file = 'test-file.pdf';
+
+      await client.convert(file, 'image');
+
+      expect(mockWorkflowInstance.outputImage).toHaveBeenCalled();
+    });
+
+    it('should throw ValidationError for unsupported format', async () => {
+      const file = 'test-file.pdf';
+
+      await expect(
+        client.convert(file, 'unsupported' as 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'image'),
+      ).rejects.toThrow(ValidationError);
+      await expect(
+        client.convert(file, 'unsupported' as 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'image'),
+      ).rejects.toThrow('Unsupported target format: unsupported');
     });
   });
 });

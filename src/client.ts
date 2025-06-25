@@ -1,11 +1,9 @@
-import type { NutrientClientOptions } from './types/common';
-import type { FileInput } from './types';
-import type { components } from './types/nutrient-api';
+import type { FileInput, NutrientClientOptions, WorkflowInitialStage, WorkflowResult, TypedWorkflowResult } from './types';
 import { ValidationError } from './errors';
-import { sendRequest } from './http';
-import { validateFileInput } from './inputs';
-import { WorkflowBuilder } from './workflow';
-import { BuildApiBuilder, BuildActions } from './build';
+import { workflow } from './workflow';
+import type { components } from './generated/api-types';
+
+const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
 
 /**
  * Main client for interacting with the Nutrient Document Web Services API.
@@ -68,275 +66,6 @@ export class NutrientClient {
   }
 
   /**
-   * Converts a document to a different format
-   *
-   * @param file - The document file to convert
-   * @param targetFormat - Target format for conversion
-   * @param options - Additional conversion options
-   * @returns Promise resolving to the converted file
-   *
-   * @example
-   * ```typescript
-   * const pdfBlob = await client.convert(
-   *   'path/to/document.docx',
-   *   'pdf',
-   *   { optimize: true }
-   * );
-   * ```
-   */
-  async convert(
-    file: FileInput,
-    targetFormat: 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'png' | 'jpeg' | 'webp',
-    options?: {
-      optimize?: boolean;
-      conformance?: components['schemas']['PDFAOutput']['conformance'];
-      width?: number;
-      height?: number;
-      dpi?: number;
-    },
-  ): Promise<Blob> {
-    if (!validateFileInput(file)) {
-      throw new ValidationError('Invalid file input provided', { file });
-    }
-
-    const builder = this.build().addFile(file);
-
-    // Set output based on target format
-    switch (targetFormat) {
-      case 'pdf':
-        builder.setOutput({
-          type: 'pdf',
-          ...(options?.optimize && {
-            optimize: {
-              linearize: true,
-              imageOptimizationQuality: 2,
-            },
-          }),
-        });
-        break;
-      case 'pdfa':
-        builder.setOutput({
-          type: 'pdfa',
-          conformance: options?.conformance,
-        });
-        break;
-      case 'docx':
-      case 'xlsx':
-      case 'pptx':
-        builder.setOutput({ type: targetFormat });
-        break;
-      case 'png':
-      case 'jpeg':
-      case 'webp':
-        builder.setOutput({
-          type: 'image',
-          format: targetFormat === 'jpeg' ? 'jpg' : targetFormat,
-          ...(options?.width && { width: options.width }),
-          ...(options?.height && { height: options.height }),
-          ...(options?.dpi && { dpi: options.dpi }),
-        });
-        break;
-      default:
-        throw new ValidationError(`Unsupported target format: ${targetFormat as string}`);
-    }
-
-    return builder.execute<Blob>();
-  }
-
-  /**
-   * Merges multiple documents into one
-   *
-   * @param files - Array of document files to merge
-   * @param outputFormat - Output format for merged document (default: 'pdf')
-   * @returns Promise resolving to the merged file
-   *
-   * @example
-   * ```typescript
-   * const mergedPdf = await client.merge([
-   *   'doc1.pdf',
-   *   'doc2.pdf',
-   *   'doc3.pdf'
-   * ]);
-   * ```
-   */
-  async merge(files: FileInput[], outputFormat: 'pdf' | 'pdfa' = 'pdf'): Promise<Blob> {
-    if (!Array.isArray(files) || files.length < 2) {
-      throw new ValidationError('At least 2 files are required for merge operation');
-    }
-
-    // Validate all files
-    const builder = this.build();
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file || !validateFileInput(file)) {
-        throw new ValidationError(`Invalid file at index ${i}`, { file });
-      }
-      builder.addFile(file);
-    }
-
-    // Set output format
-    if (outputFormat === 'pdfa') {
-      builder.setOutput({ type: 'pdfa' });
-    } else {
-      builder.setOutput({ type: 'pdf' });
-    }
-
-    return builder.execute<Blob>();
-  }
-
-  /**
-   * Compresses a document to reduce file size
-   *
-   * @param file - The document file to compress
-   * @param compressionLevel - Level of compression to apply
-   * @returns Promise resolving to the compressed file
-   *
-   * @example
-   * ```typescript
-   * const compressedPdf = await client.compress(
-   *   largePdfFile,
-   *   'high'
-   * );
-   * ```
-   */
-  async compress(
-    file: FileInput,
-    compressionLevel: 'low' | 'medium' | 'high' = 'medium',
-  ): Promise<Blob> {
-    if (!validateFileInput(file)) {
-      throw new ValidationError('Invalid file input provided', { file });
-    }
-
-    // Map compression levels to optimization settings
-    const optimizationSettings: components['schemas']['OptimizePdf'] = {};
-    switch (compressionLevel) {
-      case 'low':
-        optimizationSettings.imageOptimizationQuality = 4;
-        break;
-      case 'medium':
-        optimizationSettings.imageOptimizationQuality = 2;
-        optimizationSettings.linearize = true;
-        break;
-      case 'high':
-        optimizationSettings.imageOptimizationQuality = 1;
-        optimizationSettings.linearize = true;
-        optimizationSettings.mrcCompression = true;
-        optimizationSettings.disableImages = false;
-        optimizationSettings.grayscaleImages = true;
-        break;
-    }
-
-    return this.build()
-      .addFile(file)
-      .setOutput({
-        type: 'pdf',
-        optimize: optimizationSettings,
-      })
-      .execute<Blob>();
-  }
-
-  /**
-   * Extracts text content from a document
-   *
-   * @param file - The document file to extract text from
-   * @param options - Extraction options
-   * @returns Promise resolving to extracted text and metadata
-   *
-   * @example
-   * ```typescript
-   * const result = await client.extractText(
-   *   'document.pdf',
-   *   { structuredText: true, tables: true }
-   * );
-   * console.log(result.plainText);
-   * console.log(result.tables);
-   * ```
-   */
-  async extractText(
-    file: FileInput,
-    options?: {
-      structuredText?: boolean;
-      keyValuePairs?: boolean;
-      tables?: boolean;
-      language?: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][];
-    },
-  ): Promise<components['schemas']['JSONContentOutput']> {
-    if (!validateFileInput(file)) {
-      throw new ValidationError('Invalid file input provided', { file });
-    }
-
-    return this.build()
-      .addFile(file)
-      .setOutput({
-        type: 'json-content',
-        plainText: true,
-        structuredText: options?.structuredText,
-        keyValuePairs: options?.keyValuePairs,
-        tables: options?.tables,
-        language: options?.language,
-      })
-      .execute<components['schemas']['JSONContentOutput']>();
-  }
-
-  /**
-   * Adds a watermark to a document
-   *
-   * @param file - The document file to watermark
-   * @param watermarkText - Text to use as watermark
-   * @param options - Watermark positioning and styling options
-   * @returns Promise resolving to the watermarked file
-   *
-   * @example
-   * ```typescript
-   * const watermarkedPdf = await client.watermark(
-   *   'document.pdf',
-   *   'CONFIDENTIAL',
-   *   {
-   *     opacity: 0.3,
-   *     fontSize: 48,
-   *     fontColor: '#FF0000'
-   *   }
-   * );
-   * ```
-   */
-  async watermark(
-    file: FileInput,
-    watermarkText: string,
-    options?: {
-      opacity?: number;
-      fontSize?: number;
-      fontColor?: string;
-      fontFamily?: string;
-      rotation?: number;
-    },
-  ): Promise<Blob> {
-    if (!validateFileInput(file)) {
-      throw new ValidationError('Invalid file input provided', { file });
-    }
-
-    if (!watermarkText || typeof watermarkText !== 'string') {
-      throw new ValidationError('Watermark text is required and must be a string');
-    }
-
-    // Create watermark action with sensible defaults
-    const watermarkAction = BuildActions.watermarkText(watermarkText, {
-      width: { value: 50, unit: '%' as const },
-      height: { value: 50, unit: '%' as const },
-      opacity: options?.opacity ?? 0.5,
-      fontSize: options?.fontSize ?? 36,
-      fontColor: options?.fontColor ?? '#000000',
-      fontFamily: options?.fontFamily ?? 'Helvetica',
-      rotation: options?.rotation ?? 45,
-    });
-
-    return this.build()
-      .addFile(file)
-      .withActions([watermarkAction])
-      .setOutput({ type: 'pdf' })
-      .execute<Blob>();
-  }
-
-  /**
    * Creates a new WorkflowBuilder for chaining multiple operations
    *
    * @returns A new WorkflowBuilder instance
@@ -344,79 +73,295 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client
-   *   .buildWorkflow()
-   *   .input('document.docx')
-   *   .convert('pdf')
-   *   .compress('high')
-   *   .watermark('DRAFT', { opacity: 0.5 })
+   *   .workflow()
+   *   .addFilePart('document.docx')
+   *   .applyAction(BuildActions.ocr('english'))
+   *   .outputPdf()
    *   .execute();
    * ```
    */
-  buildWorkflow(): WorkflowBuilder {
-    return new WorkflowBuilder(this.options);
+  workflow(): WorkflowInitialStage {
+    return workflow(this.options);
   }
 
+
   /**
-   * Creates a new BuildApiBuilder for assembling documents using the Build API
+   * Performs OCR (Optical Character Recognition) on a document
+   * This is a convenience method that uses the workflow builder.
    *
-   * @returns A new BuildApiBuilder instance
+   * @param file - The input file to perform OCR on
+   * @param language - The language(s) to use for OCR
+   * @param outputFormat - The output format (default: 'pdf')
+   * @returns Promise resolving to the OCR result
    *
    * @example
    * ```typescript
-   * const result = await client
-   *   .build()
-   *   .addFile('page1.pdf')
-   *   .addFile('page2.pdf', { pages: { start: 0, end: 2 } })
-   *   .addHtml('<h1>Cover Page</h1>')
-   *   .withActions([BuildActions.ocr('english')])
-   *   .execute();
+   * const result = await client.ocr('scanned-document.pdf', 'english');
    * ```
    */
-  build(): BuildApiBuilder {
-    return new BuildApiBuilder(this.options);
+  async ocr(
+    file: FileInput,
+    language: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][],
+    outputFormat: 'pdf' | 'pdfa' = 'pdf',
+  ): Promise<WorkflowResult> {
+    const ocrAction: components['schemas']['OcrAction'] = {
+      type: 'ocr',
+      language,
+    };
+
+    const builder = this.workflow().addFilePart(file, undefined, [ocrAction]);
+
+    return outputFormat === 'pdf' 
+      ? builder.outputPdf().execute()
+      : builder.outputPdfA().execute();
   }
 
   /**
-   * Analyzes a Build API request without executing it
-   * Returns the credit cost that would be consumed
+   * Adds a text watermark to a document
+   * This is a convenience method that uses the workflow builder.
    *
-   * @param instructions - Build instructions to analyze
-   * @returns Promise resolving to the analysis result
+   * @param file - The input file to watermark
+   * @param text - The watermark text
+   * @param options - Watermark options
+   * @param outputFormat - The output format (default: 'pdf')
+   * @returns Promise resolving to the watermarked document
    *
    * @example
    * ```typescript
-   * const builder = client.build().addFile('document.pdf');
-   * const analysis = await client.analyzeBuild(builder.getInstructions());
-   * console.log(`This operation would cost ${analysis.cost} credits`);
+   * const result = await client.watermark('document.pdf', 'CONFIDENTIAL', {
+   *   opacity: 0.5,
+   *   fontSize: 24
+   * });
    * ```
    */
-  async analyzeBuild(
-    instructions: components['schemas']['BuildInstructions'],
-  ): Promise<components['schemas']['AnalyzeBuildResponse']> {
-    const response = await sendRequest<components['schemas']['AnalyzeBuildResponse']>(
-      {
-        endpoint: '/analyze_build',
-        method: 'POST',
-        data: instructions,
+  async watermark(
+    file: FileInput,
+    text: string,
+    options: Partial<Omit<components['schemas']['TextWatermarkAction'], 'type' | 'text'>> = {},
+    outputFormat: 'pdf' | 'pdfa' = 'pdf',
+  ): Promise<WorkflowResult> {
+    const watermarkAction: components['schemas']['TextWatermarkAction'] = {
+      type: 'watermark',
+      text,
+      rotation: options.rotation ?? 0,
+      width: options.width ?? DEFAULT_DIMENSION,
+      height: options.height ?? DEFAULT_DIMENSION,
+      ...options,
+    };
+
+    const builder = this.workflow().addFilePart(file, undefined, [watermarkAction]);
+
+    return outputFormat === 'pdf'
+      ? builder.outputPdf().execute()
+      : builder.outputPdfA().execute();
+  }
+
+  /**
+   * Converts a document to a different format
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The input file to convert
+   * @param targetFormat - The target format to convert to
+   * @returns Promise resolving to the converted document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.convert('document.docx', 'pdf');
+   * ```
+   */
+  async convert(
+    file: FileInput,
+    targetFormat: 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'image',
+  ): Promise<WorkflowResult> {
+    const builder = this.workflow().addFilePart(file);
+
+    switch (targetFormat) {
+      case 'pdf':
+        return builder.outputPdf().execute();
+      case 'pdfa':
+        return builder.outputPdfA().execute();
+      case 'docx':
+        return builder.outputOffice('docx').execute();
+      case 'xlsx':
+        return builder.outputOffice('xlsx').execute();
+      case 'pptx':
+        return builder.outputOffice('pptx').execute();
+      case 'image':
+        return builder.outputImage().execute();
+      default:
+        throw new ValidationError(`Unsupported target format: ${String(targetFormat)}`);
+    }
+  }
+
+  /**
+   * Merges multiple documents into a single document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param files - The files to merge
+   * @param outputFormat - The output format (default: 'pdf')
+   * @returns Promise resolving to the merged document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.merge(['doc1.pdf', 'doc2.pdf', 'doc3.pdf']);
+   * ```
+   */
+  merge(
+    files: FileInput[],
+    outputFormat: 'pdf' | 'pdfa' = 'pdf',
+  ): Promise<WorkflowResult> {
+    if (!files || files.length < 2) {
+      throw new ValidationError('At least 2 files are required for merge operation');
+    }
+
+    const [firstFile, ...restFiles] = files;
+    if (!firstFile) {
+      throw new ValidationError('First file is required');
+    }
+
+    let builder = this.workflow().addFilePart(firstFile);
+    
+    for (const file of restFiles) {
+      builder = builder.addFilePart(file);
+    }
+
+    return outputFormat === 'pdf'
+      ? builder.outputPdf().execute()
+      : builder.outputPdfA().execute();
+  }
+
+  /**
+   * Compresses a PDF document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to compress
+   * @param level - Compression level (default: 'medium')
+   * @returns Promise resolving to the compressed document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.compress('large-document.pdf', 'high');
+   * ```
+   */
+  async compress(
+    file: FileInput,
+    level: 'low' | 'medium' | 'high' | 'maximum' = 'medium',
+  ): Promise<WorkflowResult> {
+    const compressionOptions = {
+      low: { 
+        optimize: { 
+          imageOptimizationQuality: 3,
+          mrcCompression: false 
+        } 
       },
-      this.options,
-    );
+      medium: { 
+        optimize: { 
+          imageOptimizationQuality: 2,
+          mrcCompression: true 
+        } 
+      },
+      high: { 
+        optimize: { 
+          imageOptimizationQuality: 1,
+          mrcCompression: true,
+          grayscaleImages: true 
+        } 
+      },
+      maximum: { 
+        optimize: { 
+          imageOptimizationQuality: 0,
+          mrcCompression: true,
+          grayscaleImages: true,
+          grayscaleGraphics: true 
+        } 
+      },
+    };
 
-    return response.data;
+    return this.workflow()
+      .addFilePart(file)
+      .outputPdf(compressionOptions[level])
+      .execute();
   }
 
   /**
-   * Gets the current API key (for debugging purposes)
-   * Note: This will not resolve async functions
+   * Extracts text content from a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The file to extract text from
+   * @returns Promise resolving to the extracted text data
+   *
+   * @example
+   * ```typescript
+   * const result = await client.extractText('document.pdf');
+   * if (result.success && result.output && 'data' in result.output) {
+   *   console.log(result.output.data);
+   * }
+   * ```
    */
-  getApiKey(): string | (() => Promise<string>) {
-    return this.options.apiKey;
+  async extractText(file: FileInput): Promise<TypedWorkflowResult<'json-content'>> {
+    return this.workflow()
+      .addFilePart(file)
+      .outputJson({ plainText: true, structuredText: true })
+      .execute();
   }
 
   /**
-   * Gets the current base URL
+   * Flattens annotations in a PDF document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to flatten
+   * @param annotationIds - Optional specific annotation IDs to flatten
+   * @returns Promise resolving to the flattened document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.flatten('annotated-document.pdf');
+   * ```
    */
-  getBaseUrl(): string {
-    return this.options.baseUrl ?? 'https://api.nutrient.io';
+  async flatten(
+    file: FileInput,
+    annotationIds?: (string | number)[],
+  ): Promise<WorkflowResult> {
+    const flattenAction: components['schemas']['FlattenAction'] = {
+      type: 'flatten',
+      ...(annotationIds && { annotationIds }),
+    };
+
+    return this.workflow()
+      .addFilePart(file, undefined, [flattenAction])
+      .outputPdf()
+      .execute();
+  }
+
+  /**
+   * Rotates pages in a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The file to rotate
+   * @param angle - Rotation angle (90, 180, or 270 degrees)
+   * @param pages - Optional page range to rotate (e.g., { start: 1, end: 3 })
+   * @returns Promise resolving to the rotated document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.rotate('document.pdf', 90);
+   * // Or rotate specific pages:
+   * const result = await client.rotate('document.pdf', 90, { start: 1, end: 3 });
+   * ```
+   */
+  async rotate(
+    file: FileInput,
+    angle: 90 | 180 | 270,
+    pages?: { start?: number; end?: number },
+  ): Promise<WorkflowResult> {
+    const rotateAction: components['schemas']['RotateAction'] = {
+      type: 'rotate',
+      rotateBy: angle,
+    };
+
+    return this.workflow()
+      .addFilePart(file, pages ? { pages } : undefined, [rotateAction])
+      .outputPdf()
+      .execute();
   }
 }

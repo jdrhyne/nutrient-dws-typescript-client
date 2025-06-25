@@ -7,7 +7,7 @@ import { AuthenticationError } from '../errors';
 
 // Mock axios
 jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedAxios = axios as jest.MockedFunction<typeof axios>;
 
 // Mock axios.isAxiosError
 mockedAxios.isAxiosError = jest.fn();
@@ -28,8 +28,14 @@ jest.mock('form-data', () => {
 jest.mock('../inputs', () => ({
   processFileInput: jest.fn().mockImplementation((input: unknown) => {
     if (typeof input === 'string' && input === 'test-file.pdf') {
+      // Return a mock stream for file path inputs
+      const mockStream = {
+        pipe: jest.fn(),
+        on: jest.fn(),
+        read: jest.fn(),
+      };
       return Promise.resolve({
-        data: Buffer.from('test file content'),
+        data: mockStream,
         filename: 'test-file.pdf',
         contentType: 'application/pdf',
       });
@@ -42,18 +48,6 @@ jest.mock('../inputs', () => ({
   }),
 }));
 
-// Mock case transformation
-jest.mock('../utils/case-transform', () => ({
-  objectCamelToSnake: jest.fn().mockImplementation((obj: Record<string, unknown>) => {
-    // Simple mock that converts camelCase to snake_case
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-      result[snakeKey] = value;
-    }
-    return result;
-  }),
-}));
 
 // Mock environment detection
 jest.mock('../utils/environment', () => ({
@@ -65,7 +59,6 @@ describe('HTTP Layer', () => {
   const mockClientOptions: NutrientClientOptions = {
     apiKey: 'test-api-key',
     baseUrl: 'https://api.test.com/v1',
-    timeout: 5000,
   };
 
   beforeEach(() => {
@@ -206,8 +199,8 @@ describe('HTTP Layer', () => {
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({
           data: {
-            user_name: 'John Doe',
-            email_address: 'john@example.com',
+            userName: 'John Doe',
+            emailAddress: 'john@example.com',
           },
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
@@ -229,11 +222,10 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/upload',
         method: 'POST',
-        files: {
-          document: 'test-file.pdf',
-        },
-        data: {
-          description: 'Test upload',
+        files: new Map([['document', new Uint8Array([1, 2, 3, 4])]]), // Use Uint8Array instead of string
+        instructions: {
+          parts: [{ file: 'document' }],
+          output: { type: 'pdf' },
         },
       };
 
@@ -241,10 +233,10 @@ describe('HTTP Layer', () => {
 
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'document',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
-        'test-file.pdf',
+        expect.any(Object), // Expecting a Blob or similar object
+        'file.bin' // Default filename for binary data
       );
-      expect(mockFormDataInstance.append).toHaveBeenCalledWith('description', 'Test upload');
+      expect(mockFormDataInstance.append).toHaveBeenCalledWith('instructions', expect.any(String));
     });
 
     it('should handle 401 authentication error', async () => {
@@ -439,28 +431,38 @@ describe('HTTP Layer', () => {
       const config: RequestConfig = {
         endpoint: '/merge',
         method: 'POST',
-        files: {
-          files: ['file1.pdf', 'file2.pdf', 'file3.pdf'],
+        files: new Map([
+          ['file1', new Uint8Array([1, 2, 3])],
+          ['file2', new Uint8Array([4, 5, 6])],
+          ['file3', new Uint8Array([7, 8, 9])],
+        ]),
+        instructions: {
+          parts: [{ file: 'file1' }, { file: 'file2' }, { file: 'file3' }],
+          output: { type: 'pdf' },
         },
       };
 
       await sendRequest(config, mockClientOptions);
 
-      expect(mockFormDataInstance.append).toHaveBeenCalledTimes(3);
+      expect(mockFormDataInstance.append).toHaveBeenCalledTimes(4); // 3 files + 1 instructions
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[0]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file1',
+        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
         'file.bin',
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[1]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file2',
+        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
         'file.bin',
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
-        'files[2]',
-        expect.any(Object), // Expecting a Blob-like object created from Buffer
+        'file3',
+        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
         'file.bin',
+      );
+      expect(mockFormDataInstance.append).toHaveBeenCalledWith(
+        'instructions',
+        expect.any(String), // JSON stringified instructions
       );
     });
 

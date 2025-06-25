@@ -7,7 +7,7 @@ import { ValidationError } from './errors';
  * Normalized file data for internal processing
  */
 export interface NormalizedFileData {
-  data: Buffer | Uint8Array | Blob;
+  data: Buffer | Uint8Array | Blob | NodeJS.ReadableStream;
   filename: string;
   contentType?: string;
 }
@@ -162,19 +162,19 @@ async function processFilePathInput(filePath: string): Promise<NormalizedFileDat
       throw new ValidationError(`File not found: ${filePath}`, { filePath });
     }
 
-    // Read file
-    const fileBuffer = await fs.promises.readFile(filePath);
+    // Create read stream instead of reading entire file into memory
+    const readStream = fs.createReadStream(filePath);
     const filename = path.basename(filePath);
 
     return {
-      data: fileBuffer,
+      data: readStream,
       filename,
     };
   } catch (error) {
     if (error instanceof ValidationError) {
       throw error;
     }
-    throw new ValidationError(`Failed to read file: ${filePath}`, {
+    throw new ValidationError(`Failed to create read stream for file: ${filePath}`, {
       filePath,
       error: error instanceof Error ? error.message : String(error),
     });

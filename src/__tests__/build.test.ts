@@ -1,244 +1,12 @@
-import { BuildApiBuilder, BuildActions, BuildOutputs } from '../build';
-import type { NutrientClientOptions } from '../types';
-import { sendRequest } from '../http';
-import { ValidationError } from '../errors';
-
-// Mock dependencies
-jest.mock('../http');
-jest.mock('../inputs', () => ({
-  validateFileInput: jest.fn().mockReturnValue(true),
-  processFileInput: jest.fn().mockResolvedValue({
-    data: Buffer.from('test file content'),
-    filename: 'test.pdf',
-    contentType: 'application/pdf',
-  }),
-}));
-
-const mockSendRequest = sendRequest as jest.MockedFunction<typeof sendRequest>;
-
-describe('BuildApiBuilder', () => {
-  const mockOptions: NutrientClientOptions = {
-    apiKey: 'test-api-key',
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('constructor', () => {
-    it('should initialize with empty parts', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      expect(() => builder.getInstructions()).toThrow(ValidationError);
-      expect(() => builder.getInstructions()).toThrow(
-        'At least one part must be added to build a document',
-      );
-    });
-  });
-
-  describe('addFile', () => {
-    it('should add a file part to instructions', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      builder.addFile('test.pdf');
-
-      const instructions = builder.getInstructions();
-      expect(instructions.parts).toHaveLength(1);
-      expect(instructions.parts[0]).toMatchObject({
-        file: 'test.pdf',
-      });
-    });
-
-    it('should add file with options', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      builder.addFile('test.pdf', {
-        password: 'secret',
-        pages: { start: 0, end: 5 },
-        contentType: 'application/pdf',
-      });
-
-      const instructions = builder.getInstructions();
-      expect(instructions.parts[0]).toMatchObject({
-        file: 'test.pdf',
-        password: 'secret',
-        pages: { start: 0, end: 5 },
-        content_type: 'application/pdf',
-      });
-    });
-
-    it('should support method chaining', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      const result = builder.addFile('file1.pdf').addFile('file2.pdf');
-
-      expect(result).toBe(builder);
-      expect(builder.getInstructions().parts).toHaveLength(2);
-    });
-  });
-
-  describe('addHtml', () => {
-    it('should add an HTML part to instructions', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      builder.addHtml('<h1>Test</h1>');
-
-      const instructions = builder.getInstructions();
-      expect(instructions.parts).toHaveLength(1);
-      expect(instructions.parts[0]).toMatchObject({
-        html: '<h1>Test</h1>',
-      });
-    });
-
-    it('should add HTML with assets and layout', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      builder.addHtml('<h1>Test</h1>', {
-        assets: ['style.css', 'script.js'],
-        layout: {
-          orientation: 'landscape',
-          size: 'A4',
-        },
-      });
-
-      const instructions = builder.getInstructions();
-      expect(instructions.parts[0]).toMatchObject({
-        html: '<h1>Test</h1>',
-        assets: ['style.css', 'script.js'],
-        layout: {
-          orientation: 'landscape',
-          size: 'A4',
-        },
-      });
-    });
-  });
-
-  describe('addNewPages', () => {
-    it('should add new blank pages', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      builder.addNewPages(3);
-
-      const instructions = builder.getInstructions();
-      expect(instructions.parts).toHaveLength(1);
-      expect(instructions.parts[0]).toMatchObject({
-        page: 'new',
-        pageCount: 3,
-      });
-    });
-
-    it('should add single page by default', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      builder.addNewPages();
-
-      const instructions = builder.getInstructions();
-      expect(instructions.parts[0]).toMatchObject({
-        page: 'new',
-      });
-    });
-  });
-
-  describe('withActions', () => {
-    it('should add actions to instructions', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      const ocrAction = BuildActions.ocr('english');
-      const rotateAction = BuildActions.rotate(90);
-
-      builder.addFile('test.pdf').withActions([ocrAction, rotateAction]);
-
-      const instructions = builder.getInstructions();
-      expect(instructions.actions).toEqual([ocrAction, rotateAction]);
-    });
-
-    it('should append to existing actions', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      const action1 = BuildActions.ocr('english');
-      const action2 = BuildActions.rotate(90);
-
-      builder.addFile('test.pdf').withActions([action1]).withActions([action2]);
-
-      const instructions = builder.getInstructions();
-      expect(instructions.actions).toEqual([action1, action2]);
-    });
-  });
-
-  describe('setOutput', () => {
-    it('should set output configuration', () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      const pdfOutput = BuildOutputs.pdf({ optimize: { linearize: true } });
-
-      builder.addFile('test.pdf').setOutput(pdfOutput);
-
-      const instructions = builder.getInstructions();
-      expect(instructions.output).toEqual(pdfOutput);
-    });
-  });
-
-  describe('execute', () => {
-    it('should send request with processed instructions', async () => {
-      const mockResponse = {
-        data: new Blob(['result']),
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      };
-      mockSendRequest.mockResolvedValueOnce(mockResponse);
-
-      const builder = new BuildApiBuilder(mockOptions);
-      const result = await builder.addFile('test.pdf').execute();
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          endpoint: '/build',
-          method: 'POST',
-          files: { file0: 'test.pdf' },
-          data: {
-            instructions: expect.objectContaining({
-              parts: [{ file: 'file0' }],
-            }) as unknown,
-          },
-        }),
-        mockOptions,
-      );
-      expect(result).toBe(mockResponse.data);
-    });
-
-    it('should handle multiple files', async () => {
-      const mockResponse = {
-        data: new Blob(['result']),
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      };
-      mockSendRequest.mockResolvedValueOnce(mockResponse);
-
-      const builder = new BuildApiBuilder(mockOptions);
-      await builder.addFile('file1.pdf').addHtml('<h1>Title</h1>').addFile('file2.pdf').execute();
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          files: {
-            file0: 'file1.pdf',
-            html1: '<h1>Title</h1>',
-            file2: 'file2.pdf',
-          },
-          data: {
-            instructions: expect.objectContaining({
-              parts: [{ file: 'file0' }, { html: 'html1' }, { file: 'file2' }],
-            }) as unknown,
-          },
-        }),
-        mockOptions,
-      );
-    });
-
-    it('should throw if no parts added', async () => {
-      const builder = new BuildApiBuilder(mockOptions);
-      await expect(builder.execute()).rejects.toThrow(ValidationError);
-      await expect(builder.execute()).rejects.toThrow(
-        'At least one part must be added to build a document',
-      );
-    });
-  });
-});
+import { BuildActions, BuildOutputs } from '../build';
+import type { components } from '../generated/api-types';
+import type { FileInput } from '../types';
 
 describe('BuildActions', () => {
-  describe('ocr', () => {
+  describe('ocr()', () => {
     it('should create OCR action with single language', () => {
       const action = BuildActions.ocr('english');
+
       expect(action).toEqual({
         type: 'ocr',
         language: 'english',
@@ -246,194 +14,293 @@ describe('BuildActions', () => {
     });
 
     it('should create OCR action with multiple languages', () => {
-      const action = BuildActions.ocr(['english', 'spanish', 'french']);
+      const languages: components['schemas']['OcrLanguage'][] = ['english', 'spanish'];
+      const action = BuildActions.ocr(languages);
+
       expect(action).toEqual({
         type: 'ocr',
-        language: ['english', 'spanish', 'french'],
+        language: ['english', 'spanish'],
       });
     });
   });
 
-  describe('rotate', () => {
-    it('should create rotation action', () => {
+  describe('rotate()', () => {
+    it('should create rotation action for 90 degrees', () => {
       const action = BuildActions.rotate(90);
+
       expect(action).toEqual({
         type: 'rotate',
         rotateBy: 90,
       });
     });
-  });
 
-  describe('watermarkText', () => {
-    it('should create text watermark action', () => {
-      const action = BuildActions.watermarkText('CONFIDENTIAL', {
-        width: { value: 100, unit: 'pt' },
-        height: { value: 50, unit: 'pt' },
-        opacity: 0.5,
-        fontSize: 36,
+    it('should create rotation action for 180 degrees', () => {
+      const action = BuildActions.rotate(180);
+
+      expect(action).toEqual({
+        type: 'rotate',
+        rotateBy: 180,
       });
+    });
 
-      expect(action.type).toBe('watermark');
-      expect(action.text).toBe('CONFIDENTIAL');
-      expect(action.opacity).toBe(0.5);
-      expect(action.fontSize).toBe(36);
+    it('should create rotation action for 270 degrees', () => {
+      const action = BuildActions.rotate(270);
+
+      expect(action).toEqual({
+        type: 'rotate',
+        rotateBy: 270,
+      });
     });
   });
 
-  describe('flatten', () => {
-    it('should create flatten action', () => {
-      const action = BuildActions.flatten();
-      expect(action).toEqual({ type: 'flatten' });
+  describe('watermarkText()', () => {
+    const defaultDimensions = {
+      width: { value: 100, unit: '%' as const },
+      height: { value: 100, unit: '%' as const },
+    };
+
+    it('should create text watermark action with minimal options', () => {
+      const action = BuildActions.watermarkText('CONFIDENTIAL', defaultDimensions);
+
+      expect(action).toEqual({
+        type: 'watermark',
+        text: 'CONFIDENTIAL',
+        width: { value: 100, unit: '%' },
+        height: { value: 100, unit: '%' },
+        rotation: 0,
+      });
     });
 
-    it('should create flatten action with specific annotations', () => {
-      const action = BuildActions.flatten(['annotation1', 123, 'annotation3']);
+    it('should create text watermark action with all options', () => {
+      const options = {
+        ...defaultDimensions,
+        opacity: 0.5,
+        rotation: 45,
+        fontSize: 24,
+        fontColor: '#ff0000',
+        fontFamily: 'Arial',
+        fontStyle: ['bold', 'italic'] as ('bold' | 'italic')[],
+        top: { value: 10, unit: 'pt' as const },
+        left: { value: 20, unit: 'pt' as const },
+        right: { value: 30, unit: 'pt' as const },
+        bottom: { value: 40, unit: 'pt' as const },
+      };
+
+      const action = BuildActions.watermarkText('DRAFT', options);
+
+      expect(action).toEqual({
+        type: 'watermark',
+        text: 'DRAFT',
+        width: { value: 100, unit: '%' },
+        height: { value: 100, unit: '%' },
+        opacity: 0.5,
+        rotation: 45,
+        fontSize: 24,
+        fontColor: '#ff0000',
+        fontFamily: 'Arial',
+        fontStyle: ['bold', 'italic'],
+        top: { value: 10, unit: 'pt' },
+        left: { value: 20, unit: 'pt' },
+        right: { value: 30, unit: 'pt' },
+        bottom: { value: 40, unit: 'pt' },
+      });
+    });
+  });
+
+  describe('watermarkImage()', () => {
+    const defaultDimensions = {
+      width: { value: 100, unit: '%' as const },
+      height: { value: 100, unit: '%' as const },
+    };
+
+    it('should create image watermark action with minimal options', () => {
+      const image: FileInput = 'logo.png';
+      const action = BuildActions.watermarkImage(image, defaultDimensions);
+
+      expect(action).toEqual({
+        type: 'watermark',
+        image: 'logo.png',
+        width: { value: 100, unit: '%' },
+        height: { value: 100, unit: '%' },
+        rotation: 0,
+      });
+    });
+
+    it('should create image watermark action with all options', () => {
+      const image: FileInput = 'watermark.png';
+      const options = {
+        ...defaultDimensions,
+        opacity: 0.3,
+        rotation: 30,
+        top: { value: 10, unit: 'pt' as const },
+        left: { value: 20, unit: 'pt' as const },
+        right: { value: 30, unit: 'pt' as const },
+        bottom: { value: 40, unit: 'pt' as const },
+      };
+
+      const action = BuildActions.watermarkImage(image, options);
+
+      expect(action).toEqual({
+        type: 'watermark',
+        image: 'watermark.png',
+        width: { value: 100, unit: '%' },
+        height: { value: 100, unit: '%' },
+        opacity: 0.3,
+        rotation: 30,
+        top: { value: 10, unit: 'pt' },
+        left: { value: 20, unit: 'pt' },
+        right: { value: 30, unit: 'pt' },
+        bottom: { value: 40, unit: 'pt' },
+      });
+    });
+  });
+
+  describe('flatten()', () => {
+    it('should create flatten action without annotation IDs', () => {
+      const action = BuildActions.flatten();
+
       expect(action).toEqual({
         type: 'flatten',
-        annotationIds: ['annotation1', 123, 'annotation3'],
+      });
+    });
+
+    it('should create flatten action with annotation IDs', () => {
+      const annotationIds = ['ann1', 'ann2', 123];
+      const action = BuildActions.flatten(annotationIds);
+
+      expect(action).toEqual({
+        type: 'flatten',
+        annotationIds: ['ann1', 'ann2', 123],
       });
     });
   });
 
-  describe('redaction actions', () => {
-    it('should create text redaction action', () => {
-      const action = BuildActions.createRedactionsText('SSN: 123-45-6789', {
-        caseSensitive: false,
-        includeAnnotations: true,
-      });
+  describe('applyInstantJson()', () => {
+    it('should create apply Instant JSON action', () => {
+      const file: FileInput = 'annotations.json';
+      const action = BuildActions.applyInstantJson(file);
 
-      expect(action).toMatchObject({
-        type: 'createRedactions',
-        strategy: 'text',
-        strategyOptions: {
-          text: 'SSN: 123-45-6789',
-          caseSensitive: false,
-          includeAnnotations: true,
-        },
+      expect(action).toEqual({
+        type: 'applyInstantJson',
+        file: 'annotations.json',
       });
     });
+  });
 
-    it('should create regex redaction action', () => {
-      const action = BuildActions.createRedactionsRegex('\\d{3}-\\d{2}-\\d{4}', {
-        caseSensitive: true,
-      });
+  describe('applyXfdf()', () => {
+    it('should create apply XFDF action', () => {
+      const file: FileInput = 'annotations.xfdf';
+      const action = BuildActions.applyXfdf(file);
 
-      expect(action).toMatchObject({
-        type: 'createRedactions',
-        strategy: 'regex',
-        strategyOptions: {
-          regex: '\\d{3}-\\d{2}-\\d{4}',
-          caseSensitive: true,
-        },
+      expect(action).toEqual({
+        type: 'applyXfdf',
+        file: 'annotations.xfdf',
       });
     });
+  });
 
-    it('should create preset redaction action', () => {
-      const action = BuildActions.createRedactionsPreset('social-security-number');
-
-      expect(action).toMatchObject({
-        type: 'createRedactions',
-        strategy: 'preset',
-        strategyOptions: {
-          preset: 'social-security-number',
-        },
-      });
-    });
-
+  describe('applyRedactions()', () => {
     it('should create apply redactions action', () => {
       const action = BuildActions.applyRedactions();
-      expect(action).toEqual({ type: 'applyRedactions' });
+
+      expect(action).toEqual({
+        type: 'applyRedactions',
+      });
     });
   });
 });
 
 describe('BuildOutputs', () => {
-  describe('pdf', () => {
-    it('should create PDF output with defaults', () => {
+  describe('pdf()', () => {
+    it('should create PDF output with no options', () => {
       const output = BuildOutputs.pdf();
-      expect(output).toEqual({ type: 'pdf' });
-    });
-
-    it('should create PDF output with options', () => {
-      const output = BuildOutputs.pdf({
-        metadata: { title: 'Test PDF', author: 'Test Author' },
-        userPassword: 'user123',
-        ownerPassword: 'owner123',
-        optimize: { linearize: true },
-      });
 
       expect(output).toEqual({
         type: 'pdf',
-        metadata: { title: 'Test PDF', author: 'Test Author' },
+      });
+    });
+
+    it('should create PDF output with all options', () => {
+      const options = {
+        metadata: { title: 'Test Document' },
+        labels: [{ prefix: 'Page', style: 'decimal' as const }],
+        userPassword: 'user123',
+        ownerPassword: 'owner123',
+        userPermissions: ['print' as const],
+        optimize: { print: true } as components['schemas']['OptimizePdf'],
+      };
+
+      const output = BuildOutputs.pdf(options);
+
+      expect(output).toEqual({
+        type: 'pdf',
+        metadata: { title: 'Test Document' },
+        labels: [{ prefix: 'Page', style: 'decimal' }],
         user_password: 'user123',
         owner_password: 'owner123',
-        optimize: { linearize: true },
+        user_permissions: ['print'],
+        optimize: { print: true },
       });
     });
   });
 
-  describe('pdfa', () => {
-    it('should create PDF/A output', () => {
-      const output = BuildOutputs.pdfa({
-        conformance: 'pdfa-2b',
-        vectorization: true,
-      });
+  describe('pdfa()', () => {
+    it('should create PDF/A output with no options', () => {
+      const output = BuildOutputs.pdfa();
 
       expect(output).toEqual({
         type: 'pdfa',
-        conformance: 'pdfa-2b',
+      });
+    });
+
+    it('should create PDF/A output with all options', () => {
+      const options = {
+        conformance: 'pdfa-1b' as const,
         vectorization: true,
+        rasterization: false,
+        metadata: { title: 'Test Document' },
+        userPassword: 'user123',
+        ownerPassword: 'owner123',
+      };
+
+      const output = BuildOutputs.pdfa(options);
+
+      expect(output).toEqual({
+        type: 'pdfa',
+        conformance: 'pdfa-1b',
+        vectorization: true,
+        rasterization: false,
+        metadata: { title: 'Test Document' },
+        user_password: 'user123',
+        owner_password: 'owner123',
       });
     });
   });
 
-  describe('image', () => {
-    it('should create image output', () => {
-      const output = BuildOutputs.image({
-        format: 'png',
-        width: 800,
-        height: 600,
-        dpi: 150,
+  describe('image()', () => {
+    it('should create image output with default options', () => {
+      const output = BuildOutputs.image();
+
+      expect(output).toEqual({
+        type: 'image',
       });
+    });
+
+    it('should create image output with custom options', () => {
+      const options = {
+        format: 'png' as const,
+        dpi: 300,
+        pages: { start: 1, end: 5 },
+      };
+
+      const output = BuildOutputs.image(options);
 
       expect(output).toEqual({
         type: 'image',
         format: 'png',
-        width: 800,
-        height: 600,
-        dpi: 150,
+        dpi: 300,
+        pages: { start: 1, end: 5 },
       });
-    });
-  });
-
-  describe('jsonContent', () => {
-    it('should create JSON content output', () => {
-      const output = BuildOutputs.jsonContent({
-        plainText: true,
-        structuredText: true,
-        tables: true,
-        language: 'english',
-      });
-
-      expect(output).toEqual({
-        type: 'json-content',
-        plainText: true,
-        structuredText: true,
-        tables: true,
-        language: 'english',
-      });
-    });
-  });
-
-  describe('office', () => {
-    it('should create office output', () => {
-      const docx = BuildOutputs.office('docx');
-      const xlsx = BuildOutputs.office('xlsx');
-      const pptx = BuildOutputs.office('pptx');
-
-      expect(docx).toEqual({ type: 'docx' });
-      expect(xlsx).toEqual({ type: 'xlsx' });
-      expect(pptx).toEqual({ type: 'pptx' });
     });
   });
 });

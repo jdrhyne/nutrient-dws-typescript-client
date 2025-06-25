@@ -25,6 +25,7 @@ jest.mock('fs', () => {
     constants: {
       F_OK: 0,
     },
+    createReadStream: jest.fn(),
   };
   return mockFs;
 });
@@ -249,39 +250,49 @@ describe('Input Processing', () => {
     });
 
     it('should process file path in Node environment', async () => {
-      const mockFs = fs.promises as jest.Mocked<typeof fs.promises>;
+      const mockFs = fs as jest.Mocked<typeof fs>;
       const mockPath = path as jest.Mocked<typeof path>;
 
-      const testContent = Buffer.from('test file content');
-      mockFs.access.mockResolvedValueOnce(undefined);
-      mockFs.readFile.mockResolvedValueOnce(testContent);
-      mockPath.basename.mockReturnValueOnce('document.pdf');
+      // Create a mock stream object
+      const mockStream = {
+        pipe: jest.fn(),
+        on: jest.fn(),
+        read: jest.fn(),
+      };
+
+      (mockFs.promises.access as jest.Mock).mockResolvedValueOnce(undefined);
+      (mockFs.createReadStream as jest.Mock).mockReturnValueOnce(mockStream as unknown as fs.ReadStream);
+      (mockPath.basename as jest.Mock).mockReturnValueOnce('document.pdf');
 
       const result = await processFileInput('/path/to/document.pdf');
 
-      expect(mockFs.access).toHaveBeenCalledWith('/path/to/document.pdf', 0);
-      expect(mockFs.readFile).toHaveBeenCalledWith('/path/to/document.pdf');
-      expect(result.data).toEqual(testContent);
+      expect(mockFs.promises.access).toHaveBeenCalledWith('/path/to/document.pdf', 0);
+      expect(mockFs.createReadStream).toHaveBeenCalledWith('/path/to/document.pdf');
+      expect(result.data).toBe(mockStream);
       expect(result.filename).toBe('document.pdf');
     });
 
     // Skipped: Dynamic import mocking doesn't work well with jest.mock
     // These edge cases are covered by integration tests
-    // it('should handle file not found error', async () => {});
-    // it('should handle file read error', async () => {});
 
     it('should process structured file path input', async () => {
       // Since we can't easily mock isNode() in test env, test structured input instead
-      const mockFs = fs.promises as jest.Mocked<typeof fs.promises>;
+      const mockFs = fs as jest.Mocked<typeof fs>;
       const mockPath = path as jest.Mocked<typeof path>;
 
-      const testContent = Buffer.from('test file content');
-      mockFs.access.mockResolvedValueOnce(undefined);
-      mockFs.readFile.mockResolvedValueOnce(testContent);
-      mockPath.basename.mockReturnValueOnce('document.pdf');
+      // Create a mock stream object
+      const mockStream = {
+        pipe: jest.fn(),
+        on: jest.fn(),
+        read: jest.fn(),
+      };
+
+      (mockFs.promises.access as jest.Mock).mockResolvedValueOnce(undefined);
+      (mockFs.createReadStream as jest.Mock).mockReturnValueOnce(mockStream as unknown as fs.ReadStream);
+      (mockPath.basename as jest.Mock).mockReturnValueOnce('document.pdf');
 
       const result = await processFileInput({ type: 'file-path', path: '/path/to/document.pdf' });
-      expect(result.data).toEqual(testContent);
+      expect(result.data).toBe(mockStream);
       expect(result.filename).toBe('document.pdf');
     });
   });

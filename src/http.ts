@@ -1,16 +1,10 @@
-import axios, { type AxiosResponse, type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import FormData from 'form-data';
-import { objectCamelToSnake } from './utils/case-transform';
-import { processFileInput, type NormalizedFileData } from './inputs';
+import { type NormalizedFileData, processFileInput } from './inputs';
 import { isNode } from './utils/environment';
-import {
-  NutrientError,
-  APIError,
-  NetworkError,
-  AuthenticationError,
-  ValidationError,
-} from './errors';
+import { APIError, AuthenticationError, NetworkError, NutrientError, ValidationError } from './errors';
 import type { NutrientClientOptions } from './types/common';
+import type { components } from './generated/api-types';
 
 /**
  * HTTP request configuration for API calls
@@ -18,8 +12,9 @@ import type { NutrientClientOptions } from './types/common';
 export interface RequestConfig {
   endpoint: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  data?: Record<string, unknown>;
-  files?: Record<string, unknown>;
+  data?: unknown;
+  instructions?: components['schemas']['BuildInstructions'];
+  files?: Map<string, unknown>;
   headers?: Record<string, string>;
   timeout?: number;
 }
@@ -47,7 +42,7 @@ export async function sendRequest<T = unknown>(
     const apiKey = await resolveApiKey(clientOptions.apiKey);
 
     // Build full URL
-    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io';
+    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io/v1';
     const url = `${baseUrl.replace(/\/$/, '')}/${config.endpoint.replace(/^\//, '')}`;
 
     // Prepare request configuration
@@ -62,10 +57,12 @@ export async function sendRequest<T = unknown>(
       validateStatus: () => true, // Handle all status codes manually
     };
 
-    // Handle request body
-    if (config.files ?? config.data) {
-      await prepareRequestBody(axiosConfig, config);
+    // Set responseType for binary endpoints
+    if (config.endpoint === 'build') {
+      axiosConfig.responseType = 'arraybuffer';
     }
+
+    await prepareRequestBody(axiosConfig, config);
 
     // Make request
     const response: AxiosResponse = await axios(axiosConfig);
@@ -110,11 +107,16 @@ async function prepareRequestBody(
   axiosConfig: AxiosRequestConfig,
   config: RequestConfig,
 ): Promise<void> {
-  const hasFiles = config.files && Object.keys(config.files).length > 0;
-
-  if (hasFiles) {
+  if (config.files && config.files.size > 0) {
+    // For file uploads, we need either instructions or data
+    const payload = config.instructions ?? config.data;
+    if (!payload) {
+      throw new ValidationError('File uploads require instructions or data', {
+        files: config.files,
+      });
+    }
     // Use FormData for file uploads
-    const formData = await createFormData(config.files, config.data);
+    const formData = await createFormData(config.files, payload);
     axiosConfig.data = formData;
 
     // Set appropriate headers for FormData
@@ -126,13 +128,16 @@ async function prepareRequestBody(
       };
     }
     // Browser FormData sets boundary automatically
-  } else if (config.data) {
-    // JSON request
-    axiosConfig.data = objectCamelToSnake(config.data);
-    axiosConfig.headers = {
-      ...axiosConfig.headers,
-      'Content-Type': 'application/json',
-    };
+  } else {
+    // JSON only request - prefer instructions for Build API, fallback to data
+    const payload = config.instructions ?? config.data;
+    if (payload) {
+      axiosConfig.data = payload;
+      axiosConfig.headers = {
+        ...axiosConfig.headers,
+        'Content-Type': 'application/json',
+      };
+    }
   }
 }
 
@@ -140,36 +145,22 @@ async function prepareRequestBody(
  * Creates FormData with files and additional data
  */
 async function createFormData(
-  files: Record<string, unknown>,
-  data?: Record<string, unknown>,
+  files: Map<string, unknown>,
+  payload: unknown,
 ): Promise<FormData | globalThis.FormData> {
-  // Use appropriate FormData implementation
   const FormDataImpl = isNode() ? FormData : globalThis.FormData;
   const formData = new FormDataImpl();
 
-  // Add files
-  for (const [key, value] of Object.entries(files)) {
-    if (Array.isArray(value)) {
-      // Handle multiple files
-      for (let i = 0; i < value.length; i++) {
-        const normalizedFile = await processFileInput(value[i] as never);
-        appendFileToFormData(formData, `${key}[${i}]`, normalizedFile);
-      }
-    } else {
-      // Handle single file
-      const normalizedFile = await processFileInput(value);
-      appendFileToFormData(formData, key, normalizedFile);
-    }
+  for (const [key, value] of files) {
+    const normalizedFile = await processFileInput(value as never);
+    appendFileToFormData(formData, key, normalizedFile);
   }
 
-  // Add additional data fields
-  if (data) {
-    const snakeCaseData = objectCamelToSnake(data);
-    for (const [key, value] of Object.entries(snakeCaseData)) {
-      if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    }
+  // For Build API, use 'instructions'; for other APIs, use 'data'
+  if (payload && typeof payload === 'object' && 'parts' in payload) {
+    formData.append('instructions', JSON.stringify(payload));
+  } else {
+    formData.append('data', JSON.stringify(payload));
   }
 
   return formData;
@@ -195,8 +186,14 @@ function appendFileToFormData(
         filename: file.filename,
         contentType: file.contentType,
       });
+    } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
+      // Handle ReadableStream (including fs.ReadStream)
+      formData.append(key, file.data, {
+        filename: file.filename,
+        contentType: file.contentType,
+      });
     } else {
-      throw new ValidationError('Node.js environment expects Buffer or Uint8Array for file data', {
+      throw new ValidationError('Node.js environment expects Buffer, Uint8Array, or ReadableStream for file data', {
         dataType: typeof file.data,
       });
     }
@@ -275,14 +272,14 @@ function extractErrorMessage(data: unknown): string | null {
     const errorData = data as Record<string, unknown>;
 
     // Common error message fields
-    if (typeof errorData.message === 'string') {
-      return errorData.message;
+    if (typeof errorData['message'] === 'string') {
+      return errorData['message'];
     }
-    if (typeof errorData.error === 'string') {
-      return errorData.error;
+    if (typeof errorData['error'] === 'string') {
+      return errorData['error'];
     }
-    if (typeof errorData.detail === 'string') {
-      return errorData.detail;
+    if (typeof errorData['detail'] === 'string') {
+      return errorData['detail'];
     }
   }
 

@@ -3,17 +3,14 @@
  * Do not make direct changes to the file.
  */
 
+
 /** OneOf type helpers */
 type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
-type XOR<T, U> = T | U extends object ? (Without<T, U> & U) | (Without<U, T> & T) : T | U;
-type OneOf<T extends any[]> = T extends [infer Only]
-  ? Only
-  : T extends [infer A, infer B, ...infer Rest]
-    ? OneOf<[XOR<A, B>, ...Rest]>
-    : never;
+type XOR<T, U> = (T | U) extends object ? (Without<T, U> & U) | (Without<U, T> & T) : T | U;
+type OneOf<T extends any[]> = T extends [infer Only] ? Only : T extends [infer A, infer B, ...infer Rest] ? OneOf<[XOR<A, B>, ...Rest]> : never;
 
 export interface paths {
-  '/build': {
+  "/build": {
     /**
      * Process documents and download the result
      * @description This endpoint lets you use [Build instructions](#tag/Build-API) to process a document. This allows you to
@@ -22,9 +19,9 @@ export interface paths {
      * annotations. Once the entire PDF is generated from its parts, you can also apply additional actions,
      * such as optical character recognition (OCR), to the assembled PDF itself.
      */
-    post: operations['build-document'];
+    post: operations["build-document"];
   };
-  '/analyze_build': {
+  "/analyze_build": {
     /**
      * Analyze a build request
      * @description Performs analysis of the Build API request without actually executing it.
@@ -34,40 +31,40 @@ export interface paths {
      * Note: Make sure to provide the correct `content_type` parameter for each of your file parts to get accurate results.
      * Otherwise, the endpoint might not correctly identify conversion features such as Office or image conversion.
      */
-    post: operations['analyze_build'];
+    post: operations["analyze_build"];
   };
-  '/sign': {
+  "/sign": {
     /**
      * Digitally sign a PDF file
      * @description Use this endpoint to digitally sign a PDF file.
      */
-    post: operations['sign-file'];
+    post: operations["sign-file"];
   };
-  '/tokens': {
+  "/tokens": {
     /**
      * Generate a new API token
      * @description Use this endpoint to generate a new API token. All request body parameters are optional.
      */
-    post: operations['generate-token'];
+    post: operations["generate-token"];
     /**
      * Revoke an API token
      * @description Use this endpoint to revoke an API token.
      */
-    delete: operations['revoke-token'];
+    delete: operations["revoke-token"];
   };
-  '/account/info': {
+  "/account/info": {
     /**
      * Get account information
      * @description Use this endpoint to get information about your account, such as the number of credits you have left.
      */
-    get: operations['get-account-info'];
+    get: operations["get-account-info"];
   };
-  '/ai/redact': {
+  "/ai/redact": {
     /**
      * Redact sensitive information from a document
      * @description Redacts sensitive information from a document based on the provided criteria.
      */
-    post: operations['ai-redact'];
+    post: operations["ai-redact"];
   };
 }
 
@@ -150,16 +147,13 @@ export interface components {
      */
     InstantJson: {
       /** @enum {string} */
-      format: 'https://pspdfkit.com/instant-json/v1';
-      annotations?: (
-        | components['schemas']['Annotation']
-        | components['schemas']['Annotation.v1']
-      )[];
-      attachments?: components['schemas']['Attachments'];
-      formFields?: components['schemas']['FormField'][];
-      formFieldValues?: components['schemas']['FormFieldValue'][];
-      bookmarks?: components['schemas']['Bookmark'][];
-      comments?: components['schemas']['CommentContent'][];
+      format: "https://pspdfkit.com/instant-json/v1";
+      annotations?: (components["schemas"]["Annotation"] | components["schemas"]["Annotation.v1"])[];
+      attachments?: components["schemas"]["Attachments"];
+      formFields?: components["schemas"]["FormField"][];
+      formFieldValues?: components["schemas"]["FormFieldValue"][];
+      bookmarks?: components["schemas"]["Bookmark"][];
+      comments?: components["schemas"]["CommentContent"][];
       /** @description An array of PDF object IDs that should be skipped during the import process. Whenever an object ID is marked as skipped, it'll no longer be loaded from the original PDF. Instead, it could be defined inside the annotations array with the same pdfObjectId. If this is the case, the PDF viewer will display the new annotation, which signals an update to the original one. If an object ID is marked as skipped but the annotations array doesn't contain an annotation with the same pdfObjectId, it'll be interpreted as a deleted annotation. An annotation inside the annotations array without the pdfObjectId property is interpreted as a newly created annotation. */
       skippedPdfObjectIds?: number[];
       /** @description PDF document identifiers, base64 encoded. This is used to track version of PDF document this JSON has been exported from. */
@@ -185,23 +179,7 @@ export interface components {
        *   "digital_signatures_api"
        * ]
        */
-      allowedOperations?: (
-        | 'annotations_api'
-        | 'compression_api'
-        | 'data_extraction_api'
-        | 'digital_signatures_api'
-        | 'document_editor_api'
-        | 'html_conversion_api'
-        | 'image_conversion_api'
-        | 'image_rendering_api'
-        | 'email_conversion_api'
-        | 'linearization_api'
-        | 'ocr_api'
-        | 'office_conversion_api'
-        | 'pdfa_api'
-        | 'pdf_to_office_conversion_api'
-        | 'redaction_api'
-      )[];
+      allowedOperations?: ("annotations_api" | "compression_api" | "data_extraction_api" | "digital_signatures_api" | "document_editor_api" | "html_conversion_api" | "image_conversion_api" | "image_rendering_api" | "email_conversion_api" | "linearization_api" | "ocr_api" | "office_conversion_api" | "pdfa_api" | "pdf_to_office_conversion_api" | "redaction_api")[];
       /**
        * @description List of origins that can use the generated token.
        * By default, allows all origins.
@@ -229,31 +207,21 @@ export interface components {
     RedactData: {
       /** @description An array of documents to analyze for redaction. */
       documents: {
-        file?: OneOf<
-          [
-            string,
-            {
-              /** @description A URL pointing to a document to redact. */
-              url: string;
-            },
-          ]
-        >;
-        /** @description Optional. Limits the analysis to specific pages. */
-        pages?: OneOf<
-          [
-            number[],
-            {
-              /** @description Starting page index (0-based). */
-              start: number;
-              /**
-               * @description Ending page index. A positive number denotes an absolute page index,
-               * negative number denotes a relative page index from the end of the document.
-               */
-              end: number;
-            },
-          ]
-        >;
-      }[];
+          file?: OneOf<[string, {
+            /** @description A URL pointing to a document to redact. */
+            url: string;
+          }]>;
+          /** @description Optional. Limits the analysis to specific pages. */
+          pages?: OneOf<[number[], {
+            /** @description Starting page index (0-based). */
+            start: number;
+            /**
+             * @description Ending page index. A positive number denotes an absolute page index,
+             * negative number denotes a relative page index from the end of the document.
+             */
+            end: number;
+          }]>;
+        }[];
       /** @description The redaction criteria such as "Redact all PII", or "All personal names and addresses", etc. */
       criteria: string;
       /**
@@ -261,7 +229,7 @@ export interface components {
        * @default stage
        * @enum {string}
        */
-      redaction_state?: 'stage' | 'apply';
+      redaction_state?: "stage" | "apply";
       /** @description Optional configuration for the redaction process. */
       options?: {
         /** @description Configuration for confidence-based filtering of redactions. */
@@ -271,23 +239,18 @@ export interface components {
         };
       };
     };
-    FileHandle: OneOf<
-      [
-        {
-          /**
-           * @description Specifies the URL from a file can be downloaded
-           * @example https://remote-file-storage/input-file
-           */
-          url: string;
-          /**
-           * @description Optional parameter to verify a downloaded file using provided SHA256 hash.
-           * It is expected to be base16 encoded using lowercase.
-           */
-          sha256?: string;
-        },
-        string,
-      ]
-    >;
+    FileHandle: OneOf<[{
+      /**
+       * @description Specifies the URL from a file can be downloaded
+       * @example https://remote-file-storage/input-file
+       */
+      url: string;
+      /**
+       * @description Optional parameter to verify a downloaded file using provided SHA256 hash.
+       * It is expected to be base16 encoded using lowercase.
+       */
+      sha256?: string;
+    }, string]>;
     /**
      * @description Defines the range of pages in a document. The indexing starts from 0. It is possible
      * to use negative numbers to refer to pages from the last page. For example, `-1` refers to the last page.
@@ -306,26 +269,21 @@ export interface components {
        * @default portrait
        * @enum {string}
        */
-      orientation?: 'portrait' | 'landscape';
-      size?: OneOf<
-        [
-          'A0' | 'A1' | 'A2' | 'A3' | 'A4' | 'A5' | 'A6' | 'A7' | 'A8' | 'Letter' | 'Legal',
-          {
-            /**
-             * @description The width of pages in mm.
-             *
-             * @example 210
-             */
-            width?: number;
-            /**
-             * @description The height of pages in mm.
-             *
-             * @example 297
-             */
-            height?: number;
-          },
-        ]
-      >;
+      orientation?: "portrait" | "landscape";
+      size?: OneOf<["A0" | "A1" | "A2" | "A3" | "A4" | "A5" | "A6" | "A7" | "A8" | "Letter" | "Legal", {
+        /**
+         * @description The width of pages in mm.
+         *
+         * @example 210
+         */
+        width?: number;
+        /**
+         * @description The height of pages in mm.
+         *
+         * @example 297
+         */
+        height?: number;
+      }]>;
       /** @description The margins of generated pages. All dimensions are in mm. */
       margin?: {
         /** @default 0 */
@@ -344,8 +302,8 @@ export interface components {
        *
        * @enum {string}
        */
-      type: 'applyInstantJson';
-      file: components['schemas']['FileHandle'];
+      type: "applyInstantJson";
+      file: components["schemas"]["FileHandle"];
     };
     ApplyXfdfAction: {
       /**
@@ -353,8 +311,8 @@ export interface components {
        *
        * @enum {string}
        */
-      type: 'applyXfdf';
-      file: components['schemas']['FileHandle'];
+      type: "applyXfdf";
+      file: components["schemas"]["FileHandle"];
     };
     FlattenAction: {
       /**
@@ -362,7 +320,7 @@ export interface components {
        *
        * @enum {string}
        */
-      type: 'flatten';
+      type: "flatten";
       /**
        * @description Annotation IDs to flatten. These can be annotation IDs or `pdfObjectId`s.
        * If not specified, all annotations will be flattened.
@@ -376,164 +334,15 @@ export interface components {
      * @example english
      * @enum {string}
      */
-    OcrLanguage:
-      | 'afrikaans'
-      | 'albanian'
-      | 'arabic'
-      | 'armenian'
-      | 'azerbaijani'
-      | 'basque'
-      | 'belarusian'
-      | 'bengali'
-      | 'bosnian'
-      | 'bulgarian'
-      | 'catalan'
-      | 'chinese'
-      | 'croatian'
-      | 'czech'
-      | 'danish'
-      | 'dutch'
-      | 'english'
-      | 'finnish'
-      | 'french'
-      | 'german'
-      | 'indonesian'
-      | 'italian'
-      | 'malay'
-      | 'norwegian'
-      | 'polish'
-      | 'portuguese'
-      | 'serbian'
-      | 'slovak'
-      | 'slovenian'
-      | 'spanish'
-      | 'swedish'
-      | 'turkish'
-      | 'welsh'
-      | 'afr'
-      | 'amh'
-      | 'ara'
-      | 'asm'
-      | 'aze'
-      | 'bel'
-      | 'ben'
-      | 'bod'
-      | 'bos'
-      | 'bre'
-      | 'bul'
-      | 'cat'
-      | 'ceb'
-      | 'ces'
-      | 'chr'
-      | 'cos'
-      | 'cym'
-      | 'dan'
-      | 'deu'
-      | 'div'
-      | 'dzo'
-      | 'ell'
-      | 'eng'
-      | 'enm'
-      | 'epo'
-      | 'equ'
-      | 'est'
-      | 'eus'
-      | 'fao'
-      | 'fas'
-      | 'fil'
-      | 'fin'
-      | 'fra'
-      | 'frk'
-      | 'frm'
-      | 'fry'
-      | 'gla'
-      | 'gle'
-      | 'glg'
-      | 'grc'
-      | 'guj'
-      | 'hat'
-      | 'heb'
-      | 'hin'
-      | 'hrv'
-      | 'hun'
-      | 'hye'
-      | 'iku'
-      | 'ind'
-      | 'isl'
-      | 'ita'
-      | 'jav'
-      | 'jpn'
-      | 'kan'
-      | 'kat'
-      | 'kaz'
-      | 'khm'
-      | 'kir'
-      | 'kmr'
-      | 'kor'
-      | 'kur'
-      | 'lao'
-      | 'lat'
-      | 'lav'
-      | 'lit'
-      | 'ltz'
-      | 'mal'
-      | 'mar'
-      | 'mkd'
-      | 'mlt'
-      | 'mon'
-      | 'mri'
-      | 'msa'
-      | 'mya'
-      | 'nep'
-      | 'nld'
-      | 'nor'
-      | 'oci'
-      | 'ori'
-      | 'osd'
-      | 'pan'
-      | 'pol'
-      | 'por'
-      | 'pus'
-      | 'que'
-      | 'ron'
-      | 'rus'
-      | 'san'
-      | 'sin'
-      | 'slk'
-      | 'slv'
-      | 'snd'
-      | 'sp1'
-      | 'spa'
-      | 'sqi'
-      | 'srp'
-      | 'sun'
-      | 'swa'
-      | 'swe'
-      | 'syr'
-      | 'tam'
-      | 'tat'
-      | 'tel'
-      | 'tgk'
-      | 'tgl'
-      | 'tha'
-      | 'tir'
-      | 'ton'
-      | 'tur'
-      | 'uig'
-      | 'ukr'
-      | 'urd'
-      | 'uzb'
-      | 'vie'
-      | 'yid'
-      | 'yor';
+    OcrLanguage: "afrikaans" | "albanian" | "arabic" | "armenian" | "azerbaijani" | "basque" | "belarusian" | "bengali" | "bosnian" | "bulgarian" | "catalan" | "chinese" | "croatian" | "czech" | "danish" | "dutch" | "english" | "finnish" | "french" | "german" | "indonesian" | "italian" | "malay" | "norwegian" | "polish" | "portuguese" | "serbian" | "slovak" | "slovenian" | "spanish" | "swedish" | "turkish" | "welsh" | "afr" | "amh" | "ara" | "asm" | "aze" | "bel" | "ben" | "bod" | "bos" | "bre" | "bul" | "cat" | "ceb" | "ces" | "chr" | "cos" | "cym" | "dan" | "deu" | "div" | "dzo" | "ell" | "eng" | "enm" | "epo" | "equ" | "est" | "eus" | "fao" | "fas" | "fil" | "fin" | "fra" | "frk" | "frm" | "fry" | "gla" | "gle" | "glg" | "grc" | "guj" | "hat" | "heb" | "hin" | "hrv" | "hun" | "hye" | "iku" | "ind" | "isl" | "ita" | "jav" | "jpn" | "kan" | "kat" | "kaz" | "khm" | "kir" | "kmr" | "kor" | "kur" | "lao" | "lat" | "lav" | "lit" | "ltz" | "mal" | "mar" | "mkd" | "mlt" | "mon" | "mri" | "msa" | "mya" | "nep" | "nld" | "nor" | "oci" | "ori" | "osd" | "pan" | "pol" | "por" | "pus" | "que" | "ron" | "rus" | "san" | "sin" | "slk" | "slv" | "snd" | "sp1" | "spa" | "sqi" | "srp" | "sun" | "swa" | "swe" | "syr" | "tam" | "tat" | "tel" | "tgk" | "tgl" | "tha" | "tir" | "ton" | "tur" | "uig" | "ukr" | "urd" | "uzb" | "vie" | "yid" | "yor";
     OcrAction: {
       /**
        * @description Perform optical character recognition (OCR) in the document.
        *
        * @enum {string}
        */
-      type: 'ocr';
-      language: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][];
+      type: "ocr";
+      language: components["schemas"]["OcrLanguage"] | components["schemas"]["OcrLanguage"][];
     };
     RotateAction: {
       /**
@@ -541,7 +350,7 @@ export interface components {
        *
        * @enum {string}
        */
-      type: 'rotate';
+      type: "rotate";
       /**
        * @description The angle by which the pages should be rotated, clockwise.
        *
@@ -559,7 +368,7 @@ export interface components {
        * @description Dimension unit
        * @enum {string}
        */
-      unit: 'pt' | '%';
+      unit: "pt" | "%";
     };
     BaseWatermarkAction: {
       /**
@@ -567,13 +376,19 @@ export interface components {
        *
        * @enum {string}
        */
-      type: 'watermark';
-      width: Record<string, never> & components['schemas']['WatermarkDimension'];
-      height: Record<string, never> & components['schemas']['WatermarkDimension'];
-      top?: Record<string, never> & components['schemas']['WatermarkDimension'];
-      right?: Record<string, never> & components['schemas']['WatermarkDimension'];
-      bottom?: Record<string, never> & components['schemas']['WatermarkDimension'];
-      left?: Record<string, never> & components['schemas']['WatermarkDimension'];
+      type: "watermark";
+      /** @description Width of the watermark in PDF points. */
+      width: components["schemas"]["WatermarkDimension"];
+      /** @description Height of the watermark in PDF points. */
+      height: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the top edge of a page. */
+      top?: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the right edge of a page. */
+      right?: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the bottom edge of a page. */
+      bottom?: components["schemas"]["WatermarkDimension"];
+      /** @description Offset of the watermark from the left edge of a page. */
+      left?: components["schemas"]["WatermarkDimension"];
       /**
        * @description Rotation of the watermark in counterclockwise degrees.
        *
@@ -583,7 +398,7 @@ export interface components {
       /** @description Watermark opacity. 0 is fully transparent, 1 is fully opaque. */
       opacity?: number;
     };
-    TextWatermarkAction: components['schemas']['BaseWatermarkAction'] & {
+    TextWatermarkAction: components["schemas"]["BaseWatermarkAction"] & ({
       /** @description Text used for watermarking */
       text: string;
       /**
@@ -602,14 +417,12 @@ export interface components {
        */
       fontColor?: string;
       /** @description Text style. Can be only italic, only bold, italic and bold, or none of these. */
-      fontStyle?: ('bold' | 'italic')[];
+      fontStyle?: ("bold" | "italic")[];
+    });
+    ImageWatermarkAction: components["schemas"]["BaseWatermarkAction"] & {
+      image: components["schemas"]["FileHandle"];
     };
-    ImageWatermarkAction: components['schemas']['BaseWatermarkAction'] & {
-      image: components['schemas']['FileHandle'];
-    };
-    WatermarkAction:
-      | components['schemas']['TextWatermarkAction']
-      | components['schemas']['ImageWatermarkAction'];
+    WatermarkAction: components["schemas"]["TextWatermarkAction"] | components["schemas"]["ImageWatermarkAction"];
     /**
      * @description Page index of the annotation. 0 is the first page.
      * @example 0
@@ -631,16 +444,16 @@ export interface components {
       subAction?: Record<string, never>;
     };
     /** GoToAction */
-    GoToAction: components['schemas']['BaseAction'] & {
+    GoToAction: components["schemas"]["BaseAction"] & {
       /** @enum {string} */
-      type: 'goTo';
+      type: "goTo";
       /** @description Page index to navigate to. 0 is the first page. */
       pageIndex: number;
     };
     /** GoToRemoteAction */
-    GoToRemoteAction: components['schemas']['BaseAction'] & {
+    GoToRemoteAction: components["schemas"]["BaseAction"] & {
       /** @enum {string} */
-      type: 'goToRemote';
+      type: "goToRemote";
       /**
        * @description The relative path of the file to open.
        * @example /other_document.pdf
@@ -649,9 +462,9 @@ export interface components {
       namedDestination?: string;
     };
     /** GoToEmbeddedAction */
-    GoToEmbeddedAction: components['schemas']['BaseAction'] & {
+    GoToEmbeddedAction: components["schemas"]["BaseAction"] & ({
       /** @enum {string} */
-      type: 'goToEmbedded';
+      type: "goToEmbedded";
       /**
        * @description The relative path to the embedded file.
        * @example /other_document.pdf
@@ -660,12 +473,12 @@ export interface components {
       /** @description Whether to open the file in a new window. */
       newWindow?: boolean;
       /** @enum {string} */
-      targetType?: 'parent' | 'child';
-    };
+      targetType?: "parent" | "child";
+    });
     /** LaunchAction */
-    LaunchAction: components['schemas']['BaseAction'] & {
+    LaunchAction: components["schemas"]["BaseAction"] & {
       /** @enum {string} */
-      type: 'launch';
+      type: "launch";
       /**
        * @description The file path to launch.
        * @example /other_document.pdf
@@ -673,9 +486,9 @@ export interface components {
       filePath: string;
     };
     /** URIAction */
-    URIAction: components['schemas']['BaseAction'] & {
+    URIAction: components["schemas"]["BaseAction"] & {
       /** @enum {string} */
-      type: 'uri';
+      type: "uri";
       /** @example https://www.nutrient.io */
       uri: string;
     };
@@ -685,71 +498,41 @@ export interface components {
       pdfObjectId?: number;
     };
     /** HideAction */
-    HideAction: components['schemas']['BaseAction'] & {
+    HideAction: components["schemas"]["BaseAction"] & {
       /** @enum {string} */
-      type: 'hide';
+      type: "hide";
       hide: boolean;
-      annotationReferences: components['schemas']['AnnotationReference'][];
+      annotationReferences: components["schemas"]["AnnotationReference"][];
     };
     /** JavaScriptAction */
-    JavaScriptAction: components['schemas']['BaseAction'] & {
+    JavaScriptAction: components["schemas"]["BaseAction"] & {
       /** @enum {string} */
-      type: 'javascript';
+      type: "javascript";
       script: string;
     };
     /** SubmitFormAction */
-    SubmitFormAction: components['schemas']['BaseAction'] & {
+    SubmitFormAction: components["schemas"]["BaseAction"] & ({
       /** @enum {string} */
-      type: 'submitForm';
+      type: "submitForm";
       uri: string;
-      flags: (
-        | 'includeExclude'
-        | 'includeNoValueFields'
-        | 'exportFormat'
-        | 'getMethod'
-        | 'submitCoordinated'
-        | 'xfdf'
-        | 'includeAppendSaves'
-        | 'includeAnnotations'
-        | 'submitPDF'
-        | 'canonicalFormat'
-        | 'excludeNonUserAnnotations'
-        | 'excludeFKey'
-        | 'embedForm'
-      )[];
-      fields?: components['schemas']['AnnotationReference'][];
-    };
+      flags: ("includeExclude" | "includeNoValueFields" | "exportFormat" | "getMethod" | "submitCoordinated" | "xfdf" | "includeAppendSaves" | "includeAnnotations" | "submitPDF" | "canonicalFormat" | "excludeNonUserAnnotations" | "excludeFKey" | "embedForm")[];
+      fields?: components["schemas"]["AnnotationReference"][];
+    });
     /** ResetFormAction */
-    ResetFormAction: components['schemas']['BaseAction'] & {
+    ResetFormAction: components["schemas"]["BaseAction"] & {
       /** @enum {string} */
-      type: 'resetForm';
+      type: "resetForm";
       /** @enum {string} */
-      flags?: 'includeExclude';
-      fields?: components['schemas']['AnnotationReference'][];
+      flags?: "includeExclude";
+      fields?: components["schemas"]["AnnotationReference"][];
     };
     /** NamedAction */
-    NamedAction: components['schemas']['BaseAction'] & {
+    NamedAction: components["schemas"]["BaseAction"] & ({
       /** @enum {string} */
-      type: 'named';
+      type: "named";
       /** @enum {string} */
-      action:
-        | 'nextPage'
-        | 'prevPage'
-        | 'firstPage'
-        | 'lastPage'
-        | 'goBack'
-        | 'goForward'
-        | 'goToPage'
-        | 'find'
-        | 'print'
-        | 'outline'
-        | 'search'
-        | 'brightness'
-        | 'zoomIn'
-        | 'zoomOut'
-        | 'saveAs'
-        | 'info';
-    };
+      action: "nextPage" | "prevPage" | "firstPage" | "lastPage" | "goBack" | "goForward" | "goToPage" | "find" | "print" | "outline" | "search" | "brightness" | "zoomIn" | "zoomOut" | "saveAs" | "info";
+    });
     /**
      * @description Represents a PDF action.
      *
@@ -764,17 +547,7 @@ export interface components {
      *   "pageIndex": 0
      * }
      */
-    Action:
-      | components['schemas']['GoToAction']
-      | components['schemas']['GoToRemoteAction']
-      | components['schemas']['GoToEmbeddedAction']
-      | components['schemas']['LaunchAction']
-      | components['schemas']['URIAction']
-      | components['schemas']['HideAction']
-      | components['schemas']['JavaScriptAction']
-      | components['schemas']['SubmitFormAction']
-      | components['schemas']['ResetFormAction']
-      | components['schemas']['NamedAction'];
+    Action: components["schemas"]["GoToAction"] | components["schemas"]["GoToRemoteAction"] | components["schemas"]["GoToEmbeddedAction"] | components["schemas"]["LaunchAction"] | components["schemas"]["URIAction"] | components["schemas"]["HideAction"] | components["schemas"]["JavaScriptAction"] | components["schemas"]["SubmitFormAction"] | components["schemas"]["ResetFormAction"] | components["schemas"]["NamedAction"];
     /** @description Annotation opacity. 0 is fully transparent, 1 is fully opaque. */
     AnnotationOpacity: number;
     /** @description The PDF object ID of the annotation from the source PDF. */
@@ -798,11 +571,11 @@ export interface components {
       v: 2;
       /** @description The type of the annotation. */
       type: string;
-      pageIndex: components['schemas']['PageIndex'];
-      bbox: components['schemas']['AnnotationBbox'];
-      action?: components['schemas']['Action'];
-      opacity?: components['schemas']['AnnotationOpacity'];
-      pdfObjectId?: components['schemas']['PdfObjectId'];
+      pageIndex: components["schemas"]["PageIndex"];
+      bbox: components["schemas"]["AnnotationBbox"];
+      action?: components["schemas"]["Action"];
+      opacity?: components["schemas"]["AnnotationOpacity"];
+      pdfObjectId?: components["schemas"]["PdfObjectId"];
       /**
        * @description The unique Instant JSON identifier of the annotation.
        * @example 01DNEDPQQ22W49KDXRFPG4EPEQ
@@ -823,18 +596,7 @@ export interface components {
        * | locked | Same as `readOnly` but allows changing annotation contents. |
        * | lockedContents | Don't allow the contents of the annotation to be modified. |
        */
-      flags?: (
-        | 'noPrint'
-        | 'noZoom'
-        | 'noRotate'
-        | 'noView'
-        | 'hidden'
-        | 'invisible'
-        | 'readOnly'
-        | 'locked'
-        | 'toggleNoView'
-        | 'lockedContents'
-      )[];
+      flags?: ("noPrint" | "noZoom" | "noRotate" | "noView" | "hidden" | "invisible" | "readOnly" | "locked" | "toggleNoView" | "lockedContents")[];
       /**
        * Format: date-time
        * @description The date of the annotation creation. ISO 8601 with full date, time, and time zone information
@@ -851,7 +613,7 @@ export interface components {
       name?: string;
       /** @description The name of the creator of the annotation. */
       creatorName?: string;
-      customData?: components['schemas']['AnnotationCustomData'];
+      customData?: components["schemas"]["AnnotationCustomData"];
     };
     /**
      * Rect
@@ -877,11 +639,11 @@ export interface components {
      */
     AnnotationNote: string;
     /** RedactionAnnotation */
-    RedactionAnnotation: components['schemas']['BaseAnnotation'] & {
+    RedactionAnnotation: components["schemas"]["BaseAnnotation"] & {
       /** @enum {string} */
-      type: 'pspdfkit/markup/redaction';
+      type: "pspdfkit/markup/redaction";
       /** @description Bounding boxes of the marked text. */
-      rects?: components['schemas']['Rect'][];
+      rects?: components["schemas"]["Rect"][];
       /**
        * @description Outline color is the border color of a redaction annotation when it hasn't yet been applied to the document
        * @example #ffffff
@@ -901,8 +663,8 @@ export interface components {
        * @example #ffffff
        */
       color?: string;
-      rotation?: components['schemas']['AnnotationRotation'];
-      note?: components['schemas']['AnnotationNote'];
+      rotation?: components["schemas"]["AnnotationRotation"];
+      note?: components["schemas"]["AnnotationNote"];
     };
     /**
      * @description - `credit-card-number` — matches a number with 13 to 19 digits that begins with 1—6.
@@ -930,22 +692,9 @@ export interface components {
      * @example email-address
      * @enum {string}
      */
-    SearchPreset:
-      | 'credit-card-number'
-      | 'date'
-      | 'email-address'
-      | 'international-phone-number'
-      | 'ipv4'
-      | 'ipv6'
-      | 'mac-address'
-      | 'north-american-phone-number'
-      | 'social-security-number'
-      | 'time'
-      | 'url'
-      | 'us-zip-code'
-      | 'vin';
+    SearchPreset: "credit-card-number" | "date" | "email-address" | "international-phone-number" | "ipv4" | "ipv6" | "mac-address" | "north-american-phone-number" | "social-security-number" | "time" | "url" | "us-zip-code" | "vin";
     CreateRedactionsStrategyOptionsPreset: {
-      preset: components['schemas']['SearchPreset'];
+      preset: components["schemas"]["SearchPreset"];
       /**
        * @description Determines if redaction annotations are created on top of annotations whose
        * content match the provided preset.
@@ -1042,80 +791,66 @@ export interface components {
        *
        * @enum {string}
        */
-      type: 'createRedactions';
-      content?: components['schemas']['RedactionAnnotation'];
-    } & OneOf<
-      [
-        {
-          /** @enum {string} */
-          strategy: 'preset';
-          strategyOptions: components['schemas']['CreateRedactionsStrategyOptionsPreset'];
-        },
-        {
-          /** @enum {string} */
-          strategy: 'regex';
-          strategyOptions: components['schemas']['CreateRedactionsStrategyOptionsRegex'];
-        },
-        {
-          /** @enum {string} */
-          strategy: 'text';
-          strategyOptions: components['schemas']['CreateRedactionsStrategyOptionsText'];
-        },
-      ]
-    >;
+      type: "createRedactions";
+      content?: components["schemas"]["RedactionAnnotation"];
+    } & OneOf<[{
+      /** @enum {string} */
+      strategy: "preset";
+      strategyOptions: components["schemas"]["CreateRedactionsStrategyOptionsPreset"];
+    }, {
+      /** @enum {string} */
+      strategy: "regex";
+      strategyOptions: components["schemas"]["CreateRedactionsStrategyOptionsRegex"];
+    }, {
+      /** @enum {string} */
+      strategy: "text";
+      strategyOptions: components["schemas"]["CreateRedactionsStrategyOptionsText"];
+    }]>;
     ApplyRedactionsAction: {
       /**
        * @description Applies the redactions created by an earlier `createRedactions` action.
        *
        * @enum {string}
        */
-      type: 'applyRedactions';
+      type: "applyRedactions";
     };
-    BuildAction:
-      | components['schemas']['ApplyInstantJsonAction']
-      | components['schemas']['ApplyXfdfAction']
-      | components['schemas']['FlattenAction']
-      | components['schemas']['OcrAction']
-      | components['schemas']['RotateAction']
-      | components['schemas']['WatermarkAction']
-      | components['schemas']['CreateRedactionsAction']
-      | components['schemas']['ApplyRedactionsAction'];
+    BuildAction: components["schemas"]["ApplyInstantJsonAction"] | components["schemas"]["ApplyXfdfAction"] | components["schemas"]["FlattenAction"] | components["schemas"]["OcrAction"] | components["schemas"]["RotateAction"] | components["schemas"]["WatermarkAction"] | components["schemas"]["CreateRedactionsAction"] | components["schemas"]["ApplyRedactionsAction"];
     /**
      * @example {
      *   "file": "pdf-file-from-multipart"
      * }
      */
     FilePart: {
-      file: components['schemas']['FileHandle'];
+      file: components["schemas"]["FileHandle"];
       /** @description The password for the input file */
       password?: string;
-      pages?: components['schemas']['PageRange'];
-      layout?: Record<string, never> & components['schemas']['PageLayout'];
+      pages?: components["schemas"]["PageRange"];
+      layout?: Record<string, never> & components["schemas"]["PageLayout"];
       /**
        * @description The content type of the file. Used to determine the file type when the file content type is not available and can't be inferred.
        *
        * @example application/pdf
        */
       content_type?: string;
-      actions?: components['schemas']['BuildAction'][];
+      actions?: components["schemas"]["BuildAction"][];
     };
     HTMLPart: {
-      html: components['schemas']['FileHandle'];
+      html: components["schemas"]["FileHandle"];
       /** @description List of asset names imported in the HTML. References the name passed in the multipart request. */
       assets?: string[];
-      layout?: components['schemas']['PageLayout'];
-      actions?: components['schemas']['BuildAction'][];
+      layout?: components["schemas"]["PageLayout"];
+      actions?: components["schemas"]["BuildAction"][];
     };
     NewPagePart: {
       /** @enum {string} */
-      page: 'new';
+      page: "new";
       /**
        * @description Number of pages to be added.
        * @default 1
        */
       pageCount?: number;
-      layout?: components['schemas']['PageLayout'];
-      actions?: components['schemas']['BuildAction'][];
+      layout?: components["schemas"]["PageLayout"];
+      actions?: components["schemas"]["BuildAction"][];
     };
     /**
      * Document ID
@@ -1132,7 +867,7 @@ export interface components {
      */
     DocumentPart: {
       document: {
-        id: components['schemas']['DocumentId'] | '#self';
+        id: components["schemas"]["DocumentId"] | "#self";
         /**
          * @description The name of the layer to be used.
          *
@@ -1142,21 +877,17 @@ export interface components {
       };
       /** @description The password for the input file */
       password?: string;
-      pages?: components['schemas']['PageRange'];
-      actions?: components['schemas']['BuildAction'][];
+      pages?: components["schemas"]["PageRange"];
+      actions?: components["schemas"]["BuildAction"][];
     };
-    Part:
-      | components['schemas']['FilePart']
-      | components['schemas']['HTMLPart']
-      | components['schemas']['NewPagePart']
-      | components['schemas']['DocumentPart'];
+    Part: components["schemas"]["FilePart"] | components["schemas"]["HTMLPart"] | components["schemas"]["NewPagePart"] | components["schemas"]["DocumentPart"];
     /**
      * @description The document title.
      * @example Nutrient Document Engine API Specification
      */
     Title: string | null;
     Metadata: {
-      title?: components['schemas']['Title'];
+      title?: components["schemas"]["Title"];
       /**
        * @description The document author.
        * @example Document Author
@@ -1164,7 +895,7 @@ export interface components {
       author?: string;
     };
     Label: {
-      pages: components['schemas']['PageRange'];
+      pages: components["schemas"]["PageRange"];
       /**
        * @description The label to apply to specified pages.
        * @example Page I-III
@@ -1172,15 +903,7 @@ export interface components {
       label: string;
     };
     /** @enum {string} */
-    PDFUserPermission:
-      | 'printing'
-      | 'modification'
-      | 'extract'
-      | 'annotations_and_forms'
-      | 'fill_forms'
-      | 'extract_accessibility'
-      | 'assemble'
-      | 'print_high_quality';
+    PDFUserPermission: "printing" | "modification" | "extract" | "annotations_and_forms" | "fill_forms" | "extract_accessibility" | "assemble" | "print_high_quality";
     OptimizePdf: {
       /** @default false */
       grayscaleText?: boolean;
@@ -1209,8 +932,8 @@ export interface components {
     };
     /** @description Object representing PDF output. */
     BasePDFOutput: {
-      metadata?: components['schemas']['Metadata'];
-      labels?: components['schemas']['Label'][];
+      metadata?: components["schemas"]["Metadata"];
+      labels?: components["schemas"]["Label"][];
       /**
        * @description Defines the password which allows to open a file with defined
        * permissions
@@ -1219,16 +942,16 @@ export interface components {
       /** @description Defines the password which allows to manage the permissions for the file */
       owner_password?: string;
       /** @description Defines the permissions which are granted when a file is opened with user password */
-      user_permissions?: components['schemas']['PDFUserPermission'][];
-      optimize?: components['schemas']['OptimizePdf'];
+      user_permissions?: components["schemas"]["PDFUserPermission"][];
+      optimize?: components["schemas"]["OptimizePdf"];
     };
-    PDFOutput: components['schemas']['BasePDFOutput'] & {
+    PDFOutput: components["schemas"]["BasePDFOutput"] & {
       /** @enum {string} */
-      type?: 'pdf';
+      type?: "pdf";
     };
-    PDFAOutput: components['schemas']['BasePDFOutput'] & {
+    PDFAOutput: components["schemas"]["BasePDFOutput"] & ({
       /** @enum {string} */
-      type: 'pdfa';
+      type: "pdfa";
       /**
        * @description Defines the conformance level of the output file.
        * The default value is `pdfa-1b`.
@@ -1237,14 +960,7 @@ export interface components {
        *
        * @enum {string}
        */
-      conformance?:
-        | 'pdfa-1a'
-        | 'pdfa-1b'
-        | 'pdfa-2a'
-        | 'pdfa-2u'
-        | 'pdfa-2b'
-        | 'pdfa-3a'
-        | 'pdfa-3u';
+      conformance?: "pdfa-1a" | "pdfa-1b" | "pdfa-2a" | "pdfa-2u" | "pdfa-2b" | "pdfa-3a" | "pdfa-3u";
       /**
        * @description When set to true, produces vector based graphic elements where applicable. For example: fonts and paths.
        *
@@ -1257,22 +973,22 @@ export interface components {
        * @default true
        */
       rasterization?: boolean;
-    };
+    });
     /**
      * ImageOutput
      * @description Render the document as an image.
      */
     ImageOutput: {
       /** @enum {string} */
-      type: 'image';
+      type: "image";
       /**
        * @description The format of the rendered image.
        *
        * @default png
        * @enum {string}
        */
-      format?: 'png' | 'jpeg' | 'jpg' | 'webp';
-      pages?: components['schemas']['PageRange'];
+      format?: "png" | "jpeg" | "jpg" | "webp";
+      pages?: components["schemas"]["PageRange"];
       /** @description The width of the rendered image in pixels. You must specify at least one of either width, height or dpi */
       width?: number;
       /** @description The height of the rendered image in pixels. You must specify at least one of either width, height or dpi */
@@ -1286,7 +1002,7 @@ export interface components {
      */
     JSONContentOutput: {
       /** @enum {string} */
-      type: 'json-content';
+      type: "json-content";
       /**
        * @description When set to true, extracts document text. Text is extracted via OCR process.
        *
@@ -1311,7 +1027,7 @@ export interface components {
        * @default true
        */
       tables?: boolean;
-      language?: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][];
+      language?: components["schemas"]["OcrLanguage"] | components["schemas"]["OcrLanguage"][];
     };
     /** OfficeOutput */
     OfficeOutput: {
@@ -1320,14 +1036,9 @@ export interface components {
        *
        * @enum {string}
        */
-      type: 'docx' | 'xlsx' | 'pptx';
+      type: "docx" | "xlsx" | "pptx";
     };
-    BuildOutput:
-      | components['schemas']['PDFOutput']
-      | components['schemas']['PDFAOutput']
-      | components['schemas']['ImageOutput']
-      | components['schemas']['JSONContentOutput']
-      | components['schemas']['OfficeOutput'];
+    BuildOutput: components["schemas"]["PDFOutput"] | components["schemas"]["PDFAOutput"] | components["schemas"]["ImageOutput"] | components["schemas"]["JSONContentOutput"] | components["schemas"]["OfficeOutput"];
     BuildInstructions: {
       /**
        * @description Parts of the document to be built.
@@ -1338,10 +1049,203 @@ export interface components {
        * * `NewPagePart` that represents a document with empty pages.
        * * `DocumentPart` that represents a document (with optional layer) managed by Nutrient Document Engine. Only applicable if used in a Document Engine context.
        */
-      parts: components['schemas']['Part'][];
+      parts: components["schemas"]["Part"][];
       /** @description Actions to be performed on the document after it is built. */
-      actions?: components['schemas']['BuildAction'][];
-      output?: components['schemas']['BuildOutput'];
+      actions?: components["schemas"]["BuildAction"][];
+      output?: components["schemas"]["BuildOutput"];
+    };
+    /**
+     * @description Page text extracted via OCR process. This property is present only when `plainText` is set to `true`.
+     *
+     * @example Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.
+     */
+    PlainText: string;
+    /** @description Represents a rectangular region on the page. Both coordinates and directions are in PDF points with the origin at the top-left corner of the page. */
+    JsonContentsBbox: {
+      /** @example 0 */
+      left: number;
+      /** @example 0 */
+      top: number;
+      /** @example 100 */
+      width: number;
+      /** @example 100 */
+      height: number;
+    };
+    Character: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /** @example T */
+      value: string;
+    };
+    Line: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /**
+       * @description The index of the first word of the line from the `characters`  array.
+       * @example 0
+       */
+      firstWordIndex: number;
+      /**
+       * @description Specifies if the line is written from right to left.
+       * @example false
+       */
+      isRTL: boolean;
+      /**
+       * @description Specifies if the line is vertically oriented.
+       * @example false
+       */
+      isVertical: boolean;
+      /**
+       * @description The number of words in the line.
+       * @example 5
+       */
+      wordCount: number;
+    };
+    Paragraph: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /**
+       * @description The index of the first line of the paragraph from the `lines` array.
+       * @example 0
+       */
+      firstLineIndex: number;
+      /**
+       * @description The number of lines in the paragraph.
+       * @example 3
+       */
+      lineCount: number;
+    };
+    Word: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /**
+       * @description The number of characters in the word.
+       * @example 4
+       */
+      characterCount: number;
+      /**
+       * @description The index of the first character of the word from the `characters` array.
+       * @example 0
+       */
+      firstCharacterIndex: number;
+      /**
+       * @description Specifies if the word has been identified from the OCR dictionary.
+       * @example true
+       */
+      isFromDictionary: boolean;
+      /**
+       * @description The actual word text.
+       * @example word
+       */
+      value: string;
+    };
+    StructuredText: {
+      /** @description A list of characters detected within the page. */
+      characters?: components["schemas"]["Character"][];
+      /** @description A list of lines detected within the page. */
+      lines?: components["schemas"]["Line"][];
+      /** @description A list of paragraphs detected within the page. */
+      paragraphs?: components["schemas"]["Paragraph"][];
+      /** @description A list of words detected within the page. */
+      words?: components["schemas"]["Word"][];
+    };
+    /**
+     * @description Specifies the confidence score of pair, in the range [0 - 100].
+     * @example 95.4
+     */
+    Confidence: number;
+    /** @description The key of the detected key-value pair. */
+    KVPKey: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /**
+       * @description The detected key text. `#` is the value does not have a key.
+       *
+       * @example #
+       */
+      content: string;
+    };
+    /** @description The value of the detected key-value pair. */
+    KVPValue: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /**
+       * @description The detected value text.
+       * @example €
+       */
+      content: string;
+      /**
+       * @description The value type. One of the following: `Unknown`, `PhoneNumber`, `EmailAddress`, `Currency`, `Number`, `DateTime`, `String`, `PostCode`, `URL`, `Percentage`, `Symbol`, `VatIDValue`, `TimePeriod`, `IBAN`, `BIC`, `CreditCard`, `UID`, `PostalAddress`, `VIN`, `SSN`
+       *
+       * @example Currency
+       */
+      dataType: string;
+    };
+    KeyValuePair: {
+      confidence: components["schemas"]["Confidence"];
+      key: components["schemas"]["KVPKey"];
+      value: components["schemas"]["KVPValue"];
+    };
+    TableCell: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /**
+       * @description An index of a row the cell belongs to (0-based).
+       * @example 0
+       */
+      rowIndex: number;
+      /**
+       * @description An index of a column the cell belongs to (0-based).
+       * @example 0
+       */
+      columnIndex: number;
+      /**
+       * @description Specifies if the cell has been identified as a part of the table header.
+       * @example true
+       */
+      isHeader: boolean;
+      /**
+       * @description The content of the cell.
+       * @example Invoice number
+       */
+      text: string;
+    };
+    TableColumn: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+    };
+    TableLine: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /**
+       * @description Specifies if the line is oriented vertically.
+       * @example false
+       */
+      isVertical?: boolean;
+      /** @description The thickness of the line, in PDF points. */
+      thickness?: number;
+    };
+    TableRow: {
+      bbox: components["schemas"]["JsonContentsBbox"];
+    };
+    Table: {
+      confidence: components["schemas"]["Confidence"];
+      bbox: components["schemas"]["JsonContentsBbox"];
+      /** @description A list of table cells. */
+      cells: components["schemas"]["TableCell"][];
+      /** @description A list of table columns. */
+      columns: components["schemas"]["TableColumn"][];
+      /** @description A list of physical lines in the table. */
+      lines: components["schemas"]["TableLine"][];
+      /** @description A list of table rows. */
+      rows: components["schemas"]["TableRow"][];
+    };
+    PageJsonContents: {
+      /**
+       * @description 0-based index of the page in the document.
+       * @example 0
+       */
+      pageIndex: number;
+      plainText?: components["schemas"]["PlainText"];
+      structuredText?: components["schemas"]["StructuredText"];
+      /** @description A list of detected key-value pairs on the page. */
+      keyValuePairs?: components["schemas"]["KeyValuePair"][];
+      /** @description A list of detected tables on the page. */
+      tables?: components["schemas"]["Table"][];
+    };
+    BuildResponseJsonContents: {
+      pages?: components["schemas"]["PageJsonContents"][];
     };
     HostedErrorResponse: {
       /** @example The request is malformed */
@@ -1352,11 +1256,11 @@ export interface components {
       requestId?: string;
       /** @description List of failing paths. */
       failingPaths?: {
-        /** @example $.property[0] */
-        path?: string;
-        /** @example Missing required property */
-        details?: string;
-      }[];
+          /** @example $.property[0] */
+          path?: string;
+          /** @example Missing required property */
+          details?: string;
+        }[];
     };
     /**
      * CreateDigitalSignature
@@ -1384,7 +1288,7 @@ export interface components {
        * @default cms
        * @enum {string}
        */
-      signatureType: 'cms' | 'cades';
+      signatureType: "cms" | "cades";
       /**
        * @description Controls whether to flatten the document before signing it.
        * This is useful when you want the document's appearance to remain stable before signing and to ensure there's no indication that the document can be edited after signing.
@@ -1415,7 +1319,7 @@ export interface components {
          * @example signatureOnly
          * @enum {string}
          */
-        mode?: 'signatureOnly' | 'signatureAndDescription' | 'descriptionOnly';
+        mode?: "signatureOnly" | "signatureAndDescription" | "descriptionOnly";
         /**
          * @description The content type of the watermark image when provided in the `image` parameter of the multipart request.
          * Supported types are `application/pdf`, `image/png`, and `image/jpeg`.
@@ -1484,49 +1388,33 @@ export interface components {
        * @default b-lt
        * @enum {string}
        */
-      cadesLevel?: 'b-lt' | 'b-t' | 'b-b';
+      cadesLevel?: "b-lt" | "b-t" | "b-b";
     };
     /**
      * BlendMode
      * @enum {string}
      */
-    BlendMode:
-      | 'normal'
-      | 'multiply'
-      | 'screen'
-      | 'overlay'
-      | 'darken'
-      | 'lighten'
-      | 'colorDodge'
-      | 'colorBurn'
-      | 'hardLight'
-      | 'softLight'
-      | 'difference'
-      | 'exclusion';
+    BlendMode: "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "colorDodge" | "colorBurn" | "hardLight" | "softLight" | "difference" | "exclusion";
     /**
      * isCommentThreadRoot
      * @description Indicates whether the annotation is the root of a comment thread.
      */
     IsCommentThreadRoot: boolean;
     /** MarkupAnnotation */
-    MarkupAnnotation: components['schemas']['BaseAnnotation'] & {
+    MarkupAnnotation: components["schemas"]["BaseAnnotation"] & ({
       /** @enum {unknown} */
-      type:
-        | 'pspdfkit/markup/highlight'
-        | 'pspdfkit/markup/squiggly'
-        | 'pspdfkit/markup/strikeout'
-        | 'pspdfkit/markup/underline';
+      type: "pspdfkit/markup/highlight" | "pspdfkit/markup/squiggly" | "pspdfkit/markup/strikeout" | "pspdfkit/markup/underline";
       /** @description Bounding boxes of the marked text. */
-      rects: components['schemas']['Rect'][];
-      blendMode?: components['schemas']['BlendMode'];
+      rects: components["schemas"]["Rect"][];
+      blendMode?: components["schemas"]["BlendMode"];
       /**
        * @description Foreground color
        * @example #fcee7c
        */
       color: string;
-      note?: components['schemas']['AnnotationNote'];
-      isCommentThreadRoot?: components['schemas']['IsCommentThreadRoot'];
-    };
+      note?: components["schemas"]["AnnotationNote"];
+      isCommentThreadRoot?: components["schemas"]["IsCommentThreadRoot"];
+    });
     /** @description The text contents. */
     AnnotationText: {
       /**
@@ -1541,7 +1429,7 @@ export interface components {
        *
        * @enum {string}
        */
-      format?: 'xhtml' | 'plain';
+      format?: "xhtml" | "plain";
       /**
        * @description Actual text content of the annotation. This is the text that will be displayed in the annotation.
        *
@@ -1556,7 +1444,7 @@ export interface components {
      */
     FontSizeInt: number;
     /** @description Text style. Can be only italic, only bold, italic and bold, or none of these. */
-    FontStyle: ('bold' | 'italic')[];
+    FontStyle: ("bold" | "italic")[];
     /**
      * FontColor
      * @description A foreground color of the text.
@@ -1574,7 +1462,7 @@ export interface components {
      * @description Alignment of the text along the horizontal axis.
      * @enum {string}
      */
-    HorizontalAlign: 'left' | 'center' | 'right';
+    HorizontalAlign: "left" | "center" | "right";
     /**
      * VerticalAlign
      * @description Alignment of the text along the vertical axis.
@@ -1583,7 +1471,7 @@ export interface components {
      *
      * @enum {string}
      */
-    VerticalAlign: 'top' | 'center' | 'bottom';
+    VerticalAlign: "top" | "center" | "bottom";
     /**
      * Point
      * @description Point coordinates in a form [x, y] in PDF points (pt).
@@ -1597,21 +1485,12 @@ export interface components {
      * LineCap
      * @enum {string}
      */
-    LineCap:
-      | 'square'
-      | 'circle'
-      | 'diamond'
-      | 'openArrow'
-      | 'closedArrow'
-      | 'butt'
-      | 'reverseOpenArrow'
-      | 'reverseClosedArrow'
-      | 'slash';
+    LineCap: "square" | "circle" | "diamond" | "openArrow" | "closedArrow" | "butt" | "reverseOpenArrow" | "reverseClosedArrow" | "slash";
     /**
      * BorderStyle
      * @enum {string}
      */
-    BorderStyle: 'solid' | 'dashed' | 'beveled' | 'inset' | 'underline';
+    BorderStyle: "solid" | "dashed" | "beveled" | "inset" | "underline";
     /** CloudyBorderIntensity */
     CloudyBorderIntensity: number;
     /**
@@ -1620,38 +1499,38 @@ export interface components {
      */
     CloudyBorderInset: number[];
     /** TextAnnotation */
-    TextAnnotation: components['schemas']['BaseAnnotation'] & {
+    TextAnnotation: components["schemas"]["BaseAnnotation"] & {
       /** @enum {string} */
-      type: 'pspdfkit/text';
-      text: components['schemas']['AnnotationText'];
-      fontSize: components['schemas']['FontSizeInt'];
-      fontStyle?: components['schemas']['FontStyle'];
-      fontColor?: components['schemas']['FontColor'];
-      font?: components['schemas']['Font'];
+      type: "pspdfkit/text";
+      text: components["schemas"]["AnnotationText"];
+      fontSize: components["schemas"]["FontSizeInt"];
+      fontStyle?: components["schemas"]["FontStyle"];
+      fontColor?: components["schemas"]["FontColor"];
+      font?: components["schemas"]["Font"];
       /**
        * BackgroundColor
        * @description A background color that will fill the bounding box.
        * @example #000000
        */
       backgroundColor?: string;
-      horizontalAlign: components['schemas']['HorizontalAlign'];
-      verticalAlign: components['schemas']['VerticalAlign'];
-      rotation?: components['schemas']['AnnotationRotation'];
+      horizontalAlign: components["schemas"]["HorizontalAlign"];
+      verticalAlign: components["schemas"]["VerticalAlign"];
+      rotation?: components["schemas"]["AnnotationRotation"];
       /** @description Specifies that the text is supposed to fit in the bounding box. This is only set on new annotations, as we can't easily figure out if an appearance stream contains all the text for existing annotations. */
       isFitting?: boolean;
       /** @description Properties for callout version of text annotation. */
       callout?: {
-        start: components['schemas']['Point'];
-        end: components['schemas']['Point'];
+        start: components["schemas"]["Point"];
+        end: components["schemas"]["Point"];
         /** @description Inset applied to the bounding box to size and position the rectangle for the text [left, top, right, bottom]. */
         innerRectInset: number[];
-        cap?: components['schemas']['LineCap'];
-        knee?: components['schemas']['Point'];
+        cap?: components["schemas"]["LineCap"];
+        knee?: components["schemas"]["Point"];
       };
-      borderStyle?: components['schemas']['BorderStyle'];
+      borderStyle?: components["schemas"]["BorderStyle"];
       borderWidth?: number;
-      cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-      cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
     };
     /**
      * Intensity
@@ -1661,9 +1540,9 @@ export interface components {
     /** Lines */
     Lines: {
       /** @description Intensities are used to weigh the point during natural drawing. They are received by pressure-sensitive drawing or touch devices. The default value should be used if it's not possible to obtain the intensity. */
-      intensities?: components['schemas']['Intensity'][][];
+      intensities?: components["schemas"]["Intensity"][][];
       /** @description Points are grouped in segments. Points inside a segment are joined to a line. There must be at least one  segment with at least one point. */
-      points?: components['schemas']['Point'][][];
+      points?: components["schemas"]["Point"][][];
     };
     /**
      * BackgroundColor
@@ -1672,10 +1551,10 @@ export interface components {
      */
     BackgroundColor: string;
     /** InkAnnotation */
-    InkAnnotation: components['schemas']['BaseAnnotation'] & {
+    InkAnnotation: components["schemas"]["BaseAnnotation"] & {
       /** @enum {string} */
-      type: 'pspdfkit/ink';
-      lines: components['schemas']['Lines'];
+      type: "pspdfkit/ink";
+      lines: components["schemas"]["Lines"];
       /** @description The width of the line in PDF points (pt). */
       lineWidth: number;
       /** @description Nutrient's natural drawing mode. This value is only used by Nutrient iOS SDK. */
@@ -1687,45 +1566,32 @@ export interface components {
        * @example #ffffff
        */
       strokeColor?: string;
-      backgroundColor?: components['schemas']['BackgroundColor'];
-      blendMode?: components['schemas']['BlendMode'];
-      note?: components['schemas']['AnnotationNote'];
+      backgroundColor?: components["schemas"]["BackgroundColor"];
+      blendMode?: components["schemas"]["BlendMode"];
+      note?: components["schemas"]["AnnotationNote"];
     };
     /** LinkAnnotation */
-    LinkAnnotation: components['schemas']['BaseAnnotation'] & {
+    LinkAnnotation: components["schemas"]["BaseAnnotation"] & {
       /** @enum {string} */
-      type: 'pspdfkit/link';
+      type: "pspdfkit/link";
       /**
        * @description A color of the link border.
        * @example #ffffff
        */
       borderColor?: string;
-      borderStyle?: components['schemas']['BorderStyle'];
+      borderStyle?: components["schemas"]["BorderStyle"];
       borderWidth?: number;
-      note?: components['schemas']['AnnotationNote'];
+      note?: components["schemas"]["AnnotationNote"];
     };
     /**
      * NoteIcon
      * @enum {string}
      */
-    NoteIcon:
-      | 'comment'
-      | 'rightPointer'
-      | 'rightArrow'
-      | 'check'
-      | 'circle'
-      | 'cross'
-      | 'insert'
-      | 'newParagraph'
-      | 'note'
-      | 'paragraph'
-      | 'help'
-      | 'star'
-      | 'key';
+    NoteIcon: "comment" | "rightPointer" | "rightArrow" | "check" | "circle" | "cross" | "insert" | "newParagraph" | "note" | "paragraph" | "help" | "star" | "key";
     /** NoteAnnotation */
-    NoteAnnotation: components['schemas']['BaseAnnotation'] & {
-      text: components['schemas']['AnnotationText'];
-      icon: components['schemas']['NoteIcon'];
+    NoteAnnotation: components["schemas"]["BaseAnnotation"] & {
+      text: components["schemas"]["AnnotationText"];
+      icon: components["schemas"]["NoteIcon"];
       /**
        * @description A color that fills the note shape and its icon.
        * @example #ffd83f
@@ -1735,9 +1601,9 @@ export interface components {
     /** MeasurementScale */
     MeasurementScale: {
       /** @enum {string} */
-      unitFrom?: 'in' | 'mm' | 'cm' | 'pt';
+      unitFrom?: "in" | "mm" | "cm" | "pt";
       /** @enum {string} */
-      unitTo?: 'in' | 'mm' | 'cm' | 'pt' | 'ft' | 'm' | 'yd' | 'km' | 'mi';
+      unitTo?: "in" | "mm" | "cm" | "pt" | "ft" | "m" | "yd" | "km" | "mi";
       from?: number;
       to?: number;
     };
@@ -1745,7 +1611,7 @@ export interface components {
      * MeasurementPrecision
      * @enum {string}
      */
-    MeasurementPrecision: 'whole' | 'oneDp' | 'twoDp' | 'threeDp' | 'fourDp';
+    MeasurementPrecision: "whole" | "oneDp" | "twoDp" | "threeDp" | "fourDp";
     /**
      * ShapeAnnotation
      * @description Shape annotations are used to draw different shapes on a page.
@@ -1755,9 +1621,9 @@ export interface components {
       strokeWidth?: number;
       /** @example #ffffff */
       strokeColor?: string;
-      note?: components['schemas']['AnnotationNote'];
-      measurementScale?: components['schemas']['MeasurementScale'];
-      measurementPrecision?: components['schemas']['MeasurementPrecision'];
+      note?: components["schemas"]["AnnotationNote"];
+      measurementScale?: components["schemas"]["MeasurementScale"];
+      measurementPrecision?: components["schemas"]["MeasurementPrecision"];
     };
     /**
      * FillColor
@@ -1765,62 +1631,57 @@ export interface components {
      */
     FillColor: string;
     /** EllipseAnnotation */
-    EllipseAnnotation: components['schemas']['BaseAnnotation'] &
-      components['schemas']['ShapeAnnotation'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/ellipse';
-        fillColor?: components['schemas']['FillColor'];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-        cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
-      };
+    EllipseAnnotation: components["schemas"]["BaseAnnotation"] & components["schemas"]["ShapeAnnotation"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/ellipse";
+      fillColor?: components["schemas"]["FillColor"];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
+    };
     /** RectangleAnnotation */
-    RectangleAnnotation: components['schemas']['BaseAnnotation'] &
-      components['schemas']['ShapeAnnotation'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/rectangle';
-        fillColor?: components['schemas']['FillColor'];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-        cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
-      };
+    RectangleAnnotation: components["schemas"]["BaseAnnotation"] & components["schemas"]["ShapeAnnotation"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/rectangle";
+      fillColor?: components["schemas"]["FillColor"];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
+    };
     /** LineCaps */
     LineCaps: {
-      start?: components['schemas']['LineCap'];
-      end?: components['schemas']['LineCap'];
+      start?: components["schemas"]["LineCap"];
+      end?: components["schemas"]["LineCap"];
     };
     /** LineAnnotation */
-    LineAnnotation: components['schemas']['BaseAnnotation'] &
-      components['schemas']['ShapeAnnotation'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/line';
-        startPoint: components['schemas']['Point'];
-        endPoint: components['schemas']['Point'];
-        fillColor?: components['schemas']['FillColor'];
-        lineCaps?: components['schemas']['LineCaps'];
-      };
-    /** PolylineAnnotation */
-    PolylineAnnotation: components['schemas']['BaseAnnotation'] &
-      components['schemas']['ShapeAnnotation'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/polyline';
-        fillColor?: components['schemas']['FillColor'];
-        points: components['schemas']['Point'][];
-        lineCaps?: components['schemas']['LineCaps'];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-        cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
-      };
-    /** PolygonAnnotation */
-    PolygonAnnotation: components['schemas']['BaseAnnotation'] &
-      components['schemas']['ShapeAnnotation'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/polygon';
-        fillColor?: components['schemas']['FillColor'];
-        points: components['schemas']['Point'][];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-      };
-    /** ImageAnnotation */
-    ImageAnnotation: components['schemas']['BaseAnnotation'] & {
+    LineAnnotation: components["schemas"]["BaseAnnotation"] & components["schemas"]["ShapeAnnotation"] & {
       /** @enum {string} */
-      type: 'pspdfkit/image';
+      type: "pspdfkit/shape/line";
+      startPoint: components["schemas"]["Point"];
+      endPoint: components["schemas"]["Point"];
+      fillColor?: components["schemas"]["FillColor"];
+      lineCaps?: components["schemas"]["LineCaps"];
+    };
+    /** PolylineAnnotation */
+    PolylineAnnotation: components["schemas"]["BaseAnnotation"] & components["schemas"]["ShapeAnnotation"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/polyline";
+      fillColor?: components["schemas"]["FillColor"];
+      points: components["schemas"]["Point"][];
+      lineCaps?: components["schemas"]["LineCaps"];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
+    };
+    /** PolygonAnnotation */
+    PolygonAnnotation: components["schemas"]["BaseAnnotation"] & components["schemas"]["ShapeAnnotation"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/polygon";
+      fillColor?: components["schemas"]["FillColor"];
+      points: components["schemas"]["Point"][];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+    };
+    /** ImageAnnotation */
+    ImageAnnotation: components["schemas"]["BaseAnnotation"] & ({
+      /** @enum {string} */
+      type: "pspdfkit/image";
       /**
        * @description A description of the image.
        * @example PSPDFKit Logo
@@ -1832,48 +1693,23 @@ export interface components {
        * @description MIME type of the image.
        * @enum {string}
        */
-      contentType?: 'image/jpeg' | 'image/png' | 'application/pdf';
+      contentType?: "image/jpeg" | "image/png" | "application/pdf";
       /** @description Either the SHA256 Hash of the attachment or the pdfObjectId of the attachment. */
       imageAttachmentId?: string;
-      rotation?: components['schemas']['AnnotationRotation'];
+      rotation?: components["schemas"]["AnnotationRotation"];
       /** @description True if the annotation should be considered a (soft) signature. */
       isSignature?: boolean;
-      note?: components['schemas']['AnnotationNote'];
-    };
+      note?: components["schemas"]["AnnotationNote"];
+    });
     /** StampAnnotation */
-    StampAnnotation: components['schemas']['BaseAnnotation'] & {
+    StampAnnotation: components["schemas"]["BaseAnnotation"] & ({
       /** @enum {string} */
-      type: 'pspdfkit/stamp';
+      type: "pspdfkit/stamp";
       /**
        * @description A type defining the appearance of the stamp annotation. Type 'Custom' displays arbitrary title and subtitle.
        * @enum {string}
        */
-      stampType:
-        | 'Accepted'
-        | 'Approved'
-        | 'AsIs'
-        | 'Completed'
-        | 'Confidential'
-        | 'Departmental'
-        | 'Draft'
-        | 'Experimental'
-        | 'Expired'
-        | 'Final'
-        | 'ForComment'
-        | 'ForPublicRelease'
-        | 'InformationOnly'
-        | 'InitialHere'
-        | 'NotApproved'
-        | 'NotForPublicRelease'
-        | 'PreliminaryResults'
-        | 'Rejected'
-        | 'Revised'
-        | 'SignHere'
-        | 'Sold'
-        | 'TopSecret'
-        | 'Void'
-        | 'Witness'
-        | 'Custom';
+      stampType: "Accepted" | "Approved" | "AsIs" | "Completed" | "Confidential" | "Departmental" | "Draft" | "Experimental" | "Expired" | "Final" | "ForComment" | "ForPublicRelease" | "InformationOnly" | "InitialHere" | "NotApproved" | "NotForPublicRelease" | "PreliminaryResults" | "Rejected" | "Revised" | "SignHere" | "Sold" | "TopSecret" | "Void" | "Witness" | "Custom";
       /** @description Custom stamp's title. */
       title?: string;
       /** @description Custom stamp's subtitle. */
@@ -1883,20 +1719,20 @@ export interface components {
        * @example #ffffff
        */
       color?: string;
-      rotation?: components['schemas']['AnnotationRotation'];
-      note?: components['schemas']['AnnotationNote'];
-    };
+      rotation?: components["schemas"]["AnnotationRotation"];
+      note?: components["schemas"]["AnnotationNote"];
+    });
     /**
      * FontSizeAuto
      * @description Size of the text that automatically adjusts to fit the bounding box.
      * @example auto
      * @enum {string}
      */
-    FontSizeAuto: 'auto';
+    FontSizeAuto: "auto";
     /** WidgetAnnotation */
-    WidgetAnnotation: components['schemas']['BaseAnnotation'] & {
+    WidgetAnnotation: components["schemas"]["BaseAnnotation"] & ({
       /** @enum {string} */
-      type: 'pspdfkit/widget';
+      type: "pspdfkit/widget";
       /**
        * @description See name property of the FormField schema for more details
        * @example First-Name
@@ -1907,50 +1743,35 @@ export interface components {
        * @example #ffffff
        */
       borderColor?: string;
-      borderStyle?: components['schemas']['BorderStyle'];
+      borderStyle?: components["schemas"]["BorderStyle"];
       borderWidth?: number;
-      font?: components['schemas']['Font'];
-      fontSize?: components['schemas']['FontSizeInt'] | components['schemas']['FontSizeAuto'];
-      fontColor?: components['schemas']['FontColor'];
-      fontStyle?: components['schemas']['FontStyle'];
-      horizontalAlign?: components['schemas']['HorizontalAlign'];
-      verticalAlign?: components['schemas']['VerticalAlign'];
-      rotation?: components['schemas']['AnnotationRotation'];
-      backgroundColor?: components['schemas']['BackgroundColor'];
-    };
+      font?: components["schemas"]["Font"];
+      fontSize?: components["schemas"]["FontSizeInt"] | components["schemas"]["FontSizeAuto"];
+      fontColor?: components["schemas"]["FontColor"];
+      fontStyle?: components["schemas"]["FontStyle"];
+      horizontalAlign?: components["schemas"]["HorizontalAlign"];
+      verticalAlign?: components["schemas"]["VerticalAlign"];
+      rotation?: components["schemas"]["AnnotationRotation"];
+      backgroundColor?: components["schemas"]["BackgroundColor"];
+    });
     /** CommentMarkerAnnotation */
-    CommentMarkerAnnotation: components['schemas']['BaseAnnotation'] & {
-      text?: components['schemas']['AnnotationText'];
-      icon: components['schemas']['NoteIcon'];
+    CommentMarkerAnnotation: components["schemas"]["BaseAnnotation"] & {
+      text?: components["schemas"]["AnnotationText"];
+      icon: components["schemas"]["NoteIcon"];
       /**
        * @description A color that fills the note shape and its icon.
        * @example #ffd83f
        */
       color?: string;
-      isCommentThreadRoot?: components['schemas']['IsCommentThreadRoot'];
+      isCommentThreadRoot?: components["schemas"]["IsCommentThreadRoot"];
     };
     /**
      * Annotation JSON v2
      * @description JSON representation of an annotation.
      */
-    Annotation:
-      | components['schemas']['MarkupAnnotation']
-      | components['schemas']['RedactionAnnotation']
-      | components['schemas']['TextAnnotation']
-      | components['schemas']['InkAnnotation']
-      | components['schemas']['LinkAnnotation']
-      | components['schemas']['NoteAnnotation']
-      | components['schemas']['EllipseAnnotation']
-      | components['schemas']['RectangleAnnotation']
-      | components['schemas']['LineAnnotation']
-      | components['schemas']['PolylineAnnotation']
-      | components['schemas']['PolygonAnnotation']
-      | components['schemas']['ImageAnnotation']
-      | components['schemas']['StampAnnotation']
-      | components['schemas']['WidgetAnnotation']
-      | components['schemas']['CommentMarkerAnnotation'];
+    Annotation: components["schemas"]["MarkupAnnotation"] | components["schemas"]["RedactionAnnotation"] | components["schemas"]["TextAnnotation"] | components["schemas"]["InkAnnotation"] | components["schemas"]["LinkAnnotation"] | components["schemas"]["NoteAnnotation"] | components["schemas"]["EllipseAnnotation"] | components["schemas"]["RectangleAnnotation"] | components["schemas"]["LineAnnotation"] | components["schemas"]["PolylineAnnotation"] | components["schemas"]["PolygonAnnotation"] | components["schemas"]["ImageAnnotation"] | components["schemas"]["StampAnnotation"] | components["schemas"]["WidgetAnnotation"] | components["schemas"]["CommentMarkerAnnotation"];
     /** BaseAnnotation */
-    'BaseAnnotation.v1': {
+    "BaseAnnotation.v1": {
       /**
        * @description The specification version that the record is compliant to.
        * @enum {integer}
@@ -1960,8 +1781,8 @@ export interface components {
       type: string;
       /** @description Page index of the annotation. 0 is the first page. */
       pageIndex: number;
-      bbox: components['schemas']['AnnotationBbox'];
-      action?: components['schemas']['Action'];
+      bbox: components["schemas"]["AnnotationBbox"];
+      action?: components["schemas"]["Action"];
       /** @description Annotation opacity. 0 is fully transparent, 1 is fully opaque. */
       opacity?: number;
       /** @description The PDF object ID of the annotation from the source PDF. */
@@ -1986,18 +1807,7 @@ export interface components {
        * | locked | Same as `readOnly` but allows changing annotation contents. |
        * | lockedContents | Don't allow the contents of the annotation to be modified. |
        */
-      flags?: (
-        | 'noPrint'
-        | 'noZoom'
-        | 'noRotate'
-        | 'noView'
-        | 'hidden'
-        | 'invisible'
-        | 'readOnly'
-        | 'locked'
-        | 'toggleNoView'
-        | 'lockedContents'
-      )[];
+      flags?: ("noPrint" | "noZoom" | "noRotate" | "noView" | "hidden" | "invisible" | "readOnly" | "locked" | "toggleNoView" | "lockedContents")[];
       /**
        * Format: date-time
        * @description The date of the annotation creation. ISO 8601 with full date, time, and time zone information
@@ -2014,33 +1824,29 @@ export interface components {
       name?: string;
       /** @description The name of the creator of the annotation. */
       creatorName?: string;
-      customData?: components['schemas']['AnnotationCustomData'];
+      customData?: components["schemas"]["AnnotationCustomData"];
     };
     /** MarkupAnnotation */
-    'MarkupAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "MarkupAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & ({
       /** @enum {unknown} */
-      type:
-        | 'pspdfkit/markup/highlight'
-        | 'pspdfkit/markup/squiggly'
-        | 'pspdfkit/markup/strikeout'
-        | 'pspdfkit/markup/underline';
+      type: "pspdfkit/markup/highlight" | "pspdfkit/markup/squiggly" | "pspdfkit/markup/strikeout" | "pspdfkit/markup/underline";
       /** @description Bounding boxes of the marked text. */
-      rects: components['schemas']['Rect'][];
-      blendMode?: components['schemas']['BlendMode'];
+      rects: components["schemas"]["Rect"][];
+      blendMode?: components["schemas"]["BlendMode"];
       /**
        * @description Foreground color
        * @example #fcee7c
        */
       color: string;
-      note?: components['schemas']['AnnotationNote'];
-      isCommentThreadRoot?: components['schemas']['IsCommentThreadRoot'];
-    };
+      note?: components["schemas"]["AnnotationNote"];
+      isCommentThreadRoot?: components["schemas"]["IsCommentThreadRoot"];
+    });
     /** RedactionAnnotation */
-    'RedactionAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "RedactionAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & {
       /** @enum {string} */
-      type: 'pspdfkit/markup/redaction';
+      type: "pspdfkit/markup/redaction";
       /** @description Bounding boxes of the marked text. */
-      rects?: components['schemas']['Rect'][];
+      rects?: components["schemas"]["Rect"][];
       /**
        * @description Outline color is the border color of a redaction annotation when it hasn't yet been applied to the document
        * @example #ffffff
@@ -2060,8 +1866,8 @@ export interface components {
        * @example #ffffff
        */
       color?: string;
-      rotation?: components['schemas']['AnnotationRotation'];
-      note?: components['schemas']['AnnotationNote'];
+      rotation?: components["schemas"]["AnnotationRotation"];
+      note?: components["schemas"]["AnnotationNote"];
     };
     /**
      * @description The text contents.
@@ -2069,45 +1875,45 @@ export interface components {
      */
     AnnotationPlainText: string;
     /** TextAnnotation */
-    'TextAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "TextAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & ({
       /** @enum {string} */
-      type: 'pspdfkit/text';
-      text: components['schemas']['AnnotationPlainText'];
-      fontSize: components['schemas']['FontSizeInt'];
+      type: "pspdfkit/text";
+      text: components["schemas"]["AnnotationPlainText"];
+      fontSize: components["schemas"]["FontSizeInt"];
       /** @description Text style. Can be only italic, only bold, italic and bold, or none of these. */
-      fontStyle?: ('bold' | 'italic')[];
-      fontColor?: components['schemas']['FontColor'];
-      font?: components['schemas']['Font'];
+      fontStyle?: ("bold" | "italic")[];
+      fontColor?: components["schemas"]["FontColor"];
+      font?: components["schemas"]["Font"];
       /**
        * BackgroundColor
        * @description A background color that will fill the bounding box.
        * @example #000000
        */
       backgroundColor?: string;
-      horizontalAlign?: components['schemas']['HorizontalAlign'];
-      verticalAlign?: components['schemas']['VerticalAlign'];
-      rotation?: components['schemas']['AnnotationRotation'];
+      horizontalAlign?: components["schemas"]["HorizontalAlign"];
+      verticalAlign?: components["schemas"]["VerticalAlign"];
+      rotation?: components["schemas"]["AnnotationRotation"];
       /** @description Specifies that the text is supposed to fit in the bounding box. This is only set on new annotations, as we can't easily figure out if an appearance stream contains all the text for existing annotations. */
       isFitting?: boolean;
       /** @description Properties for callout version of text annotation. */
       callout?: {
-        start: components['schemas']['Point'];
-        end: components['schemas']['Point'];
+        start: components["schemas"]["Point"];
+        end: components["schemas"]["Point"];
         /** @description Inset applied to the bounding box to size and position the rectangle for the text [left, top, right, bottom]. */
         innerRectInset: number[];
-        cap?: components['schemas']['LineCap'];
-        knee?: components['schemas']['Point'];
+        cap?: components["schemas"]["LineCap"];
+        knee?: components["schemas"]["Point"];
       };
-      borderStyle?: components['schemas']['BorderStyle'];
+      borderStyle?: components["schemas"]["BorderStyle"];
       borderWidth?: number;
-      cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-      cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
-    };
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
+    });
     /** InkAnnotation */
-    'InkAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "InkAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & {
       /** @enum {string} */
-      type: 'pspdfkit/ink';
-      lines: components['schemas']['Lines'];
+      type: "pspdfkit/ink";
+      lines: components["schemas"]["Lines"];
       /** @description The width of the line in PDF points (pt). */
       lineWidth: number;
       /** @description Nutrient's natural drawing mode. This value is only used by Nutrient iOS SDK. */
@@ -2119,27 +1925,27 @@ export interface components {
        * @example #ffffff
        */
       strokeColor?: string;
-      backgroundColor?: components['schemas']['BackgroundColor'];
-      blendMode?: components['schemas']['BlendMode'];
-      note?: components['schemas']['AnnotationNote'];
+      backgroundColor?: components["schemas"]["BackgroundColor"];
+      blendMode?: components["schemas"]["BlendMode"];
+      note?: components["schemas"]["AnnotationNote"];
     };
     /** LinkAnnotation */
-    'LinkAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "LinkAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & {
       /** @enum {string} */
-      type: 'pspdfkit/link';
+      type: "pspdfkit/link";
       /**
        * @description A color of the link border.
        * @example #ffffff
        */
       borderColor?: string;
-      borderStyle?: components['schemas']['BorderStyle'];
+      borderStyle?: components["schemas"]["BorderStyle"];
       borderWidth?: number;
-      note?: components['schemas']['AnnotationNote'];
+      note?: components["schemas"]["AnnotationNote"];
     };
     /** NoteAnnotation */
-    'NoteAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
-      text: components['schemas']['AnnotationPlainText'];
-      icon: components['schemas']['NoteIcon'];
+    "NoteAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & {
+      text: components["schemas"]["AnnotationPlainText"];
+      icon: components["schemas"]["NoteIcon"];
       /**
        * @description A color that fills the note shape and its icon.
        * @example #ffd83f
@@ -2150,67 +1956,62 @@ export interface components {
      * ShapeAnnotation
      * @description Shape annotations are used to draw different shapes on a page.
      */
-    'ShapeAnnotation.v1': {
+    "ShapeAnnotation.v1": {
       strokeDashArray?: number[];
       strokeWidth?: number;
       /** @example #ffffff */
       strokeColor?: string;
-      note?: components['schemas']['AnnotationNote'];
-      measurementScale?: components['schemas']['MeasurementScale'];
-      measurementPrecision?: components['schemas']['MeasurementPrecision'];
+      note?: components["schemas"]["AnnotationNote"];
+      measurementScale?: components["schemas"]["MeasurementScale"];
+      measurementPrecision?: components["schemas"]["MeasurementPrecision"];
     };
     /** EllipseAnnotation */
-    'EllipseAnnotation.v1': components['schemas']['BaseAnnotation.v1'] &
-      components['schemas']['ShapeAnnotation.v1'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/ellipse';
-        fillColor?: components['schemas']['FillColor'];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-        cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
-      };
-    /** RectangleAnnotation */
-    'RectangleAnnotation.v1': components['schemas']['BaseAnnotation.v1'] &
-      components['schemas']['ShapeAnnotation.v1'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/rectangle';
-        fillColor?: components['schemas']['FillColor'];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-        cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
-      };
-    /** LineAnnotation */
-    'LineAnnotation.v1': components['schemas']['BaseAnnotation.v1'] &
-      components['schemas']['ShapeAnnotation.v1'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/line';
-        startPoint: components['schemas']['Point'];
-        endPoint: components['schemas']['Point'];
-        fillColor?: components['schemas']['FillColor'];
-        lineCaps?: components['schemas']['LineCaps'];
-      };
-    /** PolylineAnnotation */
-    'PolylineAnnotation.v1': components['schemas']['BaseAnnotation.v1'] &
-      components['schemas']['ShapeAnnotation.v1'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/polyline';
-        fillColor?: components['schemas']['FillColor'];
-        points: components['schemas']['Point'][];
-        lineCaps?: components['schemas']['LineCaps'];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-        cloudyBorderInset?: components['schemas']['CloudyBorderInset'];
-      };
-    /** PolygonAnnotation */
-    'PolygonAnnotation.v1': components['schemas']['BaseAnnotation.v1'] &
-      components['schemas']['ShapeAnnotation.v1'] & {
-        /** @enum {string} */
-        type: 'pspdfkit/shape/polygon';
-        fillColor?: components['schemas']['FillColor'];
-        points: components['schemas']['Point'][];
-        cloudyBorderIntensity?: components['schemas']['CloudyBorderIntensity'];
-      };
-    /** ImageAnnotation */
-    'ImageAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "EllipseAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & components["schemas"]["ShapeAnnotation.v1"] & {
       /** @enum {string} */
-      type: 'pspdfkit/image';
+      type: "pspdfkit/shape/ellipse";
+      fillColor?: components["schemas"]["FillColor"];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
+    };
+    /** RectangleAnnotation */
+    "RectangleAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & components["schemas"]["ShapeAnnotation.v1"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/rectangle";
+      fillColor?: components["schemas"]["FillColor"];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
+    };
+    /** LineAnnotation */
+    "LineAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & components["schemas"]["ShapeAnnotation.v1"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/line";
+      startPoint: components["schemas"]["Point"];
+      endPoint: components["schemas"]["Point"];
+      fillColor?: components["schemas"]["FillColor"];
+      lineCaps?: components["schemas"]["LineCaps"];
+    };
+    /** PolylineAnnotation */
+    "PolylineAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & components["schemas"]["ShapeAnnotation.v1"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/polyline";
+      fillColor?: components["schemas"]["FillColor"];
+      points: components["schemas"]["Point"][];
+      lineCaps?: components["schemas"]["LineCaps"];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+      cloudyBorderInset?: components["schemas"]["CloudyBorderInset"];
+    };
+    /** PolygonAnnotation */
+    "PolygonAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & components["schemas"]["ShapeAnnotation.v1"] & {
+      /** @enum {string} */
+      type: "pspdfkit/shape/polygon";
+      fillColor?: components["schemas"]["FillColor"];
+      points: components["schemas"]["Point"][];
+      cloudyBorderIntensity?: components["schemas"]["CloudyBorderIntensity"];
+    };
+    /** ImageAnnotation */
+    "ImageAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & ({
+      /** @enum {string} */
+      type: "pspdfkit/image";
       /**
        * @description A description of the image.
        * @example PSPDFKit Logo
@@ -2222,48 +2023,23 @@ export interface components {
        * @description MIME type of the image.
        * @enum {string}
        */
-      contentType?: 'image/jpeg' | 'image/png' | 'application/pdf';
+      contentType?: "image/jpeg" | "image/png" | "application/pdf";
       /** @description Either the SHA256 Hash of the attachment or the pdfObjectId of the attachment. */
       imageAttachmentId?: string;
-      rotation?: components['schemas']['AnnotationRotation'];
+      rotation?: components["schemas"]["AnnotationRotation"];
       /** @description True if the annotation should be considered a (soft) signature. */
       isSignature?: boolean;
-      note?: components['schemas']['AnnotationNote'];
-    };
+      note?: components["schemas"]["AnnotationNote"];
+    });
     /** StampAnnotation */
-    'StampAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "StampAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & ({
       /** @enum {string} */
-      type: 'pspdfkit/stamp';
+      type: "pspdfkit/stamp";
       /**
        * @description A type defining the appearance of the stamp annotation. Type 'Custom' displays arbitrary title and subtitle.
        * @enum {string}
        */
-      stampType:
-        | 'Accepted'
-        | 'Approved'
-        | 'AsIs'
-        | 'Completed'
-        | 'Confidential'
-        | 'Departmental'
-        | 'Draft'
-        | 'Experimental'
-        | 'Expired'
-        | 'Final'
-        | 'ForComment'
-        | 'ForPublicRelease'
-        | 'InformationOnly'
-        | 'InitialHere'
-        | 'NotApproved'
-        | 'NotForPublicRelease'
-        | 'PreliminaryResults'
-        | 'Rejected'
-        | 'Revised'
-        | 'SignHere'
-        | 'Sold'
-        | 'TopSecret'
-        | 'Void'
-        | 'Witness'
-        | 'Custom';
+      stampType: "Accepted" | "Approved" | "AsIs" | "Completed" | "Confidential" | "Departmental" | "Draft" | "Experimental" | "Expired" | "Final" | "ForComment" | "ForPublicRelease" | "InformationOnly" | "InitialHere" | "NotApproved" | "NotForPublicRelease" | "PreliminaryResults" | "Rejected" | "Revised" | "SignHere" | "Sold" | "TopSecret" | "Void" | "Witness" | "Custom";
       /** @description Custom stamp's title. */
       title?: string;
       /** @description Custom stamp's subtitle. */
@@ -2273,13 +2049,13 @@ export interface components {
        * @example #ffffff
        */
       color?: string;
-      rotation?: components['schemas']['AnnotationRotation'];
-      note?: components['schemas']['AnnotationNote'];
-    };
+      rotation?: components["schemas"]["AnnotationRotation"];
+      note?: components["schemas"]["AnnotationNote"];
+    });
     /** WidgetAnnotation */
-    'WidgetAnnotation.v1': components['schemas']['BaseAnnotation.v1'] & {
+    "WidgetAnnotation.v1": components["schemas"]["BaseAnnotation.v1"] & ({
       /** @enum {string} */
-      type: 'pspdfkit/widget';
+      type: "pspdfkit/widget";
       /**
        * @description See name property of the FormFieldContent schema for more details
        * @example First-Name
@@ -2290,35 +2066,21 @@ export interface components {
        * @example #ffffff
        */
       borderColor?: string;
-      borderStyle?: components['schemas']['BorderStyle'];
+      borderStyle?: components["schemas"]["BorderStyle"];
       borderWidth?: number;
-      font?: components['schemas']['Font'];
-      fontSize?: components['schemas']['FontSizeInt'] | components['schemas']['FontSizeAuto'];
-      fontColor?: components['schemas']['FontColor'];
-      horizontalAlign?: components['schemas']['HorizontalAlign'];
-      verticalAlign?: components['schemas']['VerticalAlign'];
-      rotation?: components['schemas']['AnnotationRotation'];
-      backgroundColor?: components['schemas']['BackgroundColor'];
-    };
+      font?: components["schemas"]["Font"];
+      fontSize?: components["schemas"]["FontSizeInt"] | components["schemas"]["FontSizeAuto"];
+      fontColor?: components["schemas"]["FontColor"];
+      horizontalAlign?: components["schemas"]["HorizontalAlign"];
+      verticalAlign?: components["schemas"]["VerticalAlign"];
+      rotation?: components["schemas"]["AnnotationRotation"];
+      backgroundColor?: components["schemas"]["BackgroundColor"];
+    });
     /**
      * Annotation JSON v1
      * @description JSON representation of an annotation.
      */
-    'Annotation.v1':
-      | components['schemas']['MarkupAnnotation.v1']
-      | components['schemas']['RedactionAnnotation.v1']
-      | components['schemas']['TextAnnotation.v1']
-      | components['schemas']['InkAnnotation.v1']
-      | components['schemas']['LinkAnnotation.v1']
-      | components['schemas']['NoteAnnotation.v1']
-      | components['schemas']['EllipseAnnotation.v1']
-      | components['schemas']['RectangleAnnotation.v1']
-      | components['schemas']['LineAnnotation.v1']
-      | components['schemas']['PolylineAnnotation.v1']
-      | components['schemas']['PolygonAnnotation.v1']
-      | components['schemas']['ImageAnnotation.v1']
-      | components['schemas']['StampAnnotation.v1']
-      | components['schemas']['WidgetAnnotation.v1'];
+    "Annotation.v1": components["schemas"]["MarkupAnnotation.v1"] | components["schemas"]["RedactionAnnotation.v1"] | components["schemas"]["TextAnnotation.v1"] | components["schemas"]["InkAnnotation.v1"] | components["schemas"]["LinkAnnotation.v1"] | components["schemas"]["NoteAnnotation.v1"] | components["schemas"]["EllipseAnnotation.v1"] | components["schemas"]["RectangleAnnotation.v1"] | components["schemas"]["LineAnnotation.v1"] | components["schemas"]["PolylineAnnotation.v1"] | components["schemas"]["PolygonAnnotation.v1"] | components["schemas"]["ImageAnnotation.v1"] | components["schemas"]["StampAnnotation.v1"] | components["schemas"]["WidgetAnnotation.v1"];
     /**
      * Attachment
      * @description Represents a binary "attachment" associated with an Annotation.
@@ -2351,7 +2113,7 @@ export interface components {
      * }
      */
     Attachments: {
-      [key: string]: components['schemas']['Attachment'];
+      [key: string]: components["schemas"]["Attachment"];
     };
     /** BaseFormField */
     BaseFormField: {
@@ -2407,15 +2169,15 @@ export interface components {
        *   "required"
        * ]
        */
-      flags?: ('readOnly' | 'required' | 'noExport')[];
+      flags?: ("readOnly" | "required" | "noExport")[];
     };
     /**
      * ButtonFormField
      * @description A simple push button that responds immediately to user input without retaining any state.
      */
-    ButtonFormField: components['schemas']['BaseFormField'] & {
+    ButtonFormField: components["schemas"]["BaseFormField"] & {
       /** @enum {string} */
-      type: 'pspdfkit/form-field/button';
+      type: "pspdfkit/form-field/button";
       /** @description Specifies the 'normal' caption of the button */
       buttonLabel: string;
     };
@@ -2449,16 +2211,16 @@ export interface components {
      *   }
      * ]
      */
-    FormFieldOptions: components['schemas']['FormFieldOption'][];
+    FormFieldOptions: components["schemas"]["FormFieldOption"][];
     /** @description Default values corresponding to each option. */
     FormFieldDefaultValues: string[];
     /** @description Additional actions that can be performed on the form field. */
     FormFieldAdditionalActionsEvent: {
-      onChange?: Record<string, never> & components['schemas']['Action'];
-      onCalculate?: Record<string, never> & components['schemas']['Action'];
+      onChange?: Record<string, never> & components["schemas"]["Action"];
+      onCalculate?: Record<string, never> & components["schemas"]["Action"];
     };
     ChoiceFormField: {
-      options: components['schemas']['FormFieldOptions'];
+      options: components["schemas"]["FormFieldOptions"];
       /**
        * @description If true, more than one of the field's option items may be selected
        * simultaneously.
@@ -2473,56 +2235,53 @@ export interface components {
        * @default false
        */
       commitOnChange?: boolean;
-      defaultValues?: components['schemas']['FormFieldDefaultValues'];
-      additionalActions?: components['schemas']['FormFieldAdditionalActionsEvent'];
+      defaultValues?: components["schemas"]["FormFieldDefaultValues"];
+      additionalActions?: components["schemas"]["FormFieldAdditionalActionsEvent"];
     };
     /** @description Additional actions that can be performed on the form field. */
     FormFieldAdditionalActionsInput: {
-      onInput?: Record<string, never> & components['schemas']['Action'];
-      onFormat?: Record<string, never> & components['schemas']['Action'];
+      onInput?: Record<string, never> & components["schemas"]["Action"];
+      onFormat?: Record<string, never> & components["schemas"]["Action"];
     };
     /**
      * ListBoxFormField
      * @description A list box where multiple values can be selected.
      */
-    ListBoxFormField: components['schemas']['BaseFormField'] &
-      components['schemas']['ChoiceFormField'] & {
-        /** @enum {string} */
-        type?: 'pspdfkit/form-field/listbox';
-        additionalActions?: components['schemas']['FormFieldAdditionalActionsEvent'] &
-          components['schemas']['FormFieldAdditionalActionsInput'];
-      };
+    ListBoxFormField: components["schemas"]["BaseFormField"] & components["schemas"]["ChoiceFormField"] & ({
+      /** @enum {string} */
+      type?: "pspdfkit/form-field/listbox";
+      additionalActions?: components["schemas"]["FormFieldAdditionalActionsEvent"] & components["schemas"]["FormFieldAdditionalActionsInput"];
+    });
     /**
      * ComboBoxFormField
      * @description A combo box is a drop-down box with the option add custom entries (see `edit`).
      */
-    ComboBoxFormField: components['schemas']['BaseFormField'] &
-      components['schemas']['ChoiceFormField'] & {
-        /** @enum {string} */
-        type?: 'pspdfkit/form-field/combobox';
-        /**
-         * @description If true, the combo box includes an editable text box as well as a dropdown list. If false, it includes only a drop-down list.
-         *
-         * @default false
-         */
-        edit: boolean;
-        /**
-         * @description If true, the text entered in the field is not spell-checked.
-         *
-         * @default false
-         */
-        doNotSpellCheck: boolean;
-      };
+    ComboBoxFormField: components["schemas"]["BaseFormField"] & components["schemas"]["ChoiceFormField"] & {
+      /** @enum {string} */
+      type?: "pspdfkit/form-field/combobox";
+      /**
+       * @description If true, the combo box includes an editable text box as well as a dropdown list. If false, it includes only a drop-down list.
+       *
+       * @default false
+       */
+      edit: boolean;
+      /**
+       * @description If true, the text entered in the field is not spell-checked.
+       *
+       * @default false
+       */
+      doNotSpellCheck: boolean;
+    };
     /**
      * CheckBoxFormField
      * @description A check box that can either be checked or unchecked. One check box form field can also be associated to multiple single check box widgets
      */
-    CheckboxFormField: components['schemas']['BaseFormField'] & {
+    CheckboxFormField: components["schemas"]["BaseFormField"] & {
       /** @enum {string} */
-      type: 'pspdfkit/form-field/checkbox';
-      options: components['schemas']['FormFieldOptions'];
-      defaultValues: components['schemas']['FormFieldDefaultValues'];
-      additionalActions?: components['schemas']['FormFieldAdditionalActionsEvent'];
+      type: "pspdfkit/form-field/checkbox";
+      options: components["schemas"]["FormFieldOptions"];
+      defaultValues: components["schemas"]["FormFieldDefaultValues"];
+      additionalActions?: components["schemas"]["FormFieldAdditionalActionsEvent"];
     };
     /** @description Default value of the form field. */
     FormFieldDefaultValue: string;
@@ -2530,11 +2289,11 @@ export interface components {
      * RadioButtonFormField
      * @description A group of radio buttons. Similar to `CheckBoxFormField`, but there can only be one value set at the same time.
      */
-    RadioButtonFormField: components['schemas']['BaseFormField'] & {
+    RadioButtonFormField: components["schemas"]["BaseFormField"] & {
       /** @enum {string} */
-      type: 'pspdfkit/form-field/radio';
-      options: components['schemas']['FormFieldOptions'];
-      defaultValue?: components['schemas']['FormFieldDefaultValue'];
+      type: "pspdfkit/form-field/radio";
+      options: components["schemas"]["FormFieldOptions"];
+      defaultValue?: components["schemas"]["FormFieldDefaultValue"];
       /**
        * @description If true, exactly one radio button must be selected at all times.
        * Clicking the currently selected button has no effect. Otherwise,
@@ -2557,9 +2316,9 @@ export interface components {
      * TextFormField
      * @description A text input element, that can either span a single or multiple lines.
      */
-    TextFormField: components['schemas']['BaseFormField'] & {
+    TextFormField: components["schemas"]["BaseFormField"] & ({
       /** @enum {string} */
-      type: 'pspdfkit/form-field/text';
+      type: "pspdfkit/form-field/text";
       /**
        * @description If true, the field is intended for entering a secure password that should not be echoed visibly
        *  to the screen. Characters typed from the keyboard should instead be echoed in some unreadable
@@ -2597,7 +2356,7 @@ export interface components {
        * @default false
        */
       comb: boolean;
-      defaultValue: components['schemas']['FormFieldDefaultValue'];
+      defaultValue: components["schemas"]["FormFieldDefaultValue"];
       /**
        * @description _(Not Supported) Rich text rendering is not supported right now. Any rich text value will be displayed as plain text in case the regular text value is missing._
        *
@@ -2606,29 +2365,21 @@ export interface components {
       richText?: boolean;
       /** @description _(Not Supported) Rich text rendering is not supported right now. Any rich text value will be displayed as plain text in case the regular text value is missing._ */
       richTextValue?: string;
-      additionalActions?: components['schemas']['FormFieldAdditionalActionsEvent'] &
-        components['schemas']['FormFieldAdditionalActionsInput'];
-    };
+      additionalActions?: components["schemas"]["FormFieldAdditionalActionsEvent"] & components["schemas"]["FormFieldAdditionalActionsInput"];
+    });
     /**
      * SignatureFormField
      * @description A field that contains a digital signature.
      */
-    SignatureFormField: components['schemas']['BaseFormField'] & {
+    SignatureFormField: components["schemas"]["BaseFormField"] & {
       /** @enum {string} */
-      type?: 'pspdfkit/form-field/signature';
+      type?: "pspdfkit/form-field/signature";
     };
     /**
      * Form field JSON
      * @description JSON representation of a form field
      */
-    FormField:
-      | components['schemas']['ButtonFormField']
-      | components['schemas']['ListBoxFormField']
-      | components['schemas']['ComboBoxFormField']
-      | components['schemas']['CheckboxFormField']
-      | components['schemas']['RadioButtonFormField']
-      | components['schemas']['TextFormField']
-      | components['schemas']['SignatureFormField'];
+    FormField: components["schemas"]["ButtonFormField"] | components["schemas"]["ListBoxFormField"] | components["schemas"]["ComboBoxFormField"] | components["schemas"]["CheckboxFormField"] | components["schemas"]["RadioButtonFormField"] | components["schemas"]["TextFormField"] | components["schemas"]["SignatureFormField"];
     /**
      * FormFieldValue
      * @description A record representing a form field value.
@@ -2656,7 +2407,7 @@ export interface components {
       name: string;
       value?: (string | null) | string[];
       /** @enum {string} */
-      type: 'pspdfkit/form-field-value';
+      type: "pspdfkit/form-field-value";
       /**
        * @description The specification version that the record is compliant to.
        * @enum {integer}
@@ -2687,13 +2438,13 @@ export interface components {
       /** @description The optional bookmark name. This is used to identify the bookmark. */
       name?: string;
       /** @enum {string} */
-      type: 'pspdfkit/bookmark';
+      type: "pspdfkit/bookmark";
       /**
        * @description The specification version that the record is compliant to.
        * @enum {integer}
        */
       v: 1;
-      action: components['schemas']['Action'];
+      action: components["schemas"]["Action"];
       /** @description The PDF object ID of the bookmark in the PDF. */
       pdfBookmarkId?: string;
     };
@@ -2711,39 +2462,39 @@ export interface components {
       [key: string]: unknown;
     } | null;
     /** Comment JSON v2 */
-    'InstantComment.v2': {
+    "InstantComment.v2": {
       /** @enum {string} */
-      type: 'pspdfkit/comment';
-      pageIndex: components['schemas']['PageIndex'];
+      type: "pspdfkit/comment";
+      pageIndex: components["schemas"]["PageIndex"];
       /**
        * @description The ID of the root annotation of the comment thread.
        *
        * @example 01HBDGR9D5JTFERPSCEMNH5GPG
        */
       rootId: string;
-      text: components['schemas']['AnnotationText'];
+      text: components["schemas"]["AnnotationText"];
       /**
        * @description The instant JSON specification version that the record is compliant to.
        *
        * @enum {integer}
        */
       v: 2;
-      createdAt?: components['schemas']['IsoDateTime'];
+      createdAt?: components["schemas"]["IsoDateTime"];
       /**
        * @description The name of the user who created the comment.
        *
        * @example John Doe
        */
       creatorName?: string;
-      customData?: components['schemas']['CustomData'];
-      pdfObjectId?: components['schemas']['PdfObjectId'];
-      updatedAt?: components['schemas']['IsoDateTime'];
+      customData?: components["schemas"]["CustomData"];
+      pdfObjectId?: components["schemas"]["PdfObjectId"];
+      updatedAt?: components["schemas"]["IsoDateTime"];
     };
     /** Comment JSON v1 */
-    'InstantComment.v1': {
+    "InstantComment.v1": {
       /** @enum {string} */
-      type: 'pspdfkit/comment';
-      pageIndex: components['schemas']['PageIndex'];
+      type: "pspdfkit/comment";
+      pageIndex: components["schemas"]["PageIndex"];
       /**
        * @description The ID of the root annotation of the comment thread.
        *
@@ -2761,24 +2512,22 @@ export interface components {
        * @enum {integer}
        */
       v: 1;
-      createdAt?: components['schemas']['IsoDateTime'];
+      createdAt?: components["schemas"]["IsoDateTime"];
       /**
        * @description The name of the user who created the comment.
        *
        * @example John Doe
        */
       creatorName?: string;
-      customData?: components['schemas']['CustomData'];
-      pdfObjectId?: components['schemas']['PdfObjectId'];
-      updatedAt?: components['schemas']['IsoDateTime'];
+      customData?: components["schemas"]["CustomData"];
+      pdfObjectId?: components["schemas"]["PdfObjectId"];
+      updatedAt?: components["schemas"]["IsoDateTime"];
     };
     /**
      * Comments JSON
      * @description JSON representation of a comment.
      */
-    CommentContent:
-      | components['schemas']['InstantComment.v2']
-      | components['schemas']['InstantComment.v1'];
+    CommentContent: components["schemas"]["InstantComment.v2"] | components["schemas"]["InstantComment.v1"];
   };
   responses: {
     /**
@@ -2790,19 +2539,19 @@ export interface components {
      */
     BuildResponseOk: {
       headers: {
-        'x-pspdfkit-request-cost': components['headers']['x-pspdfkit-request-cost'];
-        'x-pspdfkit-remaining-credits': components['headers']['x-pspdfkit-remaining-credits'];
+        "x-pspdfkit-request-cost": components["headers"]["x-pspdfkit-request-cost"];
+        "x-pspdfkit-remaining-credits": components["headers"]["x-pspdfkit-remaining-credits"];
       };
       content: {
-        'application/pdf': string;
-        'application/json': components['schemas']['JSONContentOutput'];
-        'application/jpeg': string;
-        'application/png': string;
-        'application/webp': string;
-        'application/zip': string;
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': string;
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': string;
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation': string;
+        "application/pdf": string;
+        "application/json": components["schemas"]["BuildResponseJsonContents"];
+        "application/jpeg": string;
+        "application/png": string;
+        "application/webp": string;
+        "application/zip": string;
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": string;
       };
     };
   };
@@ -2821,13 +2570,13 @@ export interface components {
   requestBodies: never;
   headers: {
     /** @description Cost of the request in credits. */
-    'x-pspdfkit-request-cost': number;
+    "x-pspdfkit-request-cost": number;
     /**
      * @description Remaining credits after the request has been executed. Note that this
      * value is only informational, as it doesn't include pending credit
      * deductions on your account.
      */
-    'x-pspdfkit-remaining-credits': number;
+    "x-pspdfkit-remaining-credits": number;
   };
   pathItems: never;
 }
@@ -2837,6 +2586,7 @@ export type $defs = Record<string, never>;
 export type external = Record<string, never>;
 
 export interface operations {
+
   /**
    * Process documents and download the result
    * @description This endpoint lets you use [Build instructions](#tag/Build-API) to process a document. This allows you to
@@ -2845,21 +2595,21 @@ export interface operations {
    * annotations. Once the entire PDF is generated from its parts, you can also apply additional actions,
    * such as optical character recognition (OCR), to the assembled PDF itself.
    */
-  'build-document': {
+  "build-document": {
     requestBody?: {
       content: {
-        'application/json': components['schemas']['BuildInstructions'];
-        'multipart/form-data': {
-          instructions?: components['schemas']['BuildInstructions'];
+        "application/json": components["schemas"]["BuildInstructions"];
+        "multipart/form-data": {
+          instructions?: components["schemas"]["BuildInstructions"];
         };
       };
     };
     responses: {
-      200: components['responses']['BuildResponseOk'];
+      200: components["responses"]["BuildResponseOk"];
       /** @description The request is malformed. Some invalid data was supplied, or a precondition wasn't met. */
       400: {
         content: {
-          'application/json': components['schemas']['HostedErrorResponse'];
+          "application/json": components["schemas"]["HostedErrorResponse"];
         };
       };
       /** @description You are unauthorized. Sent when no API token is specified, or when the API token you specified isn't valid. */
@@ -2900,20 +2650,20 @@ export interface operations {
   analyze_build: {
     requestBody?: {
       content: {
-        'application/json': components['schemas']['BuildInstructions'];
+        "application/json": components["schemas"]["BuildInstructions"];
       };
     };
     responses: {
       /** @description The analysis result. */
       200: {
         content: {
-          'application/json': components['schemas']['AnalyzeBuildResponse'];
+          "application/json": components["schemas"]["AnalyzeBuildResponse"];
         };
       };
       /** @description The request is malformed. Some invalid data was supplied, or a precondition wasn't met. */
       400: {
         content: {
-          'application/json': components['schemas']['HostedErrorResponse'];
+          "application/json": components["schemas"]["HostedErrorResponse"];
         };
       };
       /** @description You are unauthorized. Sent when no API token is specified, or when the API token you specified isn't valid. */
@@ -2934,15 +2684,15 @@ export interface operations {
    * Digitally sign a PDF file
    * @description Use this endpoint to digitally sign a PDF file.
    */
-  'sign-file': {
+  "sign-file": {
     parameters: {
       header?: {
-        'pspdfkit-pdf-password'?: components['parameters']['Password'];
+        "pspdfkit-pdf-password"?: components["parameters"]["Password"];
       };
     };
     requestBody?: {
       content: {
-        'multipart/form-data': {
+        "multipart/form-data": {
           /**
            * Format: binary
            * @description The binary content of a PDF file to be signed.
@@ -2955,7 +2705,7 @@ export interface operations {
            * - `flatten`: `false`
            * - An invisible signature will be created
            */
-          data?: components['schemas']['CreateDigitalSignature'];
+          data?: components["schemas"]["CreateDigitalSignature"];
           /**
            * Format: binary
            * @description The watermark image to be used as part of the signature's appearance. Optional.
@@ -2975,17 +2725,17 @@ export interface operations {
       /** @description The signed document. */
       200: {
         headers: {
-          'x-pspdfkit-request-cost': components['headers']['x-pspdfkit-request-cost'];
-          'x-pspdfkit-remaining-credits': components['headers']['x-pspdfkit-remaining-credits'];
+          "x-pspdfkit-request-cost": components["headers"]["x-pspdfkit-request-cost"];
+          "x-pspdfkit-remaining-credits": components["headers"]["x-pspdfkit-remaining-credits"];
         };
         content: {
-          'application/pdf': string;
+          "application/pdf": string;
         };
       };
       /** @description The request is malformed. Some invalid data was supplied, or a precondition wasn't met. */
       400: {
         content: {
-          'application/json': components['schemas']['HostedErrorResponse'];
+          "application/json": components["schemas"]["HostedErrorResponse"];
         };
       };
       /** @description You are unauthorized. Sent when no API token is specified, or when the API token you specified isn't valid. */
@@ -3018,33 +2768,33 @@ export interface operations {
    * Generate a new API token
    * @description Use this endpoint to generate a new API token. All request body parameters are optional.
    */
-  'generate-token': {
+  "generate-token": {
     requestBody?: {
       content: {
-        'application/json': components['schemas']['CreateAuthTokenParameters'];
+        "application/json": components["schemas"]["CreateAuthTokenParameters"];
       };
     };
     responses: {
       /** @description The generated API token. */
       201: {
         content: {
-          'application/json': components['schemas']['CreateAuthTokenResponse'];
+          "application/json": components["schemas"]["CreateAuthTokenResponse"];
         };
       };
       /** @description The request is malformed. Some invalid data was supplied, or a precondition wasn't met. */
       400: {
         content: {
-          'application/json': {
+          "application/json": {
             /** @example 400 */
             status?: number;
             errors?: {
-              /** @example Description of error */
-              allowedOperations?: string;
-              /** @example Description of error */
-              allowedOrigins?: string;
-              /** @example Description of error */
-              expirationTime?: string;
-            }[];
+                /** @example Description of error */
+                allowedOperations?: string;
+                /** @example Description of error */
+                allowedOrigins?: string;
+                /** @example Description of error */
+                expirationTime?: string;
+              }[];
           };
         };
       };
@@ -3054,10 +2804,10 @@ export interface operations {
    * Revoke an API token
    * @description Use this endpoint to revoke an API token.
    */
-  'revoke-token': {
+  "revoke-token": {
     requestBody?: {
       content: {
-        'application/json': {
+        "application/json": {
           /**
            * @description The ID of the token to revoke.
            * @example FCKGW-RHQQ2-YXRKT-8TG6W-2B7Q8
@@ -3081,12 +2831,12 @@ export interface operations {
    * Get account information
    * @description Use this endpoint to get information about your account, such as the number of credits you have left.
    */
-  'get-account-info': {
+  "get-account-info": {
     responses: {
       /** @description Account information. */
       200: {
         content: {
-          'application/json': {
+          "application/json": {
             /** @description Information about your API keys. */
             apiKeys?: {
               /** @description Your live API key. */
@@ -3101,7 +2851,7 @@ export interface operations {
              * @description Your subscription type.
              * @enum {unknown}
              */
-            subscriptionType?: 'free' | 'paid' | 'enterprise';
+            subscriptionType?: "free" | "paid" | "enterprise";
             /** @description Information about your usage. */
             usage?: {
               /**
@@ -3128,12 +2878,12 @@ export interface operations {
    * Redact sensitive information from a document
    * @description Redacts sensitive information from a document based on the provided criteria.
    */
-  'ai-redact': {
+  "ai-redact": {
     requestBody?: {
       content: {
-        'multipart/form-data': {
+        "multipart/form-data": {
           /** @description Parameters required for the redaction. */
-          data: components['schemas']['RedactData'];
+          data: components["schemas"]["RedactData"];
           /**
            * Format: binary
            * @description The PDF file to process.
@@ -3141,24 +2891,24 @@ export interface operations {
            */
           file: string;
         };
-        'application/json': components['schemas']['RedactData'];
+        "application/json": components["schemas"]["RedactData"];
       };
     };
     responses: {
       /** @description The redacted document */
       200: {
         headers: {
-          'x-pspdfkit-request-cost'?: number;
-          'x-pspdfkit-remaining-credits'?: number;
+          "x-pspdfkit-request-cost"?: number;
+          "x-pspdfkit-remaining-credits"?: number;
         };
         content: {
-          'application/pdf': string;
+          "application/pdf": string;
         };
       };
       /** @description The request is malformed. Some invalid data was supplied, or a precondition wasn't met. */
       400: {
         content: {
-          'application/json': {
+          "application/json": {
             /** @example 400 */
             status?: number;
             errors?: Record<string, never>[];
