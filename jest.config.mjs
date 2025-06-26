@@ -24,6 +24,12 @@ export default {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '.*/test-utils\\.ts'],
+  testPathIgnorePatterns: [
+    '/node_modules/', 
+    '/dist/', 
+    '.*/test-utils\\.ts',
+    '.*/e2e-test-helpers\\.ts',
+    '.*/coverage-report\\.ts'
+  ],
   verbose: true,
 };

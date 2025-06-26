@@ -1,5 +1,11 @@
 # Nutrient DWS TypeScript Client
 
+[![CI](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml)
+[![Security](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml)
+[![npm version](https://badge.fury.io/js/@nutrient%2Fdws-client.svg)](https://badge.fury.io/js/@nutrient%2Fdws-client)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A TypeScript client library for [Nutrient Document Web Services (DWS) API](https://nutrient.io/). This library provides an isomorphic, type-safe, and ergonomic interface for document processing operations including conversion, merging, compression, watermarking, and text extraction.
 
 ## Features
@@ -368,6 +374,97 @@ const capabilities = getEnvironmentCapabilities();
 //   hasNodeFS: true
 // }
 
+## Testing
+
+### Running Tests
+
+The library includes comprehensive unit, integration, and E2E tests:
+
+```bash
+# Run all tests
+npm test
+
+# Run with coverage report
+npm test -- --coverage
+
+# Run only unit tests
+npm test -- --testPathPattern="^((?!integration|e2e).)*$"
+
+# Run integration tests (requires API key)
+NUTRIENT_API_KEY=your_key RUN_INTEGRATION_TESTS=true npm test -- integration
+
+# Run E2E tests (requires API key)
+NUTRIENT_API_KEY=your_key RUN_INTEGRATION_TESTS=true npm test -- e2e
+
+# Run specific test file
+npm test -- client.test.ts
+```
+
+### Test Coverage
+
+The library maintains high test coverage across all API methods:
+
+- **Unit Tests**: Cover all public methods with mocked dependencies
+- **Integration Tests**: Test real API interactions for common workflows
+- **E2E Tests**: Comprehensive testing of all API features including:
+  - Document conversion (PDF, DOCX, XLSX, PPTX, images)
+  - OCR with multiple languages
+  - Watermarking (text and image)
+  - Document merging and compression
+  - Text extraction with metadata
+  - Annotation operations (flatten, XFDF, Instant JSON)
+  - Redaction operations (text, regex, presets)
+  - HTML to PDF conversion
+  - Advanced PDF options (security, metadata, optimization)
+  - Complex multi-step workflows
+
+### Writing Tests
+
+When contributing new features, please include appropriate tests:
+
+```typescript
+// Unit test example
+describe('MyFeature', () => {
+  it('should handle basic case', () => {
+    const result = myFeature(input);
+    expect(result).toBe(expected);
+  });
+});
+
+// E2E test example
+describeE2E('MyFeature E2E', () => {
+  it('should work with real API', async () => {
+    const result = await client.myFeature(realInput);
+    ResultValidator.validatePdfOutput(result);
+  }, 30000); // 30s timeout for API calls
+});
+```
+
+Use the provided test helpers for consistency:
+
+```typescript
+import { 
+  TestDocumentGenerator,
+  ResultValidator,
+  PerformanceMonitor,
+  BatchTestRunner
+} from './__tests__/e2e-test-helpers';
+
+// Generate test documents
+const pdf = TestDocumentGenerator.generateSimplePdf();
+const html = TestDocumentGenerator.generateHtmlContent({ includeTable: true });
+
+// Validate results
+ResultValidator.validatePdfOutput(result);
+ResultValidator.validateOfficeOutput(result, 'docx');
+
+// Monitor performance
+const monitor = new PerformanceMonitor();
+monitor.start();
+// ... perform operations ...
+monitor.expectUnder(5000, 'Operation should complete within 5s');
+```
+
 ## Development
 
 ### Contributing
@@ -443,6 +540,55 @@ src/
 ├── http.ts          # HTTP layer
 └── index.ts         # Public exports
 ```
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration and deployment:
+
+### Workflows
+
+1. **CI** (`ci.yml`): Runs on every push and PR
+   - Linting and type checking
+   - Unit tests across multiple Node versions and OS
+   - E2E tests (for trusted sources only)
+   - Automated releases to NPM
+
+2. **E2E Tests** (`e2e-tests.yml`): Dedicated E2E test runner
+   - Tests against real Nutrient API
+   - Runs on PRs and pushes to main
+   - Multiple Node.js versions
+
+3. **Scheduled E2E** (`scheduled-e2e.yml`): Daily API compatibility check
+   - Runs every day at 2 AM UTC
+   - Creates issues if tests fail
+   - Helps detect API changes early
+
+4. **Security** (`security.yml`): Security scanning
+   - Secret scanning with Gitleaks
+   - Dependency vulnerability checks
+   - CodeQL analysis
+
+### Setting Up CI/CD
+
+1. **Fork/Clone the repository**
+
+2. **Set up GitHub Secrets** (see [.github/SETUP_SECRETS.md](.github/SETUP_SECRETS.md)):
+   - `NUTRIENT_API_KEY`: Your Nutrient API key for E2E tests
+   - `NPM_TOKEN`: (Optional) For automated NPM releases
+   - `SNYK_TOKEN`: (Optional) For security scanning
+
+3. **Enable GitHub Actions**:
+   - Go to Settings → Actions → General
+   - Ensure actions are enabled
+
+### Security
+
+- **Never commit API keys** to the repository
+- API keys are stored as GitHub Secrets
+- E2E tests only run on trusted sources (not on forks)
+- Automated security scanning on every PR
 
 For detailed contribution guidelines, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 

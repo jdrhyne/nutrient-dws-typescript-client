@@ -1,0 +1,72 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  secret-scanning:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Gitleaks
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Check for hardcoded secrets
+      run: |
+        # Check for potential API keys
+        if grep -r "pdf_live_" --include="*.ts" --include="*.js" --include="*.json" --exclude-dir=node_modules --exclude-dir=dist .; then
+          echo "❌ Found hardcoded API keys!"
+          exit 1
+        fi
+        
+        # Check for base64 encoded secrets
+        if grep -r "cGRmX2xpdmVf" --include="*.ts" --include="*.js" --include="*.json" --exclude-dir=node_modules --exclude-dir=dist .; then
+          echo "❌ Found base64 encoded API keys!"
+          exit 1
+        fi
+        
+        echo "✅ No hardcoded secrets found"
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run npm audit
+      run: npm audit --production
+      continue-on-error: true
+    
+    - name: Run Snyk Security Scan
+      uses: snyk/actions/node@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+
+  code-scanning:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript, typescript
+    
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
