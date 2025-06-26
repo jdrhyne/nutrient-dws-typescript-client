@@ -230,19 +230,19 @@ Widget C | 60 | 70 | 80 | 90`;
 
     for (const annot of annotations) {
       const rectStr = annot.rect.join(',');
-      const color = annot.color || '#FFFF00';
+      const color = annot.color ?? '#FFFF00';
 
       switch (annot.type) {
         case 'highlight':
           xfdf += `
         <highlight page="${annot.page}" rect="${rectStr}" color="${color}">
-            <contents>${annot.content || 'Highlighted text'}</contents>
+            <contents>${annot.content ?? 'Highlighted text'}</contents>
         </highlight>`;
           break;
         case 'text':
           xfdf += `
         <text page="${annot.page}" rect="${rectStr}" color="${color}">
-            <contents>${annot.content || 'Note'}</contents>
+            <contents>${annot.content ?? 'Note'}</contents>
         </text>`;
           break;
         case 'square':
@@ -269,7 +269,7 @@ Widget C | 60 | 70 | 80 | 90`;
   static generateInstantJson(annotations: Array<{
     type: string;
     pageIndex: number;
-    [key: string]: any;
+    [key: string]: unknown;
   }>): string {
     return JSON.stringify({
       format: 'https://pspdfkit.com/instant-json/v1',
@@ -316,44 +316,91 @@ export class ResultValidator {
   /**
    * Validates that the result contains a valid PDF
    */
-  static validatePdfOutput(result: any): void {
-    expect(result.success).toBe(true);
-    expect(result.output).toBeDefined();
-    expect(result.output.buffer).toBeInstanceOf(Uint8Array);
-    expect(result.output.mimeType).toBe('application/pdf');
-    expect(result.output.buffer.length).toBeGreaterThan(0);
+  static validatePdfOutput(result: unknown): void {
+    const typedResult = result as { 
+      success: boolean; 
+      output?: { 
+        buffer: Uint8Array; 
+        mimeType: string; 
+      };
+    };
+    
+    if (!('success' in typedResult)) {
+      throw new Error('Result must have success property');
+    }
+    if (!typedResult.success || !typedResult.output) {
+      throw new Error('Result must be successful with output');
+    }
+    if (!(typedResult.output.buffer instanceof Uint8Array)) {
+      throw new Error('Output buffer must be Uint8Array');
+    }
+    if (typedResult.output.mimeType !== 'application/pdf') {
+      throw new Error('Output must be PDF');
+    }
+    if (typedResult.output.buffer.length === 0) {
+      throw new Error('Output buffer cannot be empty');
+    }
     
     // Check for PDF header
-    const header = Buffer.from(result.output.buffer.slice(0, 5)).toString();
-    expect(header).toMatch(/^%PDF-/);
+    const header = Buffer.from(typedResult.output.buffer.slice(0, 5)).toString();
+    if (!header.match(/^%PDF-/)) {
+      throw new Error('Invalid PDF header');
+    }
   }
 
   /**
    * Validates Office document output
    */
-  static validateOfficeOutput(result: any, format: 'docx' | 'xlsx' | 'pptx'): void {
-    expect(result.success).toBe(true);
-    expect(result.output).toBeDefined();
-    expect(result.output.buffer).toBeInstanceOf(Uint8Array);
-    expect(result.output.buffer.length).toBeGreaterThan(0);
-
+  static validateOfficeOutput(result: unknown, format: 'docx' | 'xlsx' | 'pptx'): void {
+    const typedResult = result as { 
+      success: boolean; 
+      output?: { 
+        buffer: Uint8Array; 
+        mimeType: string; 
+      };
+    };
+    
     const mimeTypes = {
       docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     };
 
-    expect(result.output.mimeType).toBe(mimeTypes[format]);
+    if (!typedResult.success || !typedResult.output) {
+      throw new Error('Result must be successful with output');
+    }
+    if (!(typedResult.output.buffer instanceof Uint8Array)) {
+      throw new Error('Output buffer must be Uint8Array');
+    }
+    if (typedResult.output.buffer.length === 0) {
+      throw new Error('Output buffer cannot be empty');
+    }
+    if (typedResult.output.mimeType !== mimeTypes[format]) {
+      throw new Error(`Expected ${format} MIME type`);
+    }
   }
 
   /**
    * Validates image output
    */
-  static validateImageOutput(result: any, expectedFormat?: string): void {
-    expect(result.success).toBe(true);
-    expect(result.output).toBeDefined();
-    expect(result.output.buffer).toBeInstanceOf(Uint8Array);
-    expect(result.output.buffer.length).toBeGreaterThan(0);
+  static validateImageOutput(result: unknown, expectedFormat?: string): void {
+    const typedResult = result as { 
+      success: boolean; 
+      output?: { 
+        buffer: Uint8Array; 
+        mimeType: string; 
+      };
+    };
+    
+    if (!typedResult.success || !typedResult.output) {
+      throw new Error('Result must be successful with output');
+    }
+    if (!(typedResult.output.buffer instanceof Uint8Array)) {
+      throw new Error('Output buffer must be Uint8Array');
+    }
+    if (typedResult.output.buffer.length === 0) {
+      throw new Error('Output buffer cannot be empty');
+    }
     
     if (expectedFormat) {
       const formatMimeTypes: Record<string, string[]> = {
@@ -362,40 +409,71 @@ export class ResultValidator {
         webp: ['image/webp']
       };
       
-      const validMimeTypes = formatMimeTypes[expectedFormat] || [`image/${expectedFormat}`];
-      expect(validMimeTypes).toContain(result.output.mimeType);
+      const validMimeTypes = formatMimeTypes[expectedFormat] ?? [`image/${expectedFormat}`];
+      if (!validMimeTypes.includes(typedResult.output.mimeType)) {
+        throw new Error(`Expected format ${expectedFormat}, got ${typedResult.output.mimeType}`);
+      }
     } else {
-      expect(result.output.mimeType).toMatch(/^image\//);
+      if (!typedResult.output.mimeType.match(/^image\//)) {
+        throw new Error('Expected image MIME type');
+      }
     }
   }
 
   /**
    * Validates JSON extraction output
    */
-  static validateJsonOutput(result: any): void {
-    expect(result.success).toBe(true);
-    expect(result.output).toBeDefined();
+  static validateJsonOutput(result: unknown): void {
+    const typedResult = result as { 
+      success: boolean; 
+      output?: { 
+        data?: unknown; 
+      };
+    };
     
-    const outputWithData = result.output as { data?: unknown };
-    expect(outputWithData.data).toBeDefined();
-    expect(typeof outputWithData.data).toBe('object');
+    if (!typedResult.success || !typedResult.output) {
+      throw new Error('Result must be successful with output');
+    }
+    if (!typedResult.output.data) {
+      throw new Error('Output must have data property');
+    }
+    if (typeof typedResult.output.data !== 'object') {
+      throw new Error('Output data must be an object');
+    }
   }
 
   /**
    * Validates error response
    */
-  static validateErrorResponse(result: any, expectedErrorType?: string): void {
-    expect(result.success).toBe(false);
-    expect(result.errors).toBeDefined();
-    expect(Array.isArray(result.errors)).toBe(true);
-    expect(result.errors.length).toBeGreaterThan(0);
+  static validateErrorResponse(result: unknown, expectedErrorType?: string): void {
+    const typedResult = result as { 
+      success: boolean; 
+      errors?: Array<{ 
+        error: { 
+          name: string; 
+          code: string; 
+        }; 
+      }>; 
+    };
+    
+    if (typedResult.success) {
+      throw new Error('Result should not be successful');
+    }
+    if (!typedResult.errors || !Array.isArray(typedResult.errors)) {
+      throw new Error('Result must have errors array');
+    }
+    if (typedResult.errors.length === 0) {
+      throw new Error('Errors array cannot be empty');
+    }
     
     if (expectedErrorType) {
-      const hasExpectedError = result.errors.some((error: any) => 
+      const hasExpectedError = typedResult.errors.some(error => 
         error.error.name === expectedErrorType || 
         error.error.code === expectedErrorType
       );
-      expect(hasExpectedError).toBe(true);
+      if (!hasExpectedError) {
+        throw new Error(`Expected error type ${expectedErrorType} not found`);
+      }
     }
   }
 }
@@ -437,8 +515,11 @@ export class PerformanceMonitor {
 
   expectUnder(maxMs: number, message?: string): void {
     const elapsed = this.getElapsedTime();
-    expect(elapsed).toBeLessThan(maxMs);
+    if (elapsed >= maxMs) {
+      throw new Error(`Performance failure: took ${elapsed}ms (limit: ${maxMs}ms)`);
+    }
     if (message && elapsed > maxMs * 0.8) {
+      // eslint-disable-next-line no-console
       console.warn(`Performance warning: ${message} took ${elapsed}ms (limit: ${maxMs}ms)`);
     }
   }
@@ -453,7 +534,7 @@ export class TestFixtures {
   /**
    * Ensures test fixtures directory exists
    */
-  static async ensureFixturesDirectory(): Promise<void> {
+  static ensureFixturesDirectory(): void {
     if (!fs.existsSync(this.fixturesDir)) {
       fs.mkdirSync(this.fixturesDir, { recursive: true });
     }
@@ -462,11 +543,11 @@ export class TestFixtures {
   /**
    * Gets or creates a test fixture file
    */
-  static async getOrCreateFixture(
+  static getOrCreateFixture(
     filename: string, 
     generator: () => Buffer | string
-  ): Promise<Buffer> {
-    await this.ensureFixturesDirectory();
+  ): Buffer {
+    this.ensureFixturesDirectory();
     const fixturePath = path.join(this.fixturesDir, filename);
 
     if (!fs.existsSync(fixturePath)) {
@@ -505,7 +586,7 @@ export class BatchTestRunner {
     testFn: (input: T) => Promise<R>,
     validateFn: (result: R, input: T) => void
   ): Promise<void> {
-    const results: Array<{ input: T; result?: R; error?: any }> = [];
+    const results: Array<{ input: T; result?: R; error?: unknown }> = [];
 
     for (const input of inputs) {
       try {
@@ -514,11 +595,13 @@ export class BatchTestRunner {
         validateFn(result, input);
       } catch (error) {
         results.push({ input, error });
-        throw new Error(`${testName} failed for input: ${JSON.stringify(input)}. Error: ${error}`);
+        const inputStr = typeof input === 'string' ? input : 'complex input';
+        throw new Error(`${testName} failed for input: ${inputStr}. Error: ${String(error)}`);
       }
     }
 
     // Summary logging
+    // eslint-disable-next-line no-console
     console.log(`${testName}: ${results.length} variations tested successfully`);
   }
 

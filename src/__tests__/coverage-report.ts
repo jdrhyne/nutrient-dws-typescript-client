@@ -79,7 +79,7 @@ class CoverageAnalyzer {
     }
   }
 
-  async analyzeTestFiles(): Promise<void> {
+  analyzeTestFiles(): void {
     const testFiles = fs.readdirSync(this.testDirectory)
       .filter(file => file.endsWith('.test.ts'));
 
@@ -128,7 +128,10 @@ class CoverageAnalyzer {
       if (!categories.has(item.category)) {
         categories.set(item.category, []);
       }
-      categories.get(item.category)!.push(item);
+      const categoryItems = categories.get(item.category);
+      if (categoryItems) {
+        categoryItems.push(item);
+      }
     }
 
     // Generate summary
@@ -188,7 +191,10 @@ class CoverageAnalyzer {
         if (!fileMap.has(file)) {
           fileMap.set(file, []);
         }
-        fileMap.get(file)!.push(item.method);
+        const fileMethods = fileMap.get(file);
+        if (fileMethods) {
+          fileMethods.push(item.method);
+        }
       }
     }
 
@@ -211,26 +217,32 @@ class CoverageAnalyzer {
     }
   }
 
-  async saveReport(outputPath: string): Promise<void> {
+  saveReport(outputPath: string): void {
     const report = this.generateReport();
     fs.writeFileSync(outputPath, report);
+    // eslint-disable-next-line no-console
     console.log(`Coverage report saved to: ${outputPath}`);
   }
 
   printSummary(): void {
+    // eslint-disable-next-line no-console
     console.log('\n📊 Test Coverage Summary\n');
     
     const totalMethods = this.coverage.size;
     const withE2E = Array.from(this.coverage.values()).filter(i => i.hasE2ETest || i.hasIntegrationTest).length;
     const percentage = ((withE2E / totalMethods) * 100).toFixed(1);
 
+    // eslint-disable-next-line no-console
     console.log(`Total API Methods: ${totalMethods}`);
+    // eslint-disable-next-line no-console
     console.log(`Methods with E2E/Integration Tests: ${withE2E} (${percentage}%)`);
     
     const missing = totalMethods - withE2E;
     if (missing > 0) {
+      // eslint-disable-next-line no-console
       console.log(`\n⚠️  ${missing} methods need E2E test coverage`);
     } else {
+      // eslint-disable-next-line no-console
       console.log('\n✅ All API methods have E2E test coverage!');
     }
   }
@@ -238,9 +250,8 @@ class CoverageAnalyzer {
 
 // Run the analyzer if executed directly
 const analyzer = new CoverageAnalyzer();
-analyzer.analyzeTestFiles().then(() => {
-  analyzer.printSummary();
-  analyzer.saveReport(path.join(__dirname, '../../coverage-report.md'));
-});
+analyzer.analyzeTestFiles();
+analyzer.printSummary();
+analyzer.saveReport(path.join(__dirname, '../../coverage-report.md'));
 
 export { CoverageAnalyzer };
