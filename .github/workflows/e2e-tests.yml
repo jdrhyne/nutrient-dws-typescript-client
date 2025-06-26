@@ -35,8 +35,19 @@ jobs:
     - name: Run unit tests
       run: npm test -- --testPathPattern="^((?!integration|e2e).)*$"
     
+    - name: Check for API key
+      id: check-api-key
+      env:
+        NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
+      run: |
+        if [ -n "$NUTRIENT_API_KEY" ]; then
+          echo "has_api_key=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_api_key=false" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Run E2E tests
-      if: secrets.NUTRIENT_API_KEY != ''
+      if: steps.check-api-key.outputs.has_api_key == 'true'
       env:
         NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
         RUN_INTEGRATION_TESTS: true
@@ -45,7 +56,7 @@ jobs:
       timeout-minutes: 10
     
     - name: Skip E2E tests (no API key)
-      if: secrets.NUTRIENT_API_KEY == ''
+      if: steps.check-api-key.outputs.has_api_key == 'false'
       run: |
         echo "⏭️ Skipping E2E tests - NUTRIENT_API_KEY not available"
         echo "This is expected for forks and PRs from external contributors"
