@@ -147,7 +147,13 @@ jobs:
           --target ${{ github.sha }}
     
     - name: Publish to NPM
-      if: steps.version-check.outputs.should_release == 'true'
+      if: steps.version-check.outputs.should_release == 'true' && secrets.NPM_TOKEN != ''
       run: npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: Skip NPM publish (no token)
+      if: steps.version-check.outputs.should_release == 'true' && secrets.NPM_TOKEN == ''
+      run: |
+        echo "⚠️ Skipping NPM publish - NPM_TOKEN not configured"
+        echo "To enable NPM publishing, add NPM_TOKEN to repository secrets"
