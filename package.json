@@ -1,6 +1,6 @@
 {
   "name": "nutrient-dws-typescript-client",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "TypeScript client library for Nutrient Document Web Services (DWS) API",
   "keywords": [
     "nutrient",

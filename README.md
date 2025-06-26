@@ -1,9 +1,9 @@
 # Nutrient DWS TypeScript Client
 
+[![npm version](https://badge.fury.io/js/nutrient-dws-typescript-client.svg)](https://badge.fury.io/js/nutrient-dws-typescript-client)
 [![CI](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml)
 [![E2E Tests](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml)
 [![Security](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml)
-[![npm version](https://badge.fury.io/js/nutrient-dws-typescript-client.svg)](https://badge.fury.io/js/nutrient-dws-typescript-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A TypeScript client library for [Nutrient Document Web Services (DWS) API](https://nutrient.io/). This library provides an isomorphic, type-safe, and ergonomic interface for document processing operations including conversion, merging, compression, watermarking, and text extraction.
