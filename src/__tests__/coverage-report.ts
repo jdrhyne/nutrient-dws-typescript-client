@@ -249,7 +249,7 @@ class CoverageAnalyzer {
 }
 
 // Run the analyzer if executed directly and not in a test environment
-if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+if (process.env['NODE_ENV'] !== 'test' && !process.env['JEST_WORKER_ID']) {
   const analyzer = new CoverageAnalyzer();
   analyzer.analyzeTestFiles();
   analyzer.printSummary();
