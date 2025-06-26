@@ -13,8 +13,11 @@ import type { NutrientClientOptions } from '../types/common';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Skip integration tests in CI/automated environments unless explicitly enabled
-const shouldRunIntegrationTests = process.env.NUTRIENT_API_KEY && process.env.RUN_INTEGRATION_TESTS === 'true';
+// Skip integration tests in CI/automated environments unless explicitly enabled with valid API key
+const shouldRunIntegrationTests = process.env.NUTRIENT_API_KEY && 
+  process.env.NUTRIENT_API_KEY !== 'fake_key' && 
+  process.env.NUTRIENT_API_KEY.length > 10 && 
+  process.env.RUN_INTEGRATION_TESTS === 'true';
 
 // Use conditional describe based on environment
 const describeE2E = shouldRunIntegrationTests ? describe : describe.skip;

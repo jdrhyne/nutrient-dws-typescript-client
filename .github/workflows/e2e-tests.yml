@@ -38,7 +38,7 @@ jobs:
     - name: Run E2E tests
       env:
         NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
-        RUN_INTEGRATION_TESTS: true
+        RUN_INTEGRATION_TESTS: ${{ secrets.NUTRIENT_API_KEY != '' && 'true' || 'false' }}
       run: |
         npm test -- integration.test.ts e2e-advanced.test.ts
       timeout-minutes: 10
