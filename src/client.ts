@@ -12,7 +12,7 @@ const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
  * ```typescript
  * // Server-side usage with API key
  * const client = new NutrientClient({
- *   apiKey: 'nutr_sk_...'
+ *   apiKey: 'your-secret-api-key'
  * });
  *
  * // Client-side usage with token provider

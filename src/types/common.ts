@@ -11,7 +11,7 @@ export interface NutrientClientOptions {
    *
    * @example
    * // Server-side
-   * const apiKey = 'nutr_sk_...';
+   * const apiKey = 'your-secret-api-key';
    *
    * // Client-side (recommended)
    * const apiKey = async () => {

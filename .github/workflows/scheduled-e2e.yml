@@ -1,0 +1,140 @@
+name: Scheduled E2E Tests
+
+on:
+  schedule:
+    # Run every day at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  scheduled-e2e-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run all E2E tests
+      if: secrets.NUTRIENT_API_KEY != ''
+      env:
+        NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
+        RUN_INTEGRATION_TESTS: true
+      run: |
+        echo "Running scheduled E2E tests to detect API changes..."
+        npm test -- integration.test.ts e2e-advanced.test.ts --verbose
+      timeout-minutes: 20
+      continue-on-error: true
+      id: test-run
+    
+    - name: Skip scheduled tests (no API key)
+      if: secrets.NUTRIENT_API_KEY == ''
+      run: |
+        echo "⏭️ Skipping scheduled E2E tests - NUTRIENT_API_KEY not available"
+        echo "Configure NUTRIENT_API_KEY secret to enable scheduled API validation"
+    
+    - name: Generate detailed test report
+      if: always()
+      run: |
+        npm test -- --json --outputFile=scheduled-test-results.json integration.test.ts e2e-advanced.test.ts || true
+        
+        # Create summary
+        echo "## E2E Test Summary" > test-summary.md
+        echo "Date: $(date)" >> test-summary.md
+        echo "Status: ${{ steps.test-run.outcome }}" >> test-summary.md
+        
+        # Extract test counts if possible
+        if [ -f scheduled-test-results.json ]; then
+          echo "### Test Results" >> test-summary.md
+          node -e "
+            const results = require('./scheduled-test-results.json');
+            console.log('- Total Tests:', results.numTotalTests || 0);
+            console.log('- Passed:', results.numPassedTests || 0);
+            console.log('- Failed:', results.numFailedTests || 0);
+            console.log('- Skipped:', results.numPendingTests || 0);
+          " >> test-summary.md
+        fi
+    
+    - name: Create issue if tests fail
+      if: failure() && steps.test-run.outcome == 'failure'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const date = new Date().toISOString().split('T')[0];
+          const title = `🚨 E2E Tests Failed - ${date}`;
+          
+          // Check if issue already exists
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['e2e-failure', 'automated'],
+            state: 'open'
+          });
+          
+          const existingIssue = issues.data.find(issue => issue.title.includes(date));
+          
+          if (!existingIssue) {
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: `## Scheduled E2E tests failed
+              
+              The scheduled E2E test run has detected failures. This could indicate:
+              - API changes that need to be addressed
+              - Service degradation
+              - Test flakiness
+              
+              ### Action Required
+              1. Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details
+              2. Investigate any API changes
+              3. Update tests if needed
+              4. Close this issue once resolved
+              
+              ### Test Summary
+              See the workflow artifacts for detailed test results.
+              
+              cc @jdrhyne`,
+              labels: ['e2e-failure', 'automated', 'high-priority']
+            });
+          }
+    
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: scheduled-e2e-results-${{ github.run_number }}
+        path: |
+          scheduled-test-results.json
+          test-summary.md
+        retention-days: 30
+    
+    - name: Notify on success after previous failure
+      if: success() && steps.test-run.outcome == 'success'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Close any open E2E failure issues
+          const issues = await github.rest.issues.listForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['e2e-failure', 'automated'],
+            state: 'open'
+          });
+          
+          for (const issue of issues.data) {
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'closed',
+              body: issue.body + '\n\n---\n\n✅ **Resolved**: E2E tests are now passing.'
+            });
+          }
