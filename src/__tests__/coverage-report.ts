@@ -18,7 +18,7 @@ interface CoverageItem {
 
 class CoverageAnalyzer {
   private coverage: Map<string, CoverageItem> = new Map();
-  private testDirectory = path.join(__dirname);
+  private testDirectory = path.dirname(__filename);
 
   constructor() {
     this.initializeCoverageMap();
@@ -248,10 +248,12 @@ class CoverageAnalyzer {
   }
 }
 
-// Run the analyzer if executed directly
-const analyzer = new CoverageAnalyzer();
-analyzer.analyzeTestFiles();
-analyzer.printSummary();
-analyzer.saveReport(path.join(__dirname, '../../coverage-report.md'));
+// Run the analyzer if executed directly and not in a test environment
+if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+  const analyzer = new CoverageAnalyzer();
+  analyzer.analyzeTestFiles();
+  analyzer.printSummary();
+  analyzer.saveReport(path.join(path.dirname(__filename), '../../coverage-report.md'));
+}
 
 export { CoverageAnalyzer };
