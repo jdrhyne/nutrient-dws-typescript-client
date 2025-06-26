@@ -9,7 +9,6 @@ on:
 jobs:
   scheduled-e2e-tests:
     runs-on: ubuntu-latest
-    if: secrets.NUTRIENT_API_KEY != ''
     
     steps:
     - uses: actions/checkout@v4
@@ -24,6 +23,7 @@ jobs:
       run: npm ci
     
     - name: Run all E2E tests
+      if: secrets.NUTRIENT_API_KEY != ''
       env:
         NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
         RUN_INTEGRATION_TESTS: true
@@ -33,6 +33,12 @@ jobs:
       timeout-minutes: 20
       continue-on-error: true
       id: test-run
+    
+    - name: Skip scheduled tests (no API key)
+      if: secrets.NUTRIENT_API_KEY == ''
+      run: |
+        echo "⏭️ Skipping scheduled E2E tests - NUTRIENT_API_KEY not available"
+        echo "Configure NUTRIENT_API_KEY secret to enable scheduled API validation"
     
     - name: Generate detailed test report
       if: always()
