@@ -87,5 +87,10 @@
     "commitizen": {
       "path": "cz-conventional-changelog"
     }
+  },
+  "directories": {
+    "doc": "doc",
+    "example": "examples",
+    "test": "tests"
   }
 }
