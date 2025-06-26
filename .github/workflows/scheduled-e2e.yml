@@ -9,6 +9,7 @@ on:
 jobs:
   scheduled-e2e-tests:
     runs-on: ubuntu-latest
+    if: secrets.NUTRIENT_API_KEY != ''
     
     steps:
     - uses: actions/checkout@v4
