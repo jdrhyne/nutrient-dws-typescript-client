@@ -151,10 +151,9 @@ jobs:
       run: |
         if [ -n "$NODE_AUTH_TOKEN" ]; then
           echo "Setting up NPM authentication..."
-          npm config set @nutrient:registry https://registry.npmjs.org/
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
           echo "Publishing to NPM..."
-          npm publish --access public --registry https://registry.npmjs.org/
+          npm publish --access public
         else
           echo "⚠️ Skipping NPM publish - NPM_TOKEN not configured"
           echo "To enable NPM publishing, add NPM_TOKEN to repository secrets"
