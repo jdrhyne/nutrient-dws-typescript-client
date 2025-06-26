@@ -9,6 +9,7 @@ on:
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
+    needs: []  # Run in parallel with other workflows
     
     strategy:
       matrix:
@@ -26,15 +27,6 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Run linting
-      run: npm run lint
-    
-    - name: Run type checking
-      run: npm run typecheck
-    
-    - name: Run unit tests
-      run: npm test -- --testPathPattern="^((?!integration|e2e).)*$"
-    
     - name: Check for API key
       id: check-api-key
       env:
@@ -42,54 +34,18 @@ jobs:
       run: |
         if [ -n "$NUTRIENT_API_KEY" ] && [ "$NUTRIENT_API_KEY" != "fake_key" ] && [ ${#NUTRIENT_API_KEY} -gt 10 ]; then
           echo "has_api_key=true" >> $GITHUB_OUTPUT
-          echo "✅ Valid API key detected (length: ${#NUTRIENT_API_KEY})"
+          echo "✅ Valid API key detected"
         else
           echo "has_api_key=false" >> $GITHUB_OUTPUT
-          echo "❌ No valid API key found"
-          if [ -n "$NUTRIENT_API_KEY" ]; then
-            echo "   - Key exists but is invalid (length: ${#NUTRIENT_API_KEY})"
-          fi
+          echo "⏭️ No valid API key - E2E tests will be skipped"
         fi
     
     - name: Run E2E tests
       if: steps.check-api-key.outputs.has_api_key == 'true'
-      env:
-        NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
-        RUN_INTEGRATION_TESTS: true
-        CI: true
-      run: |
-        echo "Running E2E tests with environment:"
-        echo "- RUN_INTEGRATION_TESTS: $RUN_INTEGRATION_TESTS"
-        echo "- API key length: ${#NUTRIENT_API_KEY}"
-        echo "- Node version: $(node --version)"
-        echo "- NPM version: $(npm --version)"
-        npm test -- --testPathPattern="(integration|e2e-advanced)\.test\.ts$" --passWithNoTests --verbose --no-coverage || {
-          echo "Tests failed with exit code: $?"
-          echo "Attempting to run with more debugging..."
-          npm test -- --testPathPattern="(integration|e2e-advanced)\.test\.ts$" --passWithNoTests --runInBand --detectOpenHandles --verbose
-          exit 1
-        }
-      timeout-minutes: 10
+      run: npm run test:e2e
     
     - name: Skip E2E tests (no API key)
       if: steps.check-api-key.outputs.has_api_key == 'false'
       run: |
-        echo "⏭️ Skipping E2E tests - Valid NUTRIENT_API_KEY not available"
-        echo "This is expected for:"
-        echo "- Forks and PRs from external contributors"
-        echo "- When API key is missing or invalid"
-        echo ""
-        echo "To run E2E tests, ensure:"
-        echo "1. NUTRIENT_API_KEY secret is set in repository settings"
-        echo "2. The key is not 'fake_key'"
-        echo "3. The key is longer than 10 characters"
-        exit 0
-    
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: test-results-${{ matrix.node-version }}
-        path: |
-          coverage/
-          *.log
+        echo "✅ E2E tests skipped - no valid API key available"
+        echo "This is expected for forks and external PRs"

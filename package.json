@@ -48,7 +48,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:unit": "jest --testPathPattern=\"^((?!integration|e2e).)*$\"",
     "test:integration": "RUN_INTEGRATION_TESTS=true jest --testPathPattern=integration.test",
+    "test:e2e": "RUN_INTEGRATION_TESTS=true jest --testPathPattern=\"(integration|e2e-advanced).test\"",
     "test:integration:verbose": "RUN_INTEGRATION_TESTS=true jest --testPathPattern=integration.test --verbose",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -82,6 +84,9 @@
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "config": {
     "commitizen": {
