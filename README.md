@@ -3,10 +3,12 @@
 [![CI](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml)
 [![E2E Tests](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml)
 [![Security](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml)
-[![npm version](https://badge.fury.io/js/@nutrient%2Fdws-client.svg)](https://badge.fury.io/js/@nutrient%2Fdws-client)
+[![npm version](https://badge.fury.io/js/nutrient-dws-typescript-client.svg)](https://badge.fury.io/js/nutrient-dws-typescript-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A TypeScript client library for [Nutrient Document Web Services (DWS) API](https://nutrient.io/). This library provides an isomorphic, type-safe, and ergonomic interface for document processing operations including conversion, merging, compression, watermarking, and text extraction.
+
+> **Note**: This package is published as `nutrient-dws-typescript-client` on NPM. The package provides full TypeScript support and works in both Node.js and browser environments.
 
 ## Features
 
@@ -23,13 +25,13 @@ A TypeScript client library for [Nutrient Document Web Services (DWS) API](https
 ## Installation
 
 ```bash
-npm install @nutrient/dws-client
+npm install nutrient-dws-typescript-client
 ```
 
 or
 
 ```bash
-yarn add @nutrient/dws-client
+yarn add nutrient-dws-typescript-client
 ```
 
 ## Quick Start
@@ -37,7 +39,7 @@ yarn add @nutrient/dws-client
 ### Basic Usage
 
 ```typescript
-import { NutrientClient } from '@nutrient/dws-client';
+import { NutrientClient } from 'nutrient-dws-typescript-client';
 
 // Initialize the client
 const client = new NutrientClient({
@@ -330,7 +332,7 @@ import {
   APIError,
   AuthenticationError,
   NetworkError
-} from '@nutrient/dws-client';
+} from 'nutrient-dws-typescript-client';
 
 try {
   const result = await client.convert('file.docx', 'pdf');
@@ -362,7 +364,7 @@ import {
   isBrowser,
   isNode,
   isWebWorker
-} from '@nutrient/dws-client';
+} from 'nutrient-dws-typescript-client';
 
 const env = getEnvironment(); // 'browser' | 'node' | 'webworker' | 'unknown'
 const capabilities = getEnvironmentCapabilities();
