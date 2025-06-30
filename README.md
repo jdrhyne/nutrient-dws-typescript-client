@@ -6,13 +6,13 @@
 [![Security](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A TypeScript client library for [Nutrient Document Web Services (DWS) API](https://nutrient.io/). This library provides an isomorphic, type-safe, and ergonomic interface for document processing operations including conversion, merging, compression, watermarking, and text extraction.
+A Node.js TypeScript client library for [Nutrient Document Web Services (DWS) API](https://nutrient.io/). This library provides a type-safe and ergonomic interface for document processing operations including conversion, merging, compression, watermarking, and text extraction.
 
-> **Note**: This package is published as `nutrient-dws-typescript-client` on NPM. The package provides full TypeScript support and works in both Node.js and browser environments.
+> **Note**: This package is published as `nutrient-dws-typescript-client` on NPM. The package provides full TypeScript support and is designed specifically for Node.js environments.
 
 ## Features
 
-- 🌐 **Isomorphic**: Works in both Node.js and browser environments
+- 🔧 **Node.js optimized**: Built specifically for Node.js with native file system support
 - 🔒 **Type-safe**: Full TypeScript support with comprehensive type definitions
 - 🚀 **Unified Architecture**: Consistent builder pattern across all APIs
 - 🔗 **Fluent interface**: Intuitive method chaining with staged interfaces

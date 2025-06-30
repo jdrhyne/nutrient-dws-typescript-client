@@ -1,7 +1,7 @@
 {
   "name": "nutrient-dws-typescript-client",
   "version": "0.1.4",
-  "description": "TypeScript client library for Nutrient Document Web Services (DWS) API",
+  "description": "Node.js TypeScript client library for Nutrient Document Web Services (DWS) API",
   "keywords": [
     "nutrient",
     "dws",
@@ -9,7 +9,8 @@
     "pdf",
     "api",
     "client",
-    "typescript"
+    "typescript",
+    "nodejs"
   ],
   "homepage": "https://github.com/jdrhyne/nutrient-dws-typescript-client#readme",
   "bugs": {
@@ -83,7 +84,7 @@
     "tsx": "^4.20.3"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
   "publishConfig": {
     "access": "public"

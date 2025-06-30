@@ -1,7 +1,6 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import FormData from 'form-data';
 import { type NormalizedFileData, processFileInput } from './inputs';
-import { isNode } from './utils/environment';
 import { APIError, AuthenticationError, NetworkError, NutrientError, ValidationError } from './errors';
 import type { NutrientClientOptions } from './types/common';
 import type { components } from './generated/api-types';
@@ -119,15 +118,11 @@ async function prepareRequestBody(
     const formData = await createFormData(config.files, payload);
     axiosConfig.data = formData;
 
-    // Set appropriate headers for FormData
-    if (isNode() && formData instanceof FormData) {
-      // Node.js FormData sets its own headers
-      axiosConfig.headers = {
-        ...axiosConfig.headers,
-        ...formData.getHeaders(),
-      };
-    }
-    // Browser FormData sets boundary automatically
+    // Node.js FormData sets its own headers
+    axiosConfig.headers = {
+      ...axiosConfig.headers,
+      ...formData.getHeaders(),
+    };
   } else {
     // JSON only request - prefer instructions for Build API, fallback to data
     const payload = config.instructions ?? config.data;
@@ -147,9 +142,8 @@ async function prepareRequestBody(
 async function createFormData(
   files: Map<string, unknown>,
   payload: unknown,
-): Promise<FormData | globalThis.FormData> {
-  const FormDataImpl = isNode() ? FormData : globalThis.FormData;
-  const formData = new FormDataImpl();
+): Promise<FormData> {
+  const formData = new FormData();
 
   for (const [key, value] of files) {
     const normalizedFile = await processFileInput(value as never);
@@ -167,48 +161,33 @@ async function createFormData(
 }
 
 /**
- * Appends file to FormData with proper format
+ * Appends file to FormData with proper format (Node.js only)
  */
 function appendFileToFormData(
-  formData: FormData | globalThis.FormData,
+  formData: FormData,
   key: string,
   file: NormalizedFileData,
 ): void {
-  if (isNode() && formData instanceof FormData) {
-    // Node.js FormData
-    if (Buffer.isBuffer(file.data)) {
-      formData.append(key, file.data, {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
-    } else if (file.data instanceof Uint8Array) {
-      formData.append(key, Buffer.from(file.data), {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
-    } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
-      // Handle ReadableStream (including fs.ReadStream)
-      formData.append(key, file.data, {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
-    } else {
-      throw new ValidationError('Node.js environment expects Buffer, Uint8Array, or ReadableStream for file data', {
-        dataType: typeof file.data,
-      });
-    }
+  if (Buffer.isBuffer(file.data)) {
+    formData.append(key, file.data, {
+      filename: file.filename,
+      contentType: file.contentType,
+    });
+  } else if (file.data instanceof Uint8Array) {
+    formData.append(key, Buffer.from(file.data), {
+      filename: file.filename,
+      contentType: file.contentType,
+    });
+  } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
+    // Handle ReadableStream (including fs.ReadStream)
+    formData.append(key, file.data, {
+      filename: file.filename,
+      contentType: file.contentType,
+    });
   } else {
-    // Browser FormData
-    if (file.data instanceof Blob) {
-      (formData as globalThis.FormData).append(key, file.data, file.filename);
-    } else if (file.data instanceof Uint8Array) {
-      const blob = new Blob([file.data], { type: file.contentType });
-      (formData as globalThis.FormData).append(key, blob, file.filename);
-    } else {
-      throw new ValidationError('Browser environment expects Blob or Uint8Array for file data', {
-        dataType: typeof file.data,
-      });
-    }
+    throw new ValidationError('Expected Buffer, Uint8Array, or ReadableStream for file data', {
+      dataType: typeof file.data,
+    });
   }
 }
 
@@ -265,12 +244,20 @@ function createHttpError(status: number, statusText: string, data: unknown): Nut
 }
 
 /**
- * Extracts error message from response data
+ * Extracts error message from response data with comprehensive DWS error handling
  */
 function extractErrorMessage(data: unknown): string | null {
   if (typeof data === 'object' && data !== null) {
     const errorData = data as Record<string, unknown>;
 
+    // DWS-specific error fields (prioritized)
+    if (typeof errorData['error_description'] === 'string') {
+      return errorData['error_description'];
+    }
+    if (typeof errorData['error_message'] === 'string') {
+      return errorData['error_message'];
+    }
+    
     // Common error message fields
     if (typeof errorData['message'] === 'string') {
       return errorData['message'];
@@ -280,6 +267,34 @@ function extractErrorMessage(data: unknown): string | null {
     }
     if (typeof errorData['detail'] === 'string') {
       return errorData['detail'];
+    }
+    if (typeof errorData['details'] === 'string') {
+      return errorData['details'];
+    }
+    
+    // Handle nested error objects
+    if (typeof errorData['error'] === 'object' && errorData['error'] !== null) {
+      const nestedError = errorData['error'] as Record<string, unknown>;
+      if (typeof nestedError['message'] === 'string') {
+        return nestedError['message'];
+      }
+      if (typeof nestedError['description'] === 'string') {
+        return nestedError['description'];
+      }
+    }
+    
+    // Handle errors array (common in validation responses)
+    if (Array.isArray(errorData['errors']) && errorData['errors'].length > 0) {
+      const firstError = errorData['errors'][0] as unknown;
+      if (typeof firstError === 'string') {
+        return firstError;
+      }
+      if (typeof firstError === 'object' && firstError !== null) {
+        const errorObj = firstError as Record<string, unknown>;
+        if (typeof errorObj['message'] === 'string') {
+          return errorObj['message'];
+        }
+      }
     }
   }
 

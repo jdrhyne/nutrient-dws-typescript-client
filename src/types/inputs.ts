@@ -1,19 +1,3 @@
-/**
- * Represents a file input in the browser environment
- */
-export interface BrowserFileInput {
-  type: 'browser-file';
-  file: File;
-}
-
-/**
- * Represents a Blob input
- */
-export interface BlobInput {
-  type: 'blob';
-  blob: Blob;
-  filename: string;
-}
 
 /**
  * Represents a file path input (Node.js only)
@@ -50,34 +34,17 @@ export interface UrlInput {
 }
 
 /**
- * Union type for all possible file inputs
+ * Union type for all possible file inputs (Node.js only)
  */
 export type FileInput = 
-  | BrowserFileInput 
-  | BlobInput 
   | FilePathInput 
   | BufferInput 
   | Uint8ArrayInput 
   | UrlInput
-  | File          // Browser File object
-  | Blob          // Browser Blob object
   | Buffer        // Node.js Buffer
   | Uint8Array    // Raw binary data
   | string;       // File path or URL
 
-/**
- * Type guard to check if input is a browser File
- */
-export function isFile(input: unknown): input is File {
-  return typeof File !== 'undefined' && input instanceof File;
-}
-
-/**
- * Type guard to check if input is a Blob
- */
-export function isBlob(input: unknown): input is Blob {
-  return typeof Blob !== 'undefined' && input instanceof Blob;
-}
 
 /**
  * Type guard to check if input is a Buffer

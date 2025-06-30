@@ -4,6 +4,15 @@ import type { FileInput } from './types';
 const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
 
 /**
+ * Internal action type that holds FileInput for deferred registration
+ */
+export interface ActionWithFileInput {
+  __needsFileRegistration: true;
+  fileInput: FileInput;
+  createAction: (fileKey: string) => components['schemas']['BuildAction'];
+}
+
+/**
  * Factory functions for creating common build actions
  */
 export const BuildActions = {
@@ -60,7 +69,7 @@ export const BuildActions = {
    * @param options - Watermark options
    */
   watermarkImage(
-    image: FileInput,
+    image: string,
     options: Partial<Omit<components['schemas']['ImageWatermarkAction'], 'type' | 'image'>> = {
       width: DEFAULT_DIMENSION,
       height: DEFAULT_DIMENSION,
@@ -69,7 +78,7 @@ export const BuildActions = {
   ): components['schemas']['ImageWatermarkAction'] {
     return {
       type: 'watermark',
-      image: image as components['schemas']['FileHandle'],
+      image: { url: image },
       ...options,
       rotation: options.rotation ?? 0,
       width: options.width ?? DEFAULT_DIMENSION,
@@ -90,23 +99,31 @@ export const BuildActions = {
 
   /**
    * Create an apply Instant JSON action
-   * @param file - Instant JSON file
+   * @param file - Instant JSON file input
    */
-  applyInstantJson(file: FileInput): components['schemas']['ApplyInstantJsonAction'] {
+  applyInstantJson(file: FileInput): ActionWithFileInput {
     return {
-      type: 'applyInstantJson',
-      file: file as components['schemas']['FileHandle'],
+      __needsFileRegistration: true,
+      fileInput: file,
+      createAction: (fileKey: string) => ({
+        type: 'applyInstantJson',
+        file: fileKey,
+      }),
     };
   },
 
   /**
    * Create an apply XFDF action
-   * @param file - XFDF file
+   * @param file - XFDF file input
    */
-  applyXfdf(file: FileInput): components['schemas']['ApplyXfdfAction'] {
+  applyXfdf(file: FileInput): ActionWithFileInput {
     return {
-      type: 'applyXfdf',
-      file: file as components['schemas']['FileHandle'],
+      __needsFileRegistration: true,
+      fileInput: file,
+      createAction: (fileKey: string) => ({
+        type: 'applyXfdf',
+        file: fileKey,
+      }),
     };
   },
 

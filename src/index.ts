@@ -24,8 +24,6 @@ export type {
 
   // Input types
   FileInput,
-  BrowserFileInput,
-  BlobInput,
   FilePathInput,
   BufferInput,
   Uint8ArrayInput,
@@ -63,3 +61,4 @@ export type {
 
 // Utility exports
 export { validateFileInput, processFileInput, type NormalizedFileData } from './inputs';
+export { type ActionWithFileInput } from './build';

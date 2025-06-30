@@ -49,11 +49,6 @@ jest.mock('../inputs', () => ({
 }));
 
 
-// Mock environment detection
-jest.mock('../utils/environment', () => ({
-  isNode: jest.fn().mockReturnValue(true),
-  isBrowser: jest.fn().mockReturnValue(false),
-}));
 
 describe('HTTP Layer', () => {
   const mockClientOptions: NutrientClientOptions = {
@@ -233,8 +228,8 @@ describe('HTTP Layer', () => {
 
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'document',
-        expect.any(Object), // Expecting a Blob or similar object
-        'file.bin' // Default filename for binary data
+        expect.any(Buffer), // Expecting a Buffer in Node.js
+        { filename: 'file.bin', contentType: 'application/octet-stream' }
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith('instructions', expect.any(String));
     });
@@ -447,18 +442,18 @@ describe('HTTP Layer', () => {
       expect(mockFormDataInstance.append).toHaveBeenCalledTimes(4); // 3 files + 1 instructions
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'file1',
-        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
-        'file.bin',
+        expect.any(Buffer), // Expecting a Buffer in Node.js
+        { filename: 'file.bin', contentType: 'application/octet-stream' }
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'file2',
-        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
-        'file.bin',
+        expect.any(Buffer), // Expecting a Buffer in Node.js
+        { filename: 'file.bin', contentType: 'application/octet-stream' }
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'file3',
-        expect.any(Object), // Expecting a Blob-like object created from Uint8Array
-        'file.bin',
+        expect.any(Buffer), // Expecting a Buffer in Node.js
+        { filename: 'file.bin', contentType: 'application/octet-stream' }
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'instructions',

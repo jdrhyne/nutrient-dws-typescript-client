@@ -114,12 +114,12 @@ describe('BuildActions', () => {
     };
 
     it('should create image watermark action with minimal options', () => {
-      const image: FileInput = 'logo.png';
+      const image = 'logo.png';
       const action = BuildActions.watermarkImage(image, defaultDimensions);
 
       expect(action).toEqual({
         type: 'watermark',
-        image: 'logo.png',
+        image: { url: 'logo.png' },
         width: { value: 100, unit: '%' },
         height: { value: 100, unit: '%' },
         rotation: 0,
@@ -127,7 +127,7 @@ describe('BuildActions', () => {
     });
 
     it('should create image watermark action with all options', () => {
-      const image: FileInput = 'watermark.png';
+      const image = 'watermark.png';
       const options = {
         ...defaultDimensions,
         opacity: 0.3,
@@ -142,7 +142,7 @@ describe('BuildActions', () => {
 
       expect(action).toEqual({
         type: 'watermark',
-        image: 'watermark.png',
+        image: { url: 'watermark.png' },
         width: { value: 100, unit: '%' },
         height: { value: 100, unit: '%' },
         opacity: 0.3,
@@ -176,25 +176,29 @@ describe('BuildActions', () => {
   });
 
   describe('applyInstantJson()', () => {
-    it('should create apply Instant JSON action', () => {
+    it('should create apply Instant JSON action with file registration', () => {
       const file: FileInput = 'annotations.json';
       const action = BuildActions.applyInstantJson(file);
 
-      expect(action).toEqual({
+      expect(action.__needsFileRegistration).toBe(true);
+      expect(action.fileInput).toBe('annotations.json');
+      expect(action.createAction('file_0')).toEqual({
         type: 'applyInstantJson',
-        file: 'annotations.json',
+        file: 'file_0',
       });
     });
   });
 
   describe('applyXfdf()', () => {
-    it('should create apply XFDF action', () => {
+    it('should create apply XFDF action with file registration', () => {
       const file: FileInput = 'annotations.xfdf';
       const action = BuildActions.applyXfdf(file);
 
-      expect(action).toEqual({
+      expect(action.__needsFileRegistration).toBe(true);
+      expect(action.fileInput).toBe('annotations.xfdf');
+      expect(action.createAction('file_1')).toEqual({
         type: 'applyXfdf',
-        file: 'annotations.xfdf',
+        file: 'file_1',
       });
     });
   });

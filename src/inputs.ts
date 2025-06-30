@@ -1,50 +1,29 @@
 import type { FileInput } from './types/inputs';
-import { isFile, isBlob, isBuffer, isUint8Array, isUrl } from './types/inputs';
-import { isNode, isBrowser } from './utils/environment';
+import { isBuffer, isUint8Array, isUrl } from './types/inputs';
 import { ValidationError } from './errors';
 
 /**
- * Normalized file data for internal processing
+ * Normalized file data for internal processing (Node.js only)
  */
 export interface NormalizedFileData {
-  data: Buffer | Uint8Array | Blob | NodeJS.ReadableStream;
+  data: Buffer | Uint8Array | NodeJS.ReadableStream;
   filename: string;
   contentType?: string;
 }
 
 /**
- * Processes various file input types into a normalized format
- * Works isomorphically across Node.js and browser environments
+ * Processes various file input types into a normalized format (Node.js only)
  */
 export async function processFileInput(input: FileInput): Promise<NormalizedFileData> {
   if (typeof input === 'string') {
     if (isUrl(input)) {
       return await processUrlInput(input);
-    } else if (isNode()) {
-      return await processFilePathInput(input);
     } else {
-      throw new ValidationError('File path inputs are only supported in Node.js environment', {
-        input,
-        environment: 'browser',
-      });
+      return await processFilePathInput(input);
     }
-  }
-
-  if (isFile(input)) {
-    return processBrowserFileInput(input);
-  }
-
-  if (isBlob(input)) {
-    return processBlobInput(input);
   }
 
   if (isBuffer(input)) {
-    if (!isNode()) {
-      throw new ValidationError('Buffer inputs are only supported in Node.js environment', {
-        input: 'Buffer',
-        environment: 'browser',
-      });
-    }
     return processBufferInput(input);
   }
 
@@ -56,10 +35,6 @@ export async function processFileInput(input: FileInput): Promise<NormalizedFile
   if (typeof input === 'object' && input !== null) {
     if ('type' in input) {
       switch (input.type) {
-        case 'browser-file':
-          return processBrowserFileInput(input.file);
-        case 'blob':
-          return processBlobInput(input.blob, input.filename);
         case 'file-path':
           return await processFilePathInput(input.path);
         case 'buffer':
@@ -79,50 +54,11 @@ export async function processFileInput(input: FileInput): Promise<NormalizedFile
   throw new ValidationError('Invalid file input provided', { input });
 }
 
-/**
- * Process Browser File object
- */
-function processBrowserFileInput(file: File): NormalizedFileData {
-  if (!isBrowser()) {
-    throw new ValidationError('File objects are only supported in browser environment', {
-      environment: 'node',
-    });
-  }
-
-  return {
-    data: file,
-    filename: file.name,
-    contentType: file.type || undefined,
-  };
-}
-
-/**
- * Process Blob object
- */
-function processBlobInput(blob: Blob, filename?: string): NormalizedFileData {
-  if (!isBrowser()) {
-    throw new ValidationError('Blob objects are only supported in browser environment', {
-      environment: 'node',
-    });
-  }
-
-  return {
-    data: blob,
-    filename: filename ?? 'blob',
-    contentType: blob.type || undefined,
-  };
-}
 
 /**
  * Process Buffer (Node.js)
  */
 function processBufferInput(buffer: Buffer, filename?: string): NormalizedFileData {
-  if (!isNode()) {
-    throw new ValidationError('Buffer objects are only supported in Node.js environment', {
-      environment: 'browser',
-    });
-  }
-
   return {
     data: buffer,
     filename: filename ?? 'buffer',
@@ -143,12 +79,6 @@ function processUint8ArrayInput(data: Uint8Array, filename?: string): Normalized
  * Process file path (Node.js only)
  */
 async function processFilePathInput(filePath: string): Promise<NormalizedFileData> {
-  if (!isNode()) {
-    throw new ValidationError('File path inputs are only supported in Node.js environment', {
-      filePath,
-      environment: 'browser',
-    });
-  }
 
   try {
     // Dynamic import to avoid bundling fs in browser builds
@@ -166,6 +96,15 @@ async function processFilePathInput(filePath: string): Promise<NormalizedFileDat
     const readStream = fs.createReadStream(filePath);
     const filename = path.basename(filePath);
 
+    // Add error handling to ensure stream is properly closed on errors
+    readStream.on('error', (streamError) => {
+      readStream.destroy();
+      throw new ValidationError(`Failed to read file: ${filePath}`, {
+        filePath,
+        error: streamError instanceof Error ? streamError.message : String(streamError),
+      });
+    });
+
     return {
       data: readStream,
       filename,
@@ -182,7 +121,7 @@ async function processFilePathInput(filePath: string): Promise<NormalizedFileDat
 }
 
 /**
- * Process URL input
+ * Process URL input (Node.js only)
  */
 async function processUrlInput(url: string): Promise<NormalizedFileData> {
   try {
@@ -196,11 +135,11 @@ async function processUrlInput(url: string): Promise<NormalizedFileData> {
       });
     }
 
-    const blob = await response.blob();
+    const buffer = Buffer.from(await response.arrayBuffer());
     const filename = getFilenameFromUrl(url) ?? 'download';
 
     return {
-      data: blob,
+      data: buffer,
       filename,
       contentType: response.headers.get('content-type') ?? undefined,
     };
@@ -230,20 +169,20 @@ function getFilenameFromUrl(url: string): string | null {
 }
 
 /**
- * Validates that the input is a supported file type
+ * Validates that the input is a supported file type (Node.js only)
  */
 export function validateFileInput(input: unknown): input is FileInput {
   if (typeof input === 'string') {
     return true; // Could be file path or URL
   }
 
-  if (isFile(input) || isBlob(input) || isBuffer(input) || isUint8Array(input)) {
+  if (isBuffer(input) || isUint8Array(input)) {
     return true;
   }
 
   if (typeof input === 'object' && input !== null && 'type' in input) {
     const typedInput = input as { type: string };
-    return ['browser-file', 'blob', 'file-path', 'buffer', 'uint8array', 'url'].includes(
+    return ['file-path', 'buffer', 'uint8array', 'url'].includes(
       typedInput.type,
     );
   }

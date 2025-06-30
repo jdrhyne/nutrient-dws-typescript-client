@@ -46,6 +46,34 @@ describe('WorkflowBuilder', () => {
     });
   });
 
+  describe('registerFile', () => {
+    it('should register file and return key', () => {
+      const inputFile = 'test.pdf';
+
+      const fileKey = workflow.registerFile(inputFile);
+
+      expect(fileKey).toBe('file_0');
+      expect(mockValidateFileInput).toHaveBeenCalledWith(inputFile);
+    });
+
+    it('should validate input file', () => {
+      mockValidateFileInput.mockReturnValue(false);
+
+      expect(() => workflow.registerFile('invalid-file')).toThrow(ValidationError);
+      expect(() => workflow.registerFile('invalid-file')).toThrow(
+        'Invalid file input provided to workflow',
+      );
+    });
+
+    it('should increment file counter for multiple files', () => {
+      const firstKey = workflow.registerFile('file1.pdf');
+      const secondKey = workflow.registerFile('file2.pdf');
+
+      expect(firstKey).toBe('file_0');
+      expect(secondKey).toBe('file_1');
+    });
+  });
+
   describe('addFilePart', () => {
     it('should add file part to workflow', () => {
       const inputFile = 'test.pdf';
@@ -138,6 +166,16 @@ describe('WorkflowBuilder', () => {
       const result = workflow.applyAction(BuildActions.rotate(90));
 
       expect(result).toBe(workflow);
+    });
+
+    it('should automatically register files in actions', () => {
+      const xfdfFile = 'annotations.xfdf';
+      const action = BuildActions.applyXfdf(xfdfFile);
+      
+      const result = workflow.applyAction(action);
+
+      expect(result).toBe(workflow);
+      expect(mockValidateFileInput).toHaveBeenCalledWith(xfdfFile);
     });
   });
 

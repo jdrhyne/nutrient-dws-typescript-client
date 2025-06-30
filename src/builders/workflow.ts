@@ -5,11 +5,17 @@ import type {
   WorkflowDryRunResult,
   WorkflowExecuteOptions,
 } from '../types';
+import type { ActionWithFileInput } from '../build';
 import { BaseBuilder } from './base';
 import { NutrientError, ValidationError } from '../errors';
 import { validateFileInput } from '../inputs';
 import { BuildOutputs } from '../build';
 import type { components } from '../generated/api-types';
+
+/**
+ * Actions that can be applied to workflows - either regular actions or actions that need file registration
+ */
+type ApplicableAction = components['schemas']['BuildAction'] | ActionWithFileInput;
 
 /**
  * File entry with metadata for type safety
@@ -44,12 +50,30 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   }
 
   /**
+   * Registers a file in the workflow and returns its key for use in actions
+   * @param file - The file to register
+   * @returns The file key that can be used in BuildActions
+   */
+  registerFile(file: FileInput): string {
+    this.ensureNotExecuted();
+    
+    if (!validateFileInput(file)) {
+      throw new ValidationError('Invalid file input provided to workflow', { file });
+    }
+
+    const fileKey = `file_${this.fileIndex++}`;
+    this.files.set(fileKey, { data: file, type: 'file' });
+    
+    return fileKey;
+  }
+
+  /**
    * Adds a file part to the workflow
    */
   addFilePart(
     file: FileInput,
     options?: Omit<components['schemas']['FilePart'], 'file' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][],
+    actions?: ApplicableAction[],
   ): this {
     this.ensureNotExecuted();
     
@@ -60,10 +84,12 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
     const fileKey = `file_${this.fileIndex++}`;
     this.files.set(fileKey, { data: file, type: 'file' });
 
+    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
+    
     const filePart: components['schemas']['FilePart'] = {
       file: fileKey,
       ...options,
-      ...(actions && actions.length > 0 ? { actions } : {}),
+      ...(processedActions && processedActions.length > 0 ? { actions: processedActions } : {}),
     };
 
     this.buildInstructions.parts.push(filePart);
@@ -76,17 +102,19 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   addHtmlPart(
     html: string | Blob,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][],
+    actions?: ApplicableAction[],
   ): this {
     this.ensureNotExecuted();
     
     const htmlKey = `html_${this.fileIndex++}`;
     this.files.set(htmlKey, { data: html, type: 'html' });
 
+    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
+    
     const htmlPart: components['schemas']['HTMLPart'] = {
       html: htmlKey,
       ...options,
-      ...(actions && actions.length > 0 ? { actions } : {}),
+      ...(processedActions && processedActions.length > 0 ? { actions: processedActions } : {}),
     };
 
     this.buildInstructions.parts.push(htmlPart);
@@ -98,14 +126,16 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    */
   addNewPage(
     options?: Omit<components['schemas']['NewPagePart'], 'page' | 'actions'>,
-    actions?: components['schemas']['BuildAction'][],
+    actions?: ApplicableAction[],
   ): this {
     this.ensureNotExecuted();
+    
+    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
     
     const newPagePart: components['schemas']['NewPagePart'] = {
       page: 'new',
       ...options,
-      ...(actions && actions.length > 0 ? { actions } : {}),
+      ...(processedActions && processedActions.length > 0 ? { actions: processedActions } : {}),
     };
 
     this.buildInstructions.parts.push(newPagePart);
@@ -120,16 +150,18 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
     options?: Omit<components['schemas']['DocumentPart'], 'document' | 'actions'> & {
       layer?: string;
     },
-    actions?: components['schemas']['BuildAction'][],
+    actions?: ApplicableAction[],
   ): this {
     this.ensureNotExecuted();
     
     const { layer, ...documentOptions } = options ?? {};
     
+    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
+    
     const documentPart: components['schemas']['DocumentPart'] = {
       document: { id: documentId, ...(layer && { layer }) },
       ...documentOptions,
-      ...(actions && actions.length > 0 ? { actions } : {}),
+      ...(processedActions && processedActions.length > 0 ? { actions: processedActions } : {}),
     };
 
     this.buildInstructions.parts.push(documentPart);
@@ -137,22 +169,43 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   }
 
   /**
+   * Processes an action, registering files if needed
+   */
+  private processAction(action: ApplicableAction): components['schemas']['BuildAction'] {
+    if (this.isActionWithFileInput(action)) {
+      // Register the file and create the actual action
+      const fileKey = this.registerFile(action.fileInput);
+      return action.createAction(fileKey);
+    }
+    return action;
+  }
+
+  /**
+   * Type guard to check if action needs file registration
+   */
+  private isActionWithFileInput(action: ApplicableAction): action is ActionWithFileInput {
+    return typeof action === 'object' && action !== null && '__needsFileRegistration' in action;
+  }
+
+  /**
    * Applies actions to the entire document
    */
-  applyActions(actions: components['schemas']['BuildAction'][]): this {
+  applyActions(actions: ApplicableAction[]): this {
     this.ensureNotExecuted();
     
     if (!this.buildInstructions.actions) {
       this.buildInstructions.actions = [];
     }
-    this.buildInstructions.actions.push(...actions);
+    
+    const processedActions = actions.map(action => this.processAction(action));
+    this.buildInstructions.actions.push(...processedActions);
     return this;
   }
 
   /**
    * Applies a single action to the entire document
    */
-  applyAction(action: components['schemas']['BuildAction']): this {
+  applyAction(action: ApplicableAction): this {
     return this.applyActions([action]);
   }
 
