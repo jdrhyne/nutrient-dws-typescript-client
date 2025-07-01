@@ -790,7 +790,6 @@ describeE2E('Advanced E2E Tests with Live API', () => {
 
       let workflow = client.workflow();
       for (const part of parts) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         workflow = workflow.addFilePart(part);
       }
 
