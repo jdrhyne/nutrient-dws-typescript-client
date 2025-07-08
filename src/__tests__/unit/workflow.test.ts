@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { WorkflowBuilder } from '../builders/workflow';
-import type { NutrientClientOptions } from '../types';
-import type { WorkflowExecuteOptions } from '../types';
-import { ValidationError, NutrientError } from '../errors';
-import * as inputsModule from '../inputs';
-import * as httpModule from '../http';
-import { BuildActions } from '../build';
+import { WorkflowBuilder } from '../../builders';
+import type { NutrientClientOptions, UrlInput } from '../../types';
+import type { WorkflowExecuteOptions } from '../../types';
+import { ValidationError, NutrientError } from '../../errors';
+import * as inputsModule from '../../inputs';
+import * as httpModule from '../../http';
+import { BuildActions } from '../../build';
 
 // Mock dependencies
-jest.mock('../inputs');
-jest.mock('../http');
+jest.mock('../../inputs');
+jest.mock('../../http');
 
 const mockValidateFileInput = inputsModule.validateFileInput as jest.MockedFunction<
   typeof inputsModule.validateFileInput
@@ -32,7 +32,7 @@ describe('WorkflowBuilder', () => {
     // Default mocks
     mockValidateFileInput.mockReturnValue(true);
     mockSendRequest.mockResolvedValue({
-      data: new Blob(['mock response'], { type: 'application/pdf' }),
+      data: new Blob(['mock response'], { type: 'application/pdf' }) as never,
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -50,27 +50,31 @@ describe('WorkflowBuilder', () => {
     it('should register file and return key', () => {
       const inputFile = 'test.pdf';
 
-      const fileKey = workflow.registerFile(inputFile);
+      // @ts-expect-error Testing private method
+      const fileKey = workflow.registerAssets(inputFile);
 
-      expect(fileKey).toBe('file_0');
+      expect(fileKey).toBe('asset_0');
       expect(mockValidateFileInput).toHaveBeenCalledWith(inputFile);
     });
 
     it('should validate input file', () => {
       mockValidateFileInput.mockReturnValue(false);
-
-      expect(() => workflow.registerFile('invalid-file')).toThrow(ValidationError);
-      expect(() => workflow.registerFile('invalid-file')).toThrow(
+      // @ts-expect-error Testing private method
+      expect(() => workflow.registerAssets('invalid-file')).toThrow(ValidationError);
+      // @ts-expect-error Testing private method
+      expect(() => workflow.registerAssets('invalid-file')).toThrow(
         'Invalid file input provided to workflow',
       );
     });
 
     it('should increment file counter for multiple files', () => {
-      const firstKey = workflow.registerFile('file1.pdf');
-      const secondKey = workflow.registerFile('file2.pdf');
+      // @ts-expect-error Testing private method
+      const firstKey = workflow.registerAssets('file1.pdf');
+      // @ts-expect-error Testing private method
+      const secondKey = workflow.registerAssets('file2.pdf');
 
-      expect(firstKey).toBe('file_0');
-      expect(secondKey).toBe('file_1');
+      expect(firstKey).toBe('asset_0');
+      expect(secondKey).toBe('asset_1');
     });
   });
 
@@ -97,23 +101,115 @@ describe('WorkflowBuilder', () => {
 
       expect(result).toBe(workflow);
     });
+
+    it('should not call registerAssets when adding a file as a URL string', () => {
+      // Mock isRemoteFileInput to return true for URL string
+      jest.spyOn(inputsModule, 'isRemoteFileInput').mockReturnValueOnce(true);
+
+      // Create a spy on the registerAssets method
+      const registerAssetsSpy = jest.spyOn(workflow as never, 'registerAssets');
+
+      const urlString = 'https://example.com/document.pdf';
+      const result = workflow.addFilePart(urlString);
+
+      expect(result).toBe(workflow);
+      expect(registerAssetsSpy).not.toHaveBeenCalled();
+
+      // Verify the file part was added with the URL
+      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+        expect.objectContaining({
+          file: { url: urlString }
+        })
+      );
+
+      registerAssetsSpy.mockRestore();
+    });
+
+    it('should not call registerAssets when adding a file as a URL object', () => {
+      // Mock isRemoteFileInput to return true for URL object
+      jest.spyOn(inputsModule, 'isRemoteFileInput').mockReturnValueOnce(true);
+
+      // Create a spy on the registerAssets method
+      const registerAssetsSpy = jest.spyOn(workflow as never, 'registerAssets');
+
+      const urlObject: UrlInput = { type: 'url', url: 'https://example.com/document.pdf' };
+      const result = workflow.addFilePart(urlObject);
+
+      expect(result).toBe(workflow);
+      expect(registerAssetsSpy).not.toHaveBeenCalled();
+
+      // Verify the file part was added with the URL
+      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+        expect.objectContaining({
+          file: { url: urlObject.url }
+        })
+      );
+
+      registerAssetsSpy.mockRestore();
+    });
   });
 
   describe('addHtmlPart', () => {
     it('should add HTML part to workflow', () => {
-      const result = workflow.addHtmlPart('<html><body>Hello</body></html>');
+      const result = workflow.addHtmlPart(Buffer.from('<html><body>Hello</body></html>'));
 
       expect(result).toBe(workflow);
     });
 
     it('should add HTML part with options and actions', () => {
       const result = workflow.addHtmlPart(
-        '<html><body>Hello</body></html>',
+        Buffer.from('<html><body>Hello</body></html>'),
         { assets: ['style.css'] },
         [BuildActions.rotate(90)]
       );
 
       expect(result).toBe(workflow);
+    });
+
+    it('should not call registerAssets when adding HTML as a URL string', () => {
+      // Mock isRemoteFileInput to return true for URL string
+      jest.spyOn(inputsModule, 'isRemoteFileInput').mockReturnValueOnce(true);
+
+      // Create a spy on the registerAssets method
+      const registerAssetsSpy = jest.spyOn(workflow as never, 'registerAssets');
+
+      const urlString = 'https://example.com/page.html';
+      const result = workflow.addHtmlPart(urlString);
+
+      expect(result).toBe(workflow);
+      expect(registerAssetsSpy).not.toHaveBeenCalled();
+
+      // Verify the HTML part was added with the URL
+      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+        expect.objectContaining({
+          html: { url: urlString }
+        })
+      );
+
+      registerAssetsSpy.mockRestore();
+    });
+
+    it('should not call registerAssets when adding HTML as a URL object', () => {
+      // Mock isRemoteFileInput to return true for URL object
+      jest.spyOn(inputsModule, 'isRemoteFileInput').mockReturnValueOnce(true);
+
+      // Create a spy on the registerAssets method
+      const registerAssetsSpy = jest.spyOn(workflow as never, 'registerAssets');
+
+      const urlObject: UrlInput = { type: 'url', url: 'https://example.com/page.html' };
+      const result = workflow.addHtmlPart(urlObject);
+
+      expect(result).toBe(workflow);
+      expect(registerAssetsSpy).not.toHaveBeenCalled();
+
+      // Verify the HTML part was added with the URL
+      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+        expect.objectContaining({
+          html: { url: urlObject.url }
+        })
+      );
+
+      registerAssetsSpy.mockRestore();
     });
   });
 
@@ -171,7 +267,7 @@ describe('WorkflowBuilder', () => {
     it('should automatically register files in actions', () => {
       const xfdfFile = 'annotations.xfdf';
       const action = BuildActions.applyXfdf(xfdfFile);
-      
+
       const result = workflow.applyAction(action);
 
       expect(result).toBe(workflow);
@@ -190,8 +286,13 @@ describe('WorkflowBuilder', () => {
       expect(result).toBe(workflow);
     });
 
+    it('should set PDF/UA output', () => {
+      const result = workflow.outputPdfUa();
+      expect(result).toBe(workflow);
+    });
+
     it('should set image output', () => {
-      const result = workflow.outputImage({ format: 'png' });
+      const result = workflow.outputImage('png');
       expect(result).toBe(workflow);
     });
 
@@ -200,8 +301,18 @@ describe('WorkflowBuilder', () => {
       expect(result).toBe(workflow);
     });
 
+    it('should set HTML output', () => {
+      const result = workflow.outputHtml();
+      expect(result).toBe(workflow);
+    });
+
+    it('should set Markdown output', () => {
+      const result = workflow.outputMarkdown();
+      expect(result).toBe(workflow);
+    });
+
     it('should set JSON output', () => {
-      const result = workflow.outputJson({ plainText: true });
+      const result = workflow.outputJson();
       expect(result).toBe(workflow);
     });
   });
@@ -232,7 +343,7 @@ describe('WorkflowBuilder', () => {
     it('should execute workflow using Build API', async () => {
       const mockBlob = new Blob(['converted content'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -245,23 +356,24 @@ describe('WorkflowBuilder', () => {
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: 'build',
+          endpoint: '/build',
           method: 'POST',
-          files: expect.any(Map),
           data: expect.objectContaining({
             instructions: expect.objectContaining({
               parts: expect.arrayContaining([
                 expect.objectContaining({
-                  file: 'file_0',
+                  file: 'asset_0',
                 }),
               ]),
               output: expect.objectContaining({
                 type: 'pdf',
               }),
             }),
+            files: expect.any(Map),
           }),
         }),
         mockClientOptions,
+        'arraybuffer'
       );
     });
 
@@ -270,7 +382,7 @@ describe('WorkflowBuilder', () => {
 
       const mockBlob = new Blob(['result'], { type: 'application/docx' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -282,7 +394,7 @@ describe('WorkflowBuilder', () => {
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: 'build',
+          endpoint: '/build',
           method: 'POST',
           data: expect.objectContaining({
             instructions: expect.objectContaining({
@@ -303,6 +415,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
+        'arraybuffer'
       );
     });
 
@@ -311,7 +424,7 @@ describe('WorkflowBuilder', () => {
 
       const mockResponse = { text: 'extracted text', metadata: {} };
       mockSendRequest.mockResolvedValueOnce({
-        data: mockResponse,
+        data: mockResponse as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -337,6 +450,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
+        'json'
       );
     });
 
@@ -349,7 +463,7 @@ describe('WorkflowBuilder', () => {
 
       const mockBlob = new Blob(['watermarked'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -373,6 +487,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
+        'arraybuffer'
       );
     });
 
@@ -383,7 +498,7 @@ describe('WorkflowBuilder', () => {
 
       const mockBlob = new Blob(['merged'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -394,14 +509,14 @@ describe('WorkflowBuilder', () => {
       expect(result.success).toBe(true);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          files: expect.any(Map),
           data: expect.objectContaining({
+            files: expect.any(Map),
             instructions: expect.objectContaining({
               parts: expect.arrayContaining([
-                expect.objectContaining({ file: 'file_0' }),
-                expect.objectContaining({ file: 'file_1' }),
-                expect.objectContaining({ file: 'file_2' }),
-                expect.objectContaining({ file: 'file_3' }),
+                expect.objectContaining({ file: 'asset_0' }),
+                expect.objectContaining({ file: 'asset_1' }),
+                expect.objectContaining({ file: 'asset_2' }),
+                expect.objectContaining({ file: 'asset_3' }),
               ]),
               output: expect.objectContaining({
                 type: 'pdf',
@@ -410,6 +525,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
+        'arraybuffer'
       );
     });
 
@@ -431,7 +547,7 @@ describe('WorkflowBuilder', () => {
 
       const mockBlob = new Blob(['result'], { type: 'application/docx' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -482,29 +598,26 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should handle timeout option', async () => {
-      const timeout = 30000;
+      const timeout = 60000;
       await workflow.execute({ timeout });
 
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          timeout,
+          timeout: 60000,
         }),
         mockClientOptions,
+        'arraybuffer'
       );
     });
   });
 
   describe('output management', () => {
-    beforeEach(() => {
-      workflow.addFilePart('test.pdf');
-    });
-
     it('should get specific output by name', async () => {
       workflow.addFilePart('test.docx').outputOffice('docx');
 
       const mockBlob = new Blob(['content'], { type: 'application/docx' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -520,7 +633,7 @@ describe('WorkflowBuilder', () => {
 
       const mockBlob = new Blob(['content'], { type: 'application/docx' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -538,7 +651,7 @@ describe('WorkflowBuilder', () => {
 
       const mockJsonResponse = { text: 'extracted text' };
       mockSendRequest.mockResolvedValueOnce({
-        data: mockJsonResponse,
+        data: mockJsonResponse as never,
         status: 200,
         statusText: 'OK',
         headers: { 'content-type': 'application/json' },
@@ -547,8 +660,9 @@ describe('WorkflowBuilder', () => {
       const result = await workflow.execute();
 
       expect(result.success).toBe(true);
-      expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
-      expect(result.output?.mimeType).toBe('application/json');
+      expect(result.output).toEqual(expect.objectContaining({
+        data: expect.any(Object),
+      }));
     });
 
     it('should fallback to determined mimetype when content-type header is missing', async () => {
@@ -556,7 +670,7 @@ describe('WorkflowBuilder', () => {
 
       const mockBlob = new Blob(['pdf content'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
-        data: mockBlob,
+        data: mockBlob as never,
         status: 200,
         statusText: 'OK',
         headers: {}, // No content-type header
@@ -599,7 +713,7 @@ describe('WorkflowBuilder', () => {
       };
 
       mockSendRequest.mockResolvedValueOnce({
-        data: mockAnalysisResponse,
+        data: mockAnalysisResponse as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -613,19 +727,20 @@ describe('WorkflowBuilder', () => {
       expect(mockSendRequest).toHaveBeenCalledTimes(1);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: 'analyze_build',
+          endpoint: '/analyze_build',
           method: 'POST',
           data: expect.objectContaining({
             instructions: expect.objectContaining({
               parts: expect.arrayContaining([
                 expect.objectContaining({
-                  file: 'file_0',
+                  file: 'asset_0',
                 }),
               ]),
             }),
           }),
         }),
         mockClientOptions,
+        'json'
       );
     });
 
@@ -658,7 +773,7 @@ describe('WorkflowBuilder', () => {
       };
 
       mockSendRequest.mockResolvedValueOnce({
-        data: mockAnalysisResponse,
+        data: mockAnalysisResponse as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -670,7 +785,7 @@ describe('WorkflowBuilder', () => {
       expect(result.analysis).toEqual(mockAnalysisResponse);
       expect(mockSendRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          endpoint: 'analyze_build',
+          endpoint: '/analyze_build',
           method: 'POST',
           data: expect.objectContaining({
             instructions: expect.objectContaining({
@@ -696,15 +811,16 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
+        'json'
       );
     });
 
     it('should handle timeout option', async () => {
-      const timeout = 30000;
+      const timeout = 60000;
       const mockAnalysisResponse = { cost: 1.5 };
 
       mockSendRequest.mockResolvedValueOnce({
-        data: mockAnalysisResponse,
+        data: mockAnalysisResponse as never,
         status: 200,
         statusText: 'OK',
         headers: {},
@@ -717,6 +833,7 @@ describe('WorkflowBuilder', () => {
           timeout,
         }),
         mockClientOptions,
+        'json'
       );
     });
 

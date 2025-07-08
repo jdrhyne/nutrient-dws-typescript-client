@@ -26,7 +26,6 @@ The new WorkflowBuilder will expose the following core methods:
 
 ### Part Management
 
-- `addPart(part: FilePart | HTMLPart | NewPagePart | DocumentPart)`: Adds a part to the workflow
 - `addFilePart(file: FileInput, options?: FilePartOptions, actions?: BuildAction[])`: Adds a file part to the workflow with optional actions to apply to this specific part
 - `addHtmlPart(html: string | Blob, options?: HTMLPartOptions, actions?: BuildAction[])`: Adds an HTML part to the workflow with optional actions to apply to this specific part
 - `addNewPage(options?: NewPageOptions, actions?: BuildAction[])`: Adds a new blank page to the workflow with optional actions to apply to this specific part

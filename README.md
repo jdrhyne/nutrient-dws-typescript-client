@@ -171,7 +171,7 @@ new NutrientClient(options: NutrientClientOptions)
 
 Options:
 - `apiKey` (required): Your API key string or async function returning a token
-- `baseUrl` (optional): Custom API base URL (defaults to `https://api.nutrient.io/v1`)
+- `baseUrl` (optional): Custom API base URL (defaults to `https://api.nutrient.io`)
 - `timeout` (optional): Request timeout in milliseconds
 
 #### Methods
@@ -375,6 +375,7 @@ const capabilities = getEnvironmentCapabilities();
 //   hasFileAPI: false,
 //   hasNodeFS: true
 // }
+```
 
 ## Testing
 

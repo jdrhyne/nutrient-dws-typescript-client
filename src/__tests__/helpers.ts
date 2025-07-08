@@ -2,9 +2,8 @@
  * E2E Test Helper Utilities
  * Provides utilities for creating test fixtures and validating results
  */
-
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Test document generators for various scenarios
@@ -74,7 +73,7 @@ Widget C | 60 | 70 | 80 | 90`;
     includeTable?: boolean;
     includeImages?: boolean;
     includeForm?: boolean;
-  } = {}): string {
+  } = {}): Buffer {
     const {
       title = 'Test Document',
       includeStyles = true,
@@ -211,7 +210,7 @@ Widget C | 60 | 70 | 80 | 90`;
 </body>
 </html>`;
 
-    return html;
+    return Buffer.from(html);
   }
 
   /**
@@ -223,7 +222,13 @@ Widget C | 60 | 70 | 80 | 90`;
     rect: number[];
     content?: string;
     color?: string;
-  }>): string {
+  }> = [{
+    type: 'highlight',
+    page: 0,
+    rect: [100, 100, 200, 150],
+    color: '#FFFF00',
+    content: 'Important text',
+  }]): Buffer {
     let xfdf = `<?xml version="1.0" encoding="UTF-8"?>
 <xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve">
     <annots>`;
@@ -260,18 +265,29 @@ Widget C | 60 | 70 | 80 | 90`;
     </annots>
 </xfdf>`;
 
-    return xfdf;
+    return Buffer.from(xfdf);
   }
 
   /**
    * Generates Instant JSON annotation content
    */
   static generateInstantJson(annotations: Array<{
+    v: number,
     type: string;
     pageIndex: number;
     [key: string]: unknown;
-  }>): string {
-    return JSON.stringify({
+  }> = [{
+    v: 2,
+    type: "pspdfkit/text",
+    pageIndex: 0,
+    bbox: [100, 100, 200, 150],
+    content: "Test annotation",
+    fontSize: 14,
+    opacity: 1,
+    horizontalAlign: "left",
+    verticalAlign: "top"
+  }]): Buffer {
+    return Buffer.from(JSON.stringify({
       format: 'https://pspdfkit.com/instant-json/v1',
       annotations: annotations.map(annot => ({
         ...annot,
@@ -279,33 +295,7 @@ Widget C | 60 | 70 | 80 | 90`;
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }))
-    }, null, 2);
-  }
-
-  /**
-   * Generates a fake image buffer
-   */
-  static generateImageBuffer(format: 'png' | 'jpg' = 'png'): Buffer {
-    // This is a minimal valid PNG header
-    if (format === 'png') {
-      const pngHeader = Buffer.from([
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-        0x00, 0x00, 0x00, 0x0D, // IHDR chunk length
-        0x49, 0x48, 0x44, 0x52, // IHDR
-        0x00, 0x00, 0x00, 0x64, // width: 100
-        0x00, 0x00, 0x00, 0x64, // height: 100
-        0x08, 0x02, 0x00, 0x00, 0x00, // bit depth, color type, etc.
-      ]);
-      return pngHeader;
-    } else {
-      // Minimal JPEG header
-      const jpegHeader = Buffer.from([
-        0xFF, 0xD8, 0xFF, 0xE0, // JPEG SOI and APP0 marker
-        0x00, 0x10, // APP0 length
-        0x4A, 0x46, 0x49, 0x46, 0x00, // JFIF identifier
-      ]);
-      return jpegHeader;
-    }
+    }, null, 2));
   }
 }
 
@@ -319,9 +309,9 @@ export class ResultValidator {
   static validatePdfOutput(result: unknown): void {
     const typedResult = result as { 
       success: boolean; 
-      output?: { 
-        buffer: Uint8Array; 
-        mimeType: string; 
+      output?: {
+        buffer: Uint8Array;
+        mimeType: string;
       };
     };
     
@@ -383,7 +373,7 @@ export class ResultValidator {
   /**
    * Validates image output
    */
-  static validateImageOutput(result: unknown, expectedFormat?: string): void {
+  static validateImageOutput(result: unknown, format?: 'png' | 'jpeg' | 'jpg' | 'webp'): void {
     const typedResult = result as { 
       success: boolean; 
       output?: { 
@@ -402,16 +392,17 @@ export class ResultValidator {
       throw new Error('Output buffer cannot be empty');
     }
     
-    if (expectedFormat) {
+    if (format) {
       const formatMimeTypes: Record<string, string[]> = {
         png: ['image/png'],
-        jpg: ['image/jpeg', 'image/jpg'],
+        jpg: ['image/jpeg'],
+        jpeg: ['image/jpeg'],
         webp: ['image/webp']
       };
       
-      const validMimeTypes = formatMimeTypes[expectedFormat] ?? [`image/${expectedFormat}`];
+      const validMimeTypes = formatMimeTypes[format] ?? [`image/${format}`];
       if (!validMimeTypes.includes(typedResult.output.mimeType)) {
-        throw new Error(`Expected format ${expectedFormat}, got ${typedResult.output.mimeType}`);
+        throw new Error(`Expected format ${format}, got ${typedResult.output.mimeType}`);
       }
     } else {
       if (!typedResult.output.mimeType.match(/^image\//)) {
@@ -479,153 +470,21 @@ export class ResultValidator {
 }
 
 /**
- * Performance testing utilities
+ * Example PDF with 6 pages
  */
-export class PerformanceMonitor {
-  private startTime: number = 0;
-  private checkpoints: Map<string, number> = new Map();
-
-  start(): void {
-    this.startTime = Date.now();
-    this.checkpoints.clear();
-  }
-
-  checkpoint(name: string): void {
-    this.checkpoints.set(name, Date.now() - this.startTime);
-  }
-
-  getElapsedTime(): number {
-    return Date.now() - this.startTime;
-  }
-
-  getCheckpoint(name: string): number | undefined {
-    return this.checkpoints.get(name);
-  }
-
-  getReport(): string {
-    const elapsed = this.getElapsedTime();
-    let report = `Total time: ${elapsed}ms\n`;
-    
-    for (const [name, time] of this.checkpoints) {
-      report += `  ${name}: ${time}ms\n`;
-    }
-    
-    return report;
-  }
-
-  expectUnder(maxMs: number, message?: string): void {
-    const elapsed = this.getElapsedTime();
-    if (elapsed >= maxMs) {
-      throw new Error(`Performance failure: took ${elapsed}ms (limit: ${maxMs}ms)`);
-    }
-    if (message && elapsed > maxMs * 0.8) {
-      // eslint-disable-next-line no-console
-      console.warn(`Performance warning: ${message} took ${elapsed}ms (limit: ${maxMs}ms)`);
-    }
-  }
-}
+export const samplePDF = fs.readFileSync(path.resolve(__dirname, 'data/sample.pdf'));
 
 /**
- * Test fixtures manager
+ * Example DOCX with 1 page
  */
-export class TestFixtures {
-  private static fixturesDir = path.join(__dirname, '../../test-fixtures');
-
-  /**
-   * Ensures test fixtures directory exists
-   */
-  static ensureFixturesDirectory(): void {
-    if (!fs.existsSync(this.fixturesDir)) {
-      fs.mkdirSync(this.fixturesDir, { recursive: true });
-    }
-  }
-
-  /**
-   * Gets or creates a test fixture file
-   */
-  static getOrCreateFixture(
-    filename: string, 
-    generator: () => Buffer | string
-  ): Buffer {
-    this.ensureFixturesDirectory();
-    const fixturePath = path.join(this.fixturesDir, filename);
-
-    if (!fs.existsSync(fixturePath)) {
-      const content = generator();
-      fs.writeFileSync(fixturePath, content);
-    }
-
-    return fs.readFileSync(fixturePath);
-  }
-
-  /**
-   * Cleans up test fixtures
-   */
-  static cleanupFixtures(): void {
-    if (fs.existsSync(this.fixturesDir)) {
-      const files = fs.readdirSync(this.fixturesDir);
-      for (const file of files) {
-        if (file.startsWith('test-') || file.startsWith('temp-')) {
-          fs.unlinkSync(path.join(this.fixturesDir, file));
-        }
-      }
-    }
-  }
-}
+export const sampleDOCX = fs.readFileSync(path.resolve(__dirname, 'data/sample.docx'));
 
 /**
- * Batch testing utilities for running multiple similar tests
+ * Example TXT file
  */
-export class BatchTestRunner {
-  /**
-   * Runs a test function with multiple input variations
-   */
-  static async runBatch<T, R>(
-    testName: string,
-    inputs: T[],
-    testFn: (input: T) => Promise<R>,
-    validateFn: (result: R, input: T) => void
-  ): Promise<void> {
-    const results: Array<{ input: T; result?: R; error?: unknown }> = [];
+export const sampleTXT = fs.readFileSync(path.resolve(__dirname, 'data/sample.txt'));
 
-    for (const input of inputs) {
-      try {
-        const result = await testFn(input);
-        results.push({ input, result });
-        validateFn(result, input);
-      } catch (error) {
-        results.push({ input, error });
-        const inputStr = typeof input === 'string' ? input : 'complex input';
-        throw new Error(`${testName} failed for input: ${inputStr}. Error: ${String(error)}`);
-      }
-    }
-
-    // Summary logging
-    // eslint-disable-next-line no-console
-    console.log(`${testName}: ${results.length} variations tested successfully`);
-  }
-
-  /**
-   * Runs concurrent tests with rate limiting
-   */
-  static async runConcurrent<T, R>(
-    items: T[],
-    testFn: (item: T) => Promise<R>,
-    options: { concurrency?: number; delayMs?: number } = {}
-  ): Promise<R[]> {
-    const { concurrency = 3, delayMs = 0 } = options;
-    const results: R[] = [];
-    
-    for (let i = 0; i < items.length; i += concurrency) {
-      const batch = items.slice(i, i + concurrency);
-      const batchResults = await Promise.all(batch.map(testFn));
-      results.push(...batchResults);
-      
-      if (delayMs > 0 && i + concurrency < items.length) {
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
-    }
-    
-    return results;
-  }
-}
+/**
+ * Example PNG
+ */
+export const samplePNG = fs.readFileSync(path.resolve(__dirname, 'data/sample.png'));

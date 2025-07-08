@@ -18,18 +18,16 @@ import type { components } from '../generated/api-types';
  * This wrapper ensures methods are only available at appropriate stages of the workflow.
  */
 export class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = undefined>
-  implements WorkflowInitialStage, WorkflowWithPartsStage, WorkflowWithActionsStage, WorkflowWithOutputStage<TOutput> {
-  
+  implements
+    WorkflowInitialStage,
+    WorkflowWithPartsStage,
+    WorkflowWithActionsStage,
+    WorkflowWithOutputStage<TOutput>
+{
   private builder: WorkflowBuilder<TOutput>;
 
   constructor(clientOptions: NutrientClientOptions) {
     this.builder = new WorkflowBuilder<TOutput>(clientOptions);
-  }
-
-  // Part methods
-  addPart(part: components['schemas']['Part']): WorkflowWithPartsStage {
-    this.builder.addPart(part);
-    return this;
   }
 
   addFilePart(
@@ -42,7 +40,7 @@ export class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefin
   }
 
   addHtmlPart(
-    html: string | Blob,
+    html: FileInput,
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
     actions?: components['schemas']['BuildAction'][],
   ): WorkflowWithPartsStage {
@@ -81,24 +79,33 @@ export class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefin
   }
 
   // Output methods
-  output(output: components['schemas']['BuildOutput']): WorkflowWithOutputStage {
-    this.builder.output(output);
-    return this as unknown as WorkflowWithOutputStage;
-  }
-
-  outputPdf(options?: Omit<components['schemas']['PDFOutput'], 'type'>): WorkflowWithOutputStage<'pdf'> {
+  outputPdf(
+    options?: Omit<components['schemas']['PDFOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdf'> {
     this.builder.outputPdf(options);
-    return this as unknown as WorkflowWithOutputStage<'pdf'>;
+    return this as WorkflowWithOutputStage<'pdf'>;
   }
 
-  outputPdfA(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowWithOutputStage<'pdfa'> {
+  outputPdfA(
+    options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdfa'> {
     this.builder.outputPdfA(options);
-    return this as unknown as WorkflowWithOutputStage<'pdfa'>;
+    return this as WorkflowWithOutputStage<'pdfa'>;
   }
 
-  outputImage(options?: Omit<components['schemas']['ImageOutput'], 'type'>): WorkflowWithOutputStage<'image'> {
-    this.builder.outputImage(options);
-    return this as unknown as WorkflowWithOutputStage<'image'>;
+  outputPdfUA(
+    options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'pdfua'> {
+    this.builder.outputPdfUa(options);
+    return this as WorkflowWithOutputStage<'pdfua'>;
+  }
+
+  outputImage<T extends 'png' | 'jpeg' | 'jpg' | 'webp'>(
+    format: T,
+    options?: Omit<components['schemas']['ImageOutput'], 'type' | 'format'>,
+  ): WorkflowWithOutputStage<T> {
+    this.builder.outputImage(format, options);
+    return this as unknown as WorkflowWithOutputStage<T>;
   }
 
   outputOffice<T extends 'docx' | 'xlsx' | 'pptx'>(format: T): WorkflowWithOutputStage<T> {
@@ -106,9 +113,25 @@ export class StagedWorkflowBuilder<TOutput extends keyof OutputTypeMap | undefin
     return this as unknown as WorkflowWithOutputStage<T>;
   }
 
-  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowWithOutputStage<'json-content'> {
-    this.builder.output({ type: 'json-content', ...options });
-    return this as unknown as WorkflowWithOutputStage<'json-content'>;
+  outputHtml(
+    options?: Omit<components['schemas']['HTMLOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'html'> {
+    this.builder.outputHtml(options);
+    return this as WorkflowWithOutputStage<'html'>;
+  }
+
+  outputMarkdown(
+    options?: Omit<components['schemas']['MarkdownOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'markdown'> {
+    this.builder.outputMarkdown(options);
+    return this as WorkflowWithOutputStage<'markdown'>;
+  }
+
+  outputJson(
+    options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
+  ): WorkflowWithOutputStage<'json-content'> {
+    this.builder.outputJson(options);
+    return this as WorkflowWithOutputStage<'json-content'>;
   }
 
   // Execution methods

@@ -29,24 +29,7 @@ export type {
   Uint8ArrayInput,
   UrlInput,
 
-  // Operation types
-  Operation,
-  OperationType,
-  ConvertOperation,
-  MergeOperation,
-  CompressOperation,
-  ExtractOperation,
-  WatermarkOperation,
-
-  // Response types
-  BaseResponse,
-  ErrorResponse,
-  ExtractTextResponse,
-  FileResponse,
-
   // Workflow types
-  WorkflowStep,
-  WorkflowConfig,
   WorkflowResult,
   WorkflowExecuteOptions,
   WorkflowInitialStage,

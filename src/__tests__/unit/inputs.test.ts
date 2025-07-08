@@ -1,30 +1,21 @@
-import { processFileInput, validateFileInput } from '../inputs';
-import { ValidationError } from '../errors';
-import { createTestBuffer, createTestUint8Array } from './test-utils';
+import { getPdfPageCount, isRemoteFileInput, processFileInput, validateFileInput } from '../../inputs';
+import { ValidationError } from '../../errors';
 import { Readable } from 'stream';
-
-// Mock fs for file path tests
-const mockCreateReadStream = jest.fn();
-const mockAccess = jest.fn();
-
-jest.mock('fs', () => ({
-  promises: {
-    access: mockAccess,
-  },
-  constants: {
-    F_OK: 0,
-  },
-  createReadStream: mockCreateReadStream,
-}));
-
-// Mock path module
-const mockBasename = jest.fn((path: string) => path.split('/').pop());
-jest.mock('path', () => ({
-  basename: mockBasename,
-}));
+import fs from 'fs';
+import type { FileInput } from '../../types';
+import { samplePDF, TestDocumentGenerator } from '../helpers';
 
 // Mock fetch for URL tests
 global.fetch = jest.fn();
+
+// Create test file data
+function createTestBuffer(content: string = 'test content'): Buffer {
+  return Buffer.from(content);
+}
+
+function createTestUint8Array(content: string = 'test content'): Uint8Array {
+  return new TextEncoder().encode(content);
+}
 
 describe('Input Processing (Node.js only)', () => {
   beforeEach(() => {
@@ -113,9 +104,8 @@ describe('Input Processing (Node.js only)', () => {
     it('should process file path', async () => {
       const mockStream = new Readable();
 
-      mockAccess.mockResolvedValue(undefined);
-      mockCreateReadStream.mockReturnValue(mockStream);
-      mockBasename.mockReturnValue('test.pdf');
+      const mockAccess = jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined as never)
+      const mockCreateReadStream  = jest.spyOn(fs, 'createReadStream').mockReturnValue(mockStream as fs.ReadStream);
 
       const result = await processFileInput('/path/to/test.pdf');
 
@@ -128,60 +118,36 @@ describe('Input Processing (Node.js only)', () => {
     });
 
     it('should throw error for non-existent file', async () => {
-      mockAccess.mockRejectedValue(new Error('File not found'));
+      jest.spyOn(fs.promises, 'access').mockRejectedValue(new Error('File not found') as never);
 
       await expect(processFileInput('/path/to/nonexistent.pdf')).rejects.toThrow(ValidationError);
     });
   });
 
-  describe('processFileInput - URL', () => {
-    it('should process URL input', async () => {
-      const mockResponse = {
-        ok: true,
-        arrayBuffer: (): Promise<ArrayBuffer> => Promise.resolve(new ArrayBuffer(10)),
-        headers: {
-          get: (header: string): string | null => header === 'content-type' ? 'application/pdf' : null,
-        },
-      };
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(mockResponse as unknown as Response);
+  describe('isRemoteFileInput', () => {
+    const cases = [
+      { name: 'URL string', input: 'https://example.com/test.pdf', expected: true },
+      { name: 'File Path string', input: 'test.pdf', expected: false },
+      { name: 'Buffer', input: Buffer.from('test'), expected: false },
+      { name: 'Uint8Array', input:  Uint8Array.from('test'), expected: false },
+      { name: 'URL Input', input: { type: 'url', url: 'https://example.com/test.pdf' }, expected: true },
+      { name: 'File Path Input', input: { type: 'file-path', path: 'test.pdf' }, expected: false },
+      { name: 'Buffer Input', input: { type: 'buffer', buffer: Buffer.from('test') }, expected: false },
+      { name: 'Uint8Array Input', input: { type: 'uint8array', data: Uint8Array.from('test') }, expected: false },
+    ]
 
-      const result = await processFileInput('https://example.com/test.pdf');
-
-      expect(result.data).toBeInstanceOf(Buffer);
-      expect(result.filename).toBe('test.pdf');
-      expect(result.contentType).toBe('application/pdf');
-    });
-
-    it('should handle URL without filename', async () => {
-      const mockResponse = {
-        ok: true,
-        arrayBuffer: (): Promise<ArrayBuffer> => Promise.resolve(new ArrayBuffer(10)),
-        headers: {
-          get: (): string | null => null,
-        },
-      };
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(mockResponse as unknown as Response);
-
-      const result = await processFileInput('https://example.com/');
-
-      expect(result.data).toBeInstanceOf(Buffer);
-      expect(result.filename).toBe('download');
-      expect(result.contentType).toBeUndefined();
-    });
-
-    it('should throw error for failed URL fetch', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-      };
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue(mockResponse as unknown as Response);
-
-      await expect(processFileInput('https://example.com/nonexistent.pdf')).rejects.toThrow(ValidationError);
-    });
-  });
+    it.each(cases)('should return $expected for $name', (testCase) => {
+      expect(isRemoteFileInput(testCase.input as FileInput)).toBe(testCase.expected);
+    })
+  })
 
   describe('processFileInput - Invalid inputs', () => {
+    it('should throw for URL', async () => {
+      await expect(processFileInput('https://example.com/test.pdf')).rejects.toThrow(ValidationError);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+      await expect(processFileInput({ type: "url", url: 'https://example.com/test.pdf' } as any)).rejects.toThrow(ValidationError);
+    });
+
     it('should throw for null or undefined', async () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
       await expect(processFileInput(null as any)).rejects.toThrow(ValidationError);
@@ -196,4 +162,15 @@ describe('Input Processing (Node.js only)', () => {
       await expect(processFileInput({} as any)).rejects.toThrow(ValidationError);
     });
   });
+
+  describe('getPdfPageCount', () => {
+    const cases = [
+      { name: 'PDF with 1 page', input: TestDocumentGenerator.generateSimplePdf("Text"), expected: 1 },
+      { name: 'PDF with 6 pages', input: samplePDF, expected: 6 },
+    ]
+
+    it.each(cases)('should return $expected for $name', async (testCase) => {
+      await expect(getPdfPageCount(testCase.input)).resolves.toEqual(testCase.expected);
+    })
+  })
 });

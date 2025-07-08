@@ -1,5 +1,5 @@
 import type { NutrientClientOptions, WorkflowInitialStage } from './types';
-import { StagedWorkflowBuilder } from './builders/staged-workflow';
+import { StagedWorkflowBuilder } from './builders';
 
 /**
  * Factory function to create a new workflow builder with staged interface

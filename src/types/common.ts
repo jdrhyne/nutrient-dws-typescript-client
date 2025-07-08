@@ -24,7 +24,7 @@ export interface NutrientClientOptions {
   
   /**
    * The base URL for the Nutrient DWS API.
-   * @default 'https://api.nutrient.io/v1'
+   * @default 'https://api.nutrient.io'
    */
   baseUrl?: string;
 }

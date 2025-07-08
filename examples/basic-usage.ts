@@ -9,7 +9,7 @@
  */
 
 import 'dotenv/config';
-import { NutrientClient } from '@nutrient/dws-client';
+import { NutrientClient } from '../src';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

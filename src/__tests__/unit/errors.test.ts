@@ -4,7 +4,7 @@ import {
   APIError,
   AuthenticationError,
   NetworkError,
-} from '../errors';
+} from '../../errors';
 
 describe('Error Classes', () => {
   describe('NutrientError', () => {

@@ -1,9 +1,18 @@
-import type { FileInput, NutrientClientOptions, WorkflowInitialStage, WorkflowResult, TypedWorkflowResult } from './types';
-import { ValidationError } from './errors';
+import type {
+  FileInput,
+  NutrientClientOptions,
+  WorkflowInitialStage,
+  WorkflowResult,
+  TypedWorkflowResult,
+  WorkflowWithPartsStage,
+  WorkflowOutput,
+  OutputTypeMap,
+} from './types';
+import { ValidationError, NutrientError } from './errors';
 import { workflow } from './workflow';
 import type { components } from './generated/api-types';
-
-const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
+import { BuildActions } from './build';
+import { getPdfPageCount } from './inputs';
 
 /**
  * Main client for interacting with the Nutrient Document Web Services API.
@@ -84,6 +93,56 @@ export class NutrientClient {
     return workflow(this.options);
   }
 
+  /**
+   * Helper function that takes a WorkflowResult, throws any errors, and returns the WorkflowOutput
+   * 
+   * @param result - The WorkflowResult to process
+   * @returns The WorkflowOutput from the result
+   * @throws {NutrientError} If the workflow was not successful or if output is missing
+   */
+  private processWorkflowResult(result: WorkflowResult): WorkflowOutput {
+    if (!result.success) {
+      // If there are errors, throw the first one
+      if (result.errors?.[0]) {
+        throw result.errors[0].error;
+      }
+      // If no specific errors but operation failed
+      throw new NutrientError('Workflow operation failed without specific error details', 'WORKFLOW_ERROR');
+    }
+
+    // Check if output exists
+    if (!result.output) {
+      throw new NutrientError('Workflow completed successfully but no output was returned', 'MISSING_OUTPUT');
+    }
+
+    return result.output;
+  }
+
+  /**
+   * Helper function that takes a TypedWorkflowResult, throws any errors, and returns the specific output type
+   * 
+   * @param result - The TypedWorkflowResult to process
+   * @returns The specific output type from the result
+   * @throws {NutrientError} If the workflow was not successful or if output is missing
+   */
+  private processTypedWorkflowResult<T extends keyof OutputTypeMap>(result: TypedWorkflowResult<T>): OutputTypeMap[T] {
+    if (!result.success) {
+      // If there are errors, throw the first one
+      if (result.errors?.[0]) {
+        throw result.errors[0].error;
+      }
+      // If no specific errors but operation failed
+      throw new NutrientError('Workflow operation failed without specific error details', 'WORKFLOW_ERROR');
+    }
+
+    // Check if output exists
+    if (!result.output) {
+      throw new NutrientError('Workflow completed successfully but no output was returned', 'MISSING_OUTPUT');
+    }
+
+    return result.output as OutputTypeMap[T];
+  }
+
 
   /**
    * Performs OCR (Optical Character Recognition) on a document
@@ -91,7 +150,6 @@ export class NutrientClient {
    *
    * @param file - The input file to perform OCR on
    * @param language - The language(s) to use for OCR
-   * @param outputFormat - The output format (default: 'pdf')
    * @returns Promise resolving to the OCR result
    *
    * @example
@@ -102,18 +160,13 @@ export class NutrientClient {
   async ocr(
     file: FileInput,
     language: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][],
-    outputFormat: 'pdf' | 'pdfa' = 'pdf',
-  ): Promise<WorkflowResult> {
-    const ocrAction: components['schemas']['OcrAction'] = {
-      type: 'ocr',
-      language,
-    };
+  ): Promise<WorkflowOutput> {
+    const ocrAction = BuildActions.ocr(language)
 
     const builder = this.workflow().addFilePart(file, undefined, [ocrAction]);
 
-    return outputFormat === 'pdf' 
-      ? builder.outputPdf().execute()
-      : builder.outputPdfA().execute();
+    const result = await builder.outputPdf().execute();
+    return this.processWorkflowResult(result);
   }
 
   /**
@@ -123,7 +176,6 @@ export class NutrientClient {
    * @param file - The input file to watermark
    * @param text - The watermark text
    * @param options - Watermark options
-   * @param outputFormat - The output format (default: 'pdf')
    * @returns Promise resolving to the watermarked document
    *
    * @example
@@ -134,26 +186,47 @@ export class NutrientClient {
    * });
    * ```
    */
-  async watermark(
+  async watermarkText(
     file: FileInput,
     text: string,
     options: Partial<Omit<components['schemas']['TextWatermarkAction'], 'type' | 'text'>> = {},
-    outputFormat: 'pdf' | 'pdfa' = 'pdf',
-  ): Promise<WorkflowResult> {
-    const watermarkAction: components['schemas']['TextWatermarkAction'] = {
-      type: 'watermark',
-      text,
-      rotation: options.rotation ?? 0,
-      width: options.width ?? DEFAULT_DIMENSION,
-      height: options.height ?? DEFAULT_DIMENSION,
-      ...options,
-    };
+  ): Promise<WorkflowOutput> {
+    const watermarkAction = BuildActions.watermarkText(text, options);
 
     const builder = this.workflow().addFilePart(file, undefined, [watermarkAction]);
 
-    return outputFormat === 'pdf'
-      ? builder.outputPdf().execute()
-      : builder.outputPdfA().execute();
+    const result = await builder.outputPdf().execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Adds a image watermark to a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The input file to watermark
+   * @param image - The watermark image
+   * @param options - Watermark options
+   * @returns Promise resolving to the watermarked document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.watermark('document.pdf', 'watermark.jpg', {
+   *   opacity: 0.5,
+   *   fontSize: 24
+   * });
+   * ```
+   */
+  async watermarkImage(
+    file: FileInput,
+    image: FileInput,
+    options: Partial<Omit<components['schemas']['ImageWatermarkAction'], 'type' | 'image'>> = {},
+  ): Promise<WorkflowOutput> {
+    const watermarkAction = BuildActions.watermarkImage(image, options);
+
+    const builder = this.workflow().addFilePart(file, undefined, [watermarkAction]);
+
+    const result = await builder.outputPdf().execute();
+    return this.processWorkflowResult(result);
   }
 
   /**
@@ -162,35 +235,63 @@ export class NutrientClient {
    *
    * @param file - The input file to convert
    * @param targetFormat - The target format to convert to
-   * @returns Promise resolving to the converted document
+   * @returns Promise resolving to the specific output type based on the target format
    *
    * @example
    * ```typescript
    * const result = await client.convert('document.docx', 'pdf');
+   * // result will be of type OutputTypeMap['pdf']
    * ```
    */
-  async convert(
+  async convert<T extends 'pdf' | 'pdfa' | 'pdfua' | 'docx' | 'xlsx' | 'pptx' | "png" | "jpeg" | "jpg" | "webp" | 'html' | 'markdown'>(
     file: FileInput,
-    targetFormat: 'pdf' | 'pdfa' | 'docx' | 'xlsx' | 'pptx' | 'image',
-  ): Promise<WorkflowResult> {
+    targetFormat: T,
+  ): Promise<OutputTypeMap[T]> {
     const builder = this.workflow().addFilePart(file);
+    let result: TypedWorkflowResult<T>;
 
     switch (targetFormat) {
       case 'pdf':
-        return builder.outputPdf().execute();
+        result = await builder.outputPdf().execute() as TypedWorkflowResult<T>;
+        break;
       case 'pdfa':
-        return builder.outputPdfA().execute();
+        result = await builder.outputPdfA().execute() as TypedWorkflowResult<T>;
+        break;
+      case 'pdfua':
+        result = await builder.outputPdfUA().execute() as TypedWorkflowResult<T>;
+        break;
       case 'docx':
-        return builder.outputOffice('docx').execute();
+        result = await builder.outputOffice('docx').execute() as TypedWorkflowResult<T>;
+        break;
       case 'xlsx':
-        return builder.outputOffice('xlsx').execute();
+        result = await builder.outputOffice('xlsx').execute() as TypedWorkflowResult<T>;
+        break;
       case 'pptx':
-        return builder.outputOffice('pptx').execute();
-      case 'image':
-        return builder.outputImage().execute();
+        result = await builder.outputOffice('pptx').execute() as TypedWorkflowResult<T>;
+        break;
+      case 'html':
+        result = await builder.outputHtml({ layout: 'page' }).execute() as TypedWorkflowResult<T>;
+        break;
+      case 'markdown':
+        result = await builder.outputMarkdown().execute() as TypedWorkflowResult<T>;
+        break;
+      case 'png':
+        result = await builder.outputImage('png', { dpi: 500 }).execute() as TypedWorkflowResult<T>;
+        break;
+      case 'jpeg':
+        result = await builder.outputImage('jpeg', { dpi: 500 }).execute() as TypedWorkflowResult<T>;
+        break;
+      case 'jpg':
+        result = await builder.outputImage('jpg', { dpi: 500 }).execute() as TypedWorkflowResult<T>;
+        break;
+      case 'webp':
+        result = await builder.outputImage('webp', { dpi: 500 }).execute() as TypedWorkflowResult<T>;
+        break;
       default:
         throw new ValidationError(`Unsupported target format: ${String(targetFormat)}`);
     }
+
+    return this.processTypedWorkflowResult<T>(result);
   }
 
   /**
@@ -198,7 +299,6 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param files - The files to merge
-   * @param outputFormat - The output format (default: 'pdf')
    * @returns Promise resolving to the merged document
    *
    * @example
@@ -206,10 +306,9 @@ export class NutrientClient {
    * const result = await client.merge(['doc1.pdf', 'doc2.pdf', 'doc3.pdf']);
    * ```
    */
-  merge(
+  async merge(
     files: FileInput[],
-    outputFormat: 'pdf' | 'pdfa' = 'pdf',
-  ): Promise<WorkflowResult> {
+  ): Promise<WorkflowOutput> {
     if (!files || files.length < 2) {
       throw new ValidationError('At least 2 files are required for merge operation');
     }
@@ -220,67 +319,13 @@ export class NutrientClient {
     }
 
     let builder = this.workflow().addFilePart(firstFile);
-    
+
     for (const file of restFiles) {
       builder = builder.addFilePart(file);
     }
 
-    return outputFormat === 'pdf'
-      ? builder.outputPdf().execute()
-      : builder.outputPdfA().execute();
-  }
-
-  /**
-   * Compresses a PDF document
-   * This is a convenience method that uses the workflow builder.
-   *
-   * @param file - The PDF file to compress
-   * @param level - Compression level (default: 'medium')
-   * @returns Promise resolving to the compressed document
-   *
-   * @example
-   * ```typescript
-   * const result = await client.compress('large-document.pdf', 'high');
-   * ```
-   */
-  async compress(
-    file: FileInput,
-    level: 'low' | 'medium' | 'high' | 'maximum' = 'medium',
-  ): Promise<WorkflowResult> {
-    const compressionOptions = {
-      low: { 
-        optimize: { 
-          imageOptimizationQuality: 3,
-          mrcCompression: false 
-        } 
-      },
-      medium: { 
-        optimize: { 
-          imageOptimizationQuality: 2,
-          mrcCompression: true 
-        } 
-      },
-      high: { 
-        optimize: { 
-          imageOptimizationQuality: 1,
-          mrcCompression: true,
-          grayscaleImages: true 
-        } 
-      },
-      maximum: { 
-        optimize: { 
-          imageOptimizationQuality: 0,
-          mrcCompression: true,
-          grayscaleImages: true,
-          grayscaleGraphics: true 
-        } 
-      },
-    };
-
-    return this.workflow()
-      .addFilePart(file)
-      .outputPdf(compressionOptions[level])
-      .execute();
+    const result = await builder.outputPdf().execute();
+    return this.processWorkflowResult(result);
   }
 
   /**
@@ -288,6 +333,7 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param file - The file to extract text from
+   * @param pages - Optional page range to extract text from
    * @returns Promise resolving to the extracted text data
    *
    * @example
@@ -297,13 +343,82 @@ export class NutrientClient {
    *   console.log(result.output.data);
    * }
    * ```
+   * 
+   * // Extract text from specific pages
+   * const result = await client.extractText('document.pdf', { start: 0, end: 2 }); // First 3 pages
    */
-  async extractText(file: FileInput): Promise<TypedWorkflowResult<'json-content'>> {
-    return this.workflow()
-      .addFilePart(file)
-      .outputJson({ plainText: true, structuredText: true })
+  async extractText(
+    file: FileInput,
+    pages?: { start?: number; end?: number }
+  ): Promise<OutputTypeMap['json-content']> {
+    const result = await this.workflow()
+      .addFilePart(file, pages ? { pages } : undefined)
+      .outputJson({ plainText: true, tables: false })
       .execute();
+    return this.processTypedWorkflowResult<'json-content'>(result);
   }
+
+  /**
+   * Extracts table content from a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The file to extract table from
+   * @param pages - Optional page range to extract tables from
+   * @returns Promise resolving to the extracted table data
+   *
+   * @example
+   * ```typescript
+   * const result = await client.extractTable('document.pdf');
+   * if (result.success && result.output && 'data' in result.output) {
+   *   console.log(result.output.data);
+   * }
+   * ```
+   * 
+   * // Extract tables from specific pages
+   * const result = await client.extractTable('document.pdf', { start: 0, end: 2 }); // First 3 pages
+   */
+  async extractTable(
+    file: FileInput,
+    pages?: { start?: number; end?: number }
+  ): Promise<OutputTypeMap['json-content']> {
+    const result = await this.workflow()
+      .addFilePart(file, pages ? { pages } : undefined)
+      .outputJson({ plainText: false, tables: true})
+      .execute();
+    return this.processTypedWorkflowResult<'json-content'>(result);
+  }
+
+
+  /**
+   * Extracts key value pair content from a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The file to extract KVPs from
+   * @param pages - Optional page range to extract KVPs from
+   * @returns Promise resolving to the extracted KVPs data
+   *
+   * @example
+   * ```typescript
+   * const result = await client.extractKeyValuePairs('document.pdf');
+   * if (result.success && result.output && 'data' in result.output) {
+   *   console.log(result.output.data);
+   * }
+   * ```
+   * 
+   * // Extract KVPs from specific pages
+   * const result = await client.extractKeyValuePairs('document.pdf', { start: 0, end: 2 }); // First 3 pages
+   */
+  async extractKeyValuePairs(
+    file: FileInput,
+    pages?: { start?: number; end?: number }
+  ): Promise<OutputTypeMap['json-content']> {
+    const result = await this.workflow()
+      .addFilePart(file, pages ? { pages } : undefined)
+      .outputJson({ plainText: false, tables: false, keyValuePairs: true })
+      .execute();
+    return this.processTypedWorkflowResult<'json-content'>(result);
+  }
+
 
   /**
    * Flattens annotations in a PDF document
@@ -321,16 +436,14 @@ export class NutrientClient {
   async flatten(
     file: FileInput,
     annotationIds?: (string | number)[],
-  ): Promise<WorkflowResult> {
-    const flattenAction: components['schemas']['FlattenAction'] = {
-      type: 'flatten',
-      ...(annotationIds && { annotationIds }),
-    };
+  ): Promise<WorkflowOutput> {
+    const flattenAction = BuildActions.flatten(annotationIds);
 
-    return this.workflow()
+    const result = await this.workflow()
       .addFilePart(file, undefined, [flattenAction])
       .outputPdf()
       .execute();
+    return this.processWorkflowResult(result);
   }
 
   /**
@@ -353,15 +466,547 @@ export class NutrientClient {
     file: FileInput,
     angle: 90 | 180 | 270,
     pages?: { start?: number; end?: number },
-  ): Promise<WorkflowResult> {
-    const rotateAction: components['schemas']['RotateAction'] = {
-      type: 'rotate',
-      rotateBy: angle,
-    };
+  ): Promise<WorkflowOutput> {
+    const rotateAction = BuildActions.rotate(angle);
 
-    return this.workflow()
+    const result = await this.workflow()
       .addFilePart(file, pages ? { pages } : undefined, [rotateAction])
       .outputPdf()
       .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Password protects a PDF document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to protect
+   * @param userPassword - Password required to open the document
+   * @param ownerPassword - Password required to modify the document
+   * @param permissions - Optional array of permissions granted when opened with user password
+   * @returns Promise resolving to the password-protected document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.passwordProtect('document.pdf', 'user123', 'owner456');
+   * // Or with specific permissions:
+   * const result = await client.passwordProtect('document.pdf', 'user123', 'owner456', 
+   *   ['printing', 'extract_accessibility']);
+   * ```
+   */
+  async passwordProtect(
+    file: FileInput,
+    userPassword: string,
+    ownerPassword: string,
+    permissions?: components['schemas']['PDFUserPermission'][],
+  ): Promise<WorkflowOutput> {
+    const result = await this.workflow()
+      .addFilePart(file)
+      .outputPdf({
+        user_password: userPassword,
+        owner_password: ownerPassword,
+        ...(permissions && { user_permissions: permissions }),
+      })
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Sets metadata for a PDF document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to modify
+   * @param metadata - The metadata to set (title and/or author)
+   * @returns Promise resolving to the document with updated metadata
+   *
+   * @example
+   * ```typescript
+   * const result = await client.setMetadata('document.pdf', { 
+   *   title: 'My Document', 
+   *   author: 'John Doe' 
+   * });
+   * ```
+   */
+  async setMetadata(
+    file: FileInput,
+    metadata: components['schemas']['Metadata'],
+  ): Promise<WorkflowOutput> {
+    const result = await this.workflow()
+      .addFilePart(file)
+      .outputPdf({ metadata })
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Sets page labels for a PDF document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to modify
+   * @param labels - Array of label objects with pages and label properties
+   * @returns Promise resolving to the document with updated page labels
+   *
+   * @example
+   * ```typescript
+   * const result = await client.setPageLabels('document.pdf', [
+   *   { pages: [0, 1, 2], label: 'Cover' },
+   *   { pages: [3, 4, 5], label: 'Chapter 1' }
+   * ]);
+   * ```
+   */
+  async setPageLabels(
+    file: FileInput,
+    labels: components['schemas']['Label'][],
+  ): Promise<WorkflowOutput> {
+    const result = await this.workflow()
+      .addFilePart(file)
+      .outputPdf({ labels })
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Applies Instant JSON to a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to modify
+   * @param instantJsonFile - The Instant JSON file to apply
+   * @returns Promise resolving to the modified document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.applyInstantJson('document.pdf', 'annotations.json');
+   * ```
+   */
+  async applyInstantJson(
+    file: FileInput,
+    instantJsonFile: FileInput,
+  ): Promise<WorkflowOutput> {
+    const applyJsonAction = BuildActions.applyInstantJson(instantJsonFile)
+
+    const result = await this.workflow()
+      .addFilePart(file, undefined, [applyJsonAction])
+      .outputPdf()
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Applies XFDF to a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to modify
+   * @param xfdfFile - The XFDF file to apply
+   * @param options - Optional settings for applying XFDF
+   * @returns Promise resolving to the modified document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.applyXfdf('document.pdf', 'annotations.xfdf');
+   * // Or with options:
+   * const result = await client.applyXfdf('document.pdf', 'annotations.xfdf', {
+   *   ignorePageRotation: true,
+   *   richTextEnabled: false
+   * });
+   * ```
+   */
+  async applyXfdf(
+    file: FileInput,
+    xfdfFile: FileInput,
+    options?: {
+      ignorePageRotation?: boolean;
+      richTextEnabled?: boolean;
+    },
+  ): Promise<WorkflowOutput> {
+    const applyXfdfAction = BuildActions.applyXfdf(xfdfFile, options);
+
+    const result = await this.workflow()
+      .addFilePart(file, undefined, [applyXfdfAction])
+      .outputPdf()
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Creates redaction annotations based on a preset pattern
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to create redactions in
+   * @param preset - The preset pattern to search for (e.g., 'email-address', 'social-security-number')
+   * @param presetOptions - Optional settings for the preset strategy
+   * @param options - Optional settings for creating redactions
+   * @returns Promise resolving to the document with redaction annotations
+   *
+   * @example
+   * ```typescript
+   * const result = await client.createRedactionsPreset('document.pdf', 'email-address');
+   * // Or with options:
+   * const result = await client.createRedactionsPreset('document.pdf', 'social-security-number', {
+   *   includeAnnotations: true,
+   *   start: 0,
+   *   limit: 5
+   * });
+   * ```
+   */
+  async createRedactionsPreset(
+    file: FileInput,
+    preset: components['schemas']['SearchPreset'],
+    presetOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsPreset'], 'preset'>,
+    options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
+  ): Promise<WorkflowOutput> {
+    const createRedactionsAction = BuildActions.createRedactionsPreset(preset, options, presetOptions);
+
+    const result = await this.workflow()
+      .addFilePart(file, undefined, [createRedactionsAction])
+      .outputPdf()
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Creates redaction annotations based on a regular expression
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to create redactions in
+   * @param regex - The regular expression to search for
+   * @param regrexOptions - Optional settings for the regrex strategy
+   * @param options - Optional settings for creating redactions
+   * @returns Promise resolving to the document with redaction annotations
+   *
+   * @example
+   * ```typescript
+   * const result = await client.createRedactionsRegex('document.pdf', 'Account:\\s*\\d{8,12}');
+   * // Or with options:
+   * const result = await client.createRedactionsRegex('document.pdf', 'Account:\\s*\\d{8,12}', {
+   *   caseSensitive: false,
+   *   includeAnnotations: true
+   * });
+   * ```
+   */
+  async createRedactionsRegex(
+    file: FileInput,
+    regex: string,
+    regrexOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsRegex'], 'regex'>,
+    options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
+  ): Promise<WorkflowOutput> {
+    const createRedactionsAction = BuildActions.createRedactionsRegex(regex, options, regrexOptions);
+
+    const result = await this.workflow()
+      .addFilePart(file, undefined, [createRedactionsAction])
+      .outputPdf()
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Creates redaction annotations based on text
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to create redactions in
+   * @param text - The text to search for
+   * @param textOptions - Optional settings for the text strategy
+   * @param options - Optional settings for creating redactions
+   * @returns Promise resolving to the document with redaction annotations
+   *
+   * @example
+   * ```typescript
+   * const result = await client.createRedactionsText('document.pdf', 'email@example.com');
+   * // Or with options:
+   * const result = await client.createRedactionsText('document.pdf', 'email@example.com', {
+   *   caseSensitive: false,
+   *   includeAnnotations: true
+   * });
+   * ```
+   */
+  async createRedactionsText(
+    file: FileInput,
+    text: string,
+    textOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsText'], 'text'>,
+    options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
+  ): Promise<WorkflowOutput> {
+    const createRedactionsAction = BuildActions.createRedactionsText(text, options, textOptions);
+
+    const result = await this.workflow()
+      .addFilePart(file, undefined, [createRedactionsAction])
+      .outputPdf()
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Applies redaction annotations in a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file with redaction annotations to apply
+   * @returns Promise resolving to the document with applied redactions
+   *
+   * @example
+   * ```typescript
+   * const result = await client.applyRedactions('document-with-redactions.pdf');
+   * ```
+   */
+  async applyRedactions(
+    file: FileInput,
+  ): Promise<WorkflowOutput> {
+    const applyRedactionsAction = BuildActions.applyRedactions()
+
+    const result = await this.workflow()
+      .addFilePart(file, undefined, [applyRedactionsAction])
+      .outputPdf()
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Adds blank pages to a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to add pages to
+   * @param count - The number of blank pages to add
+   * @param index - Optional index where to add the blank pages (0-based). If not provided, pages are added at the end.
+   * @returns Promise resolving to the document with added pages
+   *
+   * @example
+   * ```typescript
+   * // Add 2 blank pages at the end
+   * const result = await client.addPage('document.pdf', 2);
+   * 
+   * // Add 1 blank page after the first page (at index 1)
+   * const result = await client.addPage('document.pdf', 1, 1);
+   * ```
+   */
+  async addPage(
+    file: FileInput,
+    count: number = 1,
+    index?: number,
+  ): Promise<WorkflowOutput> {
+    let result: WorkflowResult;
+
+    // If no index is provided or it's the end of the document, simply add pages at the end
+    if (index === undefined) {
+      const builder = this.workflow().addFilePart(file);
+
+      // Add the specified number of blank pages
+      builder.addNewPage({ pageCount: count });
+
+      result = await builder.outputPdf().execute();
+    } else {
+      // Get the actual page count of the PDF
+      const pageCount = await getPdfPageCount(file);
+
+      // Validate that the index is within range
+      if (index < 0 || index > pageCount) {
+        throw new ValidationError(`Index ${index} is out of range (document has ${pageCount} pages)`);
+      }
+
+      const builder = this.workflow();
+
+      // Add pages before the specified index
+      if (index > 0) {
+        builder.addFilePart(file, { pages: { start: 0, end: index - 1 } });
+      }
+
+      // Add the blank pages
+      builder.addNewPage({ pageCount: count });
+
+      // Add pages after the specified index
+      if (index < pageCount) {
+        builder.addFilePart(file, { pages: { start: index, end: pageCount - 1 } });
+      }
+
+      result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
+    }
+
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Optimizes a PDF document for size reduction
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to optimize
+   * @param options - Optimization options
+   * @returns Promise resolving to the optimized document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.optimize('large-document.pdf', {
+   *   grayscaleImages: true,
+   *   mrcCompression: true,
+   *   imageOptimizationQuality: 2
+   * });
+   * ```
+   */
+  async optimize(
+    file: FileInput,
+    options: components['schemas']['OptimizePdf'] = { imageOptimizationQuality : 2 },
+  ): Promise<WorkflowOutput> {
+    const result = await this.workflow()
+      .addFilePart(file)
+      .outputPdf({ optimize: options })
+      .execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Splits a PDF document into multiple parts based on page ranges
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to split
+   * @param pageRanges - Array of page ranges to extract
+   * @returns Promise resolving to an array of PDF documents, one for each page range
+   *
+   * @example
+   * ```typescript
+   * const results = await client.splitPdf('document.pdf', [
+   *   { start: 0, end: 2 },  // Pages 1-3
+   *   { start: 3, end: 5 }   // Pages 4-6
+   * ]);
+   * 
+   * // Process each resulting PDF
+   * for (const result of results) {
+   *   if (result.success && result.output) {
+   *     // Do something with result.output.buffer
+   *   }
+   * }
+   * ```
+   */
+  async splitPdf(
+    file: FileInput,
+    pageRanges: { start: number; end: number }[],
+  ): Promise<WorkflowOutput[]> {
+    if (!pageRanges || pageRanges.length === 0) {
+      throw new ValidationError('At least one page range is required for splitting');
+    }
+
+    // Get the actual page count of the PDF
+    const pageCount = await getPdfPageCount(file);
+
+    // Validate that all page ranges are within bounds
+    for (const range of pageRanges) {
+      if (range.start < 0 || range.end >= pageCount || range.start > range.end) {
+        throw new ValidationError(`Page range ${JSON.stringify(range)} is invalid (document has ${pageCount} pages)`);
+      }
+    }
+
+    // Create a separate workflow for each page range
+    const workflows: Promise<WorkflowResult>[] = [];
+
+    for (const range of pageRanges) {
+      const builder = this.workflow();
+      builder.addFilePart(file, { pages: range });
+      workflows.push((builder as WorkflowWithPartsStage).outputPdf().execute());
+    }
+
+    // Execute all workflows in parallel and process the results
+    const results = await Promise.all(workflows);
+    return results.map(result => this.processWorkflowResult(result));
+  }
+
+  /**
+   * Creates a new PDF containing only the specified pages in the order provided
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to extract pages from
+   * @param pageIndices - Array of page indices to include in the new PDF (0-based)
+   * @returns Promise resolving to a new document with only the specified pages
+   *
+   * @example
+   * ```typescript
+   * // Create a new PDF with only the first and third pages
+   * const result = await client.duplicatePages('document.pdf', [0, 2]);
+   * 
+   * // Create a new PDF with pages in a different order
+   * const result = await client.duplicatePages('document.pdf', [2, 0, 1]);
+   * 
+   * // Create a new PDF with duplicated pages
+   * const result = await client.duplicatePages('document.pdf', [0, 0, 1, 1, 0]);
+   * ```
+   */
+  async duplicatePages(
+    file: FileInput,
+    pageIndices: number[],
+  ): Promise<WorkflowOutput> {
+    if (!pageIndices || pageIndices.length === 0) {
+      throw new ValidationError('At least one page index is required for duplication');
+    }
+
+    // Get the actual page count of the PDF
+    const pageCount = await getPdfPageCount(file);
+
+    // Validate that all page indices are within range
+    if (pageIndices.some(index => index < 0 || index >= pageCount)) {
+      throw new ValidationError(`Page indices ${pageIndices.toString()} is out of range (document has ${pageCount} pages)`);
+    }
+
+    const builder = this.workflow();
+
+    // Add each page in the order specified
+    for (const pageIndex of pageIndices) {
+      builder.addFilePart(file, { pages: { start: pageIndex, end: pageIndex } });
+    }
+
+    const result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
+    return this.processWorkflowResult(result);
+  }
+
+  /**
+   * Deletes pages from a PDF document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param file - The PDF file to modify
+   * @param pageIndices - Array of page indices to delete (0-based)
+   * @returns Promise resolving to the document with deleted pages
+   *
+   * @example
+   * ```typescript
+   * const result = await client.deletePages('document.pdf', [1, 3]); // Delete second and fourth pages
+   * ```
+   */
+  async deletePages(
+    file: FileInput,
+    pageIndices: number[],
+  ): Promise<WorkflowOutput> {
+    if (!pageIndices || pageIndices.length === 0) {
+      throw new ValidationError('At least one page index is required for deletion');
+    }
+
+    // Remove duplicate and sort the deleteIndicies
+    const deleteIndicies = [...new Set(pageIndices)].sort((a, b) => a - b);
+
+    // Get the actual page count of the PDF
+    const pageCount = await getPdfPageCount(file);
+
+    // Validate that all page indices are within range
+    if (pageIndices.some((index) => index < 0 || index >= pageCount)) {
+      throw new ValidationError(`Page indices ${pageIndices.toString()} is out of range (document has ${pageCount} pages)`);
+
+    }
+    const builder = this.workflow();
+
+    // Group consecutive pages that should be kept into ranges
+    let currentPage: number = 0;
+    const pageRanges: { start: number; end: number }[] = [];
+
+    for (const deleteIndex of deleteIndicies) {
+      if (currentPage < deleteIndex) {
+        pageRanges.push({ start: currentPage, end: deleteIndex - 1 });
+      }
+      currentPage = deleteIndex + 1;
+    }
+    if ((currentPage > 0 || (currentPage == 0 && deleteIndicies.length == 0)) && currentPage < pageCount) {
+      pageRanges.push({ start: currentPage, end: pageCount - 1 });
+    }
+
+    if (pageRanges.length === 0) {
+      throw new ValidationError('You cannot delete all pages from a document')
+    }
+
+    pageRanges.forEach(range => {
+      builder.addFilePart(file, { pages: range });
+    })
+
+    const result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
+    return this.processWorkflowResult(result);
   }
 }

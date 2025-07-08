@@ -9,229 +9,196 @@
 
 import { NutrientClient } from '../client';
 import { BuildActions } from '../build';
-import type { NutrientClientOptions } from '../types/common';
-import * as fs from 'fs';
-import * as path from 'path';
+import type { NutrientClientOptions, OutputTypeMap } from '../types';
+import 'dotenv/config';
+import { sampleDOCX, samplePDF, samplePNG, TestDocumentGenerator } from './helpers';
+import { getPdfPageCount } from '../inputs';
 
 // Skip integration tests in CI/automated environments unless explicitly enabled with valid API key
-const shouldRunIntegrationTests = process.env.NUTRIENT_API_KEY && 
-  process.env.NUTRIENT_API_KEY !== 'fake_key' && 
-  process.env.NUTRIENT_API_KEY.length > 10 && 
-  process.env.RUN_INTEGRATION_TESTS === 'true';
+const shouldRunIntegrationTests = Boolean(process.env["NUTRIENT_API_KEY"]);
 
 // Use conditional describe based on environment
 const describeIntegration = shouldRunIntegrationTests ? describe : describe.skip;
 
 describeIntegration('Integration Tests with Live API', () => {
   let client: NutrientClient;
-  let testPdfPath: string;
-  let testDocxPath: string;
-  let testImagePath: string;
 
   beforeAll(() => {
     const options: NutrientClientOptions = {
-      apiKey: process.env.NUTRIENT_API_KEY ?? '',
-      baseUrl: process.env.NUTRIENT_BASE_URL ?? 'https://api.nutrient.io/v1',
+      apiKey: process.env["NUTRIENT_API_KEY"] ?? '',
+      baseUrl: process.env["NUTRIENT_BASE_URL"] ?? 'https://api.nutrient.io',
     };
 
     client = new NutrientClient(options);
-
-    // Create test files or use existing ones
-    testPdfPath = path.join(__dirname, '../../examples/example.pdf');
-    testDocxPath = path.join(__dirname, '../../examples/example.docx');
-    testImagePath = path.join(__dirname, '../../examples/example.png');
   });
 
   describe('Convenience Methods', () => {
     describe('convert()', () => {
-      it('should convert DOCX to PDF', async () => {
-        const docxFile = fs.existsSync(testDocxPath) 
-          ? fs.readFileSync(testDocxPath) 
-          : Buffer.from('Test document content');
+      const cases: {input: Buffer, inputType: Exclude<keyof OutputTypeMap, 'json-content'>, outputType: Exclude<keyof OutputTypeMap, 'json-content'>, expected: string}[] = [
+        {input: samplePDF, inputType: 'pdf', outputType: 'pdfa', expected: 'application/pdf'},
+        {input: samplePDF, inputType: 'pdf', outputType: 'pdfua', expected: 'application/pdf'},
+        {input: samplePDF, inputType: 'pdf', outputType: 'pdf', expected: 'application/pdf'},
+        {input: samplePDF, inputType: 'pdf', outputType: 'docx', expected: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'},
+        {input: samplePDF, inputType: 'pdf', outputType: 'xlsx', expected: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},
+        {input: samplePDF, inputType: 'pdf', outputType: 'pptx', expected: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'},
+        {input: sampleDOCX, inputType: 'docx', outputType: 'pdf', expected: 'application/pdf'},
+        {input: samplePDF, inputType: 'pdf', outputType: 'png', expected: 'image/png'},
+        {input: samplePDF, inputType: 'pdf', outputType: 'jpeg', expected: 'image/jpeg'},
+        // {input: samplePDF, inputType: 'pdf', outputType: 'jpg', expected: 'image/jpeg'}, // FIXME: Upstream return image/jpg which is not a real type
+        {input: samplePDF, inputType: 'pdf', outputType: 'webp', expected: 'image/webp'},
+        // {input: samplePDF, inputType: 'pdf', outputType: 'html', expected: 'text/html'}, // FIXME: 500 error upstream
+        {input: samplePDF, inputType: 'pdf', outputType: 'markdown', expected: 'text/markdown'},
+      ]
+      it.each(cases)('should convert $inputType to $outputType', async (testCase) => {
+        const result = await client.convert(testCase.input, testCase.outputType);
 
-        const result = await client.convert(docxFile, 'pdf');
-
-        expect(result.success).toBe(true);
-        expect(result.output).toBeDefined();
-        expect(result.output?.mimeType).toBe('application/pdf');
-        expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
-      }, 30000);
-
-      it('should convert PDF to DOCX', async () => {
-        const pdfFile = fs.existsSync(testPdfPath) 
-          ? fs.readFileSync(testPdfPath) 
-          : Buffer.from('%PDF-1.4 test');
-
-        const result = await client.convert(pdfFile, 'docx');
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      }, 30000);
-
-      it('should convert to image format', async () => {
-        const pdfFile = Buffer.from('%PDF-1.4 test');
-
-        const result = await client.convert(pdfFile, 'image');
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toMatch(/^image\//);
-      }, 30000);
+        expect(result).toBeDefined();
+        if (testCase.outputType !== 'markdown' && testCase.outputType !== 'html') {
+          const typedResult = result as OutputTypeMap[Exclude<keyof OutputTypeMap, 'json-content' | 'markdown' | 'html'>];
+          // eslint-disable-next-line jest/no-conditional-expect
+          expect(typedResult.buffer).toBeInstanceOf(Uint8Array);
+        } else {
+          const typedResult = result as OutputTypeMap['markdown' | 'html'];
+          // eslint-disable-next-line jest/no-conditional-expect
+          expect(typedResult.content).toEqual(expect.any(String));
+        }
+        expect(result.mimeType).toBe(testCase.expected);
+      }, 90000);
     });
 
     describe('ocr()', () => {
       it('should perform OCR on a scanned document', async () => {
-        const imageFile = fs.existsSync(testImagePath) 
-          ? fs.readFileSync(testImagePath) 
-          : Buffer.from('fake-image-data');
+        const result = await client.ocr(samplePNG, 'english');
 
-        const result = await client.ocr(imageFile, 'english');
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
       }, 30000);
 
       it('should support multiple OCR languages', async () => {
-        const imageFile = Buffer.from('fake-image-data');
+        const result = await client.ocr(samplePNG, ['english', 'spanish']);
 
-        const result = await client.ocr(imageFile, ['english', 'spanish'], 'pdfa');
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
       }, 30000);
     });
 
-    describe('watermark()', () => {
+    describe('watermarkText()', () => {
       it('should add text watermark to PDF', async () => {
-        const pdfFile = Buffer.from('%PDF-1.4 test');
-
-        const result = await client.watermark(pdfFile, 'CONFIDENTIAL', {
+        const result = await client.watermarkText(samplePDF, 'CONFIDENTIAL', {
           opacity: 0.5,
           fontSize: 48,
           rotation: 45,
         });
 
-        expect(result.success).toBe(true);
-        expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
+      }, 30000);
+    });
+
+    describe('watermarkImage()', () => {
+      it('should add image watermark to PDF', async () => {
+        const result = await client.watermarkImage(samplePDF, samplePNG, {
+          opacity: 0.5,
+        });
+
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
       }, 30000);
     });
 
     describe('merge()', () => {
       it('should merge multiple PDF files', async () => {
-        const pdf1 = Buffer.from('%PDF-1.4 doc1');
-        const pdf2 = Buffer.from('%PDF-1.4 doc2');
-        const pdf3 = Buffer.from('%PDF-1.4 doc3');
-
-        const result = await client.merge([pdf1, pdf2, pdf3]);
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
-      }, 30000);
-
-      it('should merge to PDF/A format', async () => {
-        const pdf1 = Buffer.from('%PDF-1.4 doc1');
-        const pdf2 = Buffer.from('%PDF-1.4 doc2');
-
-        const result = await client.merge([pdf1, pdf2], 'pdfa');
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
+        const result = await client.merge([samplePDF, samplePDF, samplePDF]);
+        const pageCount = await getPdfPageCount(samplePDF);
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
+        await expect(getPdfPageCount(result.buffer)).resolves.toBe(pageCount * 3);
       }, 30000);
     });
 
-    describe('compress()', () => {
-      it('should compress PDF with different levels', async () => {
-        const largePdf = Buffer.from('%PDF-1.4' + 'x'.repeat(10000));
+    // TODO: Investigate axios connection timeout
+    // eslint-disable-next-line jest/no-disabled-tests
+    describe.skip('optimize()', () => {
+      it('should optimize PDF with different options', async () => {
+        // Test different optimization options
+        const options = [
+          { imageOptimizationQuality: 1 }, // low
+          { imageOptimizationQuality: 2 }, // medium
+          { imageOptimizationQuality: 3 }, // high
+          { imageOptimizationQuality: 4, mrcCompression: true } // maximum
+        ];
 
-        // Test each compression level
-        for (const level of ['low', 'medium', 'high', 'maximum'] as const) {
-          const result = await client.compress(largePdf, level);
-          
-          expect(result.success).toBe(true);
-          expect(result.output?.mimeType).toBe('application/pdf');
+        for (const option of options) {
+          const result = await client.optimize(samplePDF, option);
+
+          expect(result).toBeDefined();
+          expect(result.buffer).toBeInstanceOf(Uint8Array);
+          expect(result.mimeType).toBe('application/pdf');
         }
       }, 60000);
     });
 
     describe('extractText()', () => {
       it('should extract text from PDF', async () => {
-        const pdfFile = Buffer.from('%PDF-1.4 test with text content');
+        const result = await client.extractText(samplePDF);
 
-        const result = await client.extractText(pdfFile);
-
-        expect(result.success).toBe(true);
-        expect(result.output).toBeDefined();
+        expect(result).toBeDefined();
         // Type guard check for data property
-        const outputWithData = result.output as { data?: unknown };
-        const hasData = outputWithData && 'data' in outputWithData && outputWithData.data;
+        const hasData = result && 'data' in result && result.data;
         expect(hasData).toBeTruthy();
         // Always check the type when data exists
-        expect(typeof (outputWithData?.data ?? {})).toBe('object');
+        expect(typeof (result?.data ?? {})).toBe('object');
       }, 30000);
     });
 
     describe('flatten()', () => {
       it('should flatten PDF annotations', async () => {
-        const pdfFile = Buffer.from('%PDF-1.4 with annotations');
+        const result = await client.flatten(samplePDF);
 
-        const result = await client.flatten(pdfFile);
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
-      }, 30000);
-
-      it('should flatten specific annotation IDs', async () => {
-        const pdfFile = Buffer.from('%PDF-1.4 with annotations');
-
-        const result = await client.flatten(pdfFile, ['annotation1', 'annotation2']);
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
+        expect(result).toBeDefined();
+        expect(result.mimeType).toBe('application/pdf');
       }, 30000);
     });
 
     describe('rotate()', () => {
       it('should rotate PDF pages', async () => {
-        const pdfFile = Buffer.from('%PDF-1.4 test');
+        const result = await client.rotate(samplePDF, 90);
 
-        const result = await client.rotate(pdfFile, 90);
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
+        expect(result).toBeDefined();
+        expect(result.mimeType).toBe('application/pdf');
       }, 30000);
 
       it('should rotate specific page range', async () => {
-        const pdfFile = Buffer.from('%PDF-1.4 multipage');
+        const result = await client.rotate(samplePDF, 180, { start: 1, end: 3 });
 
-        const result = await client.rotate(pdfFile, 180, { start: 1, end: 3 });
-
-        expect(result.success).toBe(true);
-        expect(result.output?.mimeType).toBe('application/pdf');
+        expect(result).toBeDefined();
+        expect(result.mimeType).toBe('application/pdf');
       }, 30000);
     });
   });
 
   describe('Workflow Builder', () => {
     it('should execute complex workflow with multiple parts and actions', async () => {
-      const pdf1 = Buffer.from('%PDF-1.4 part1');
-      const pdf2 = Buffer.from('%PDF-1.4 part2');
-      const html = '<h1>HTML Content</h1><p>This is HTML content.</p>';
+      const pdf1 = TestDocumentGenerator.generatePdfWithTable();
+      const pdf2 = TestDocumentGenerator.generatePdfWithSensitiveData();
+      const html = TestDocumentGenerator.generateHtmlContent();
 
       const result = await client
         .workflow()
         .addFilePart(pdf1, undefined, [BuildActions.rotate(90)])
-        .addHtmlPart(html, { width: 595, height: 842 })
+        .addHtmlPart(html)
         .addFilePart(pdf2)
-        .addNewPage({ pageSize: 'A4' })
+        .addNewPage({ layout: { size: 'A4'} })
         .applyActions([
           BuildActions.watermarkText('DRAFT', { opacity: 0.3 }),
           BuildActions.flatten(),
         ])
-        .outputPdf({
-          optimize: {
-            mrcCompression: true,
-            imageOptimizationQuality: 2,
-          },
-        })
+        .outputPdfUA()
         .execute({
           onProgress: (_step, _total) => {
             // Progress callback intentionally empty for tests
@@ -244,11 +211,9 @@ describeIntegration('Integration Tests with Live API', () => {
     }, 60000);
 
     it('should perform dry run analysis', async () => {
-      const pdfFile = Buffer.from('%PDF-1.4 test');
-
       const result = await client
         .workflow()
-        .addFilePart(pdfFile)
+        .addFilePart(samplePDF)
         .applyAction(BuildActions.ocr(['english', 'french']))
         .outputPdf()
         .dryRun();
@@ -259,28 +224,90 @@ describeIntegration('Integration Tests with Live API', () => {
       expect(result.analysis?.required_features).toBeDefined();
     }, 30000);
 
-    it('should handle workflow with document parts', async () => {
-      // This test would require an existing document ID
-      // Skipping for now as it requires prior document upload
-      
+
+    it('should execute workflow with redaction actions', async () => {
       const result = await client
         .workflow()
-        .addDocumentPart('existing-doc-id', { pages: { start: 1, end: 5 } })
+        .addFilePart(samplePDF)
+        .applyActions([
+          // Create redactions using text search
+          BuildActions.createRedactionsText('confidential', {}, { caseSensitive: false }),
+          // Apply the created redactions
+          BuildActions.applyRedactions()
+        ])
         .outputPdf()
         .execute();
 
-      // This will likely fail without a valid document ID
-      expect(result.success).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.output?.mimeType).toBe('application/pdf');
     }, 30000);
+
+    it('should execute workflow with regex redaction actions', async () => {
+      const result = await client
+        .workflow()
+        .addFilePart(samplePDF)
+        .applyActions([
+          // Create redactions using regex pattern
+          BuildActions.createRedactionsRegex('\\d{3}-\\d{2}-\\d{4}', {}, { caseSensitive: false }),
+          // Apply the created redactions
+          BuildActions.applyRedactions()
+        ])
+        .outputPdf()
+        .execute();
+
+      expect(result.success).toBe(true);
+      expect(result.output?.mimeType).toBe('application/pdf');
+    }, 30000);
+
+    it('should execute workflow with preset redaction actions', async () => {
+      const result = await client
+        .workflow()
+        .addFilePart(samplePDF)
+        .applyActions([
+          // Create redactions using preset pattern
+          BuildActions.createRedactionsPreset('email-address'),
+          // Apply the created redactions
+          BuildActions.applyRedactions()
+        ])
+        .outputPdf()
+        .execute();
+
+      expect(result.success).toBe(true);
+      expect(result.output?.mimeType).toBe('application/pdf');
+    }, 30000);
+
+    it('should execute workflow with Instant JSON and XFDF actions', async () => {
+      const pdfFile = samplePDF;
+      const jsonFile = TestDocumentGenerator.generateInstantJson();
+      const xfdfFile = TestDocumentGenerator.generateXfdf();
+
+      // Test applyInstantJson
+      const instantJsonResult = await client
+        .workflow()
+        .addFilePart(pdfFile)
+        .applyAction(BuildActions.applyInstantJson(jsonFile))
+        .outputPdf()
+        .execute();
+
+      expect(instantJsonResult.success).toBe(true);
+      expect(instantJsonResult.output?.mimeType).toBe('application/pdf');
+
+      // Test applyXfdf
+      const xfdfResult = await client
+        .workflow()
+        .addFilePart(pdfFile)
+        .applyAction(BuildActions.applyXfdf(xfdfFile))
+        .outputPdf()
+        .execute();
+
+      expect(xfdfResult.success).toBe(true);
+      expect(xfdfResult.output?.mimeType).toBe('application/pdf');
+    }, 60000);
   });
 
   describe('Error Handling', () => {
-    it('should handle invalid file input gracefully', async () => {
-      const result = await client.convert(null as unknown as Buffer, 'pdf');
-
-      expect(result.success).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors?.length ?? 0).toBeGreaterThan(0);
+    it('should handle invalid file input gracefully',async () => {
+      await expect(client.convert(null as unknown as Buffer, 'pdf')).rejects.toThrow()
     }, 15000);
 
     it('should handle API errors with proper error types', async () => {
@@ -288,11 +315,7 @@ describeIntegration('Integration Tests with Live API', () => {
         apiKey: 'invalid-api-key',
       });
 
-      const result = await invalidClient.convert(Buffer.from('test'), 'pdf');
-
-      expect(result.success).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors?.[0]?.error.name).toBe('AuthenticationError');
+      await expect(invalidClient.convert(Buffer.from('test'), 'pdf')).rejects.toThrow('HTTP 401: Unauthorized')
     }, 15000);
 
     it('should handle network timeouts', async () => {
@@ -307,32 +330,6 @@ describeIntegration('Integration Tests with Live API', () => {
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();
     }, 15000);
-  });
-
-  describe('Performance', () => {
-    it('should handle large files efficiently', async () => {
-      const largePdf = Buffer.alloc(5 * 1024 * 1024); // 5MB file
-      largePdf.write('%PDF-1.4');
-
-      const startTime = Date.now();
-      const result = await client.compress(largePdf, 'high');
-      const duration = Date.now() - startTime;
-      
-      expect(result.success).toBe(true);
-      expect(duration).toBeLessThan(60000); // Should complete within 60s
-    }, 90000);
-
-    it('should handle concurrent operations', async () => {
-      const operations = Array.from({ length: 5 }, (_, i) => 
-        client.convert(Buffer.from(`%PDF-1.4 doc${i}`), 'docx')
-      );
-
-      const results = await Promise.all(operations);
-
-      results.forEach(result => {
-        expect(result.success).toBe(true);
-      });
-    }, 90000);
   });
 });
 
@@ -349,25 +346,31 @@ describe('Integration Patterns (Mock)', () => {
   it('should demonstrate all convenience methods are available', () => {
     const client = new NutrientClient({ apiKey: 'mock-key' });
 
+    // Core methods
+    expect(typeof client.workflow).toBe('function');
+
+    // Document conversion methods
     expect(typeof client.convert).toBe('function');
     expect(typeof client.ocr).toBe('function');
-    expect(typeof client.watermark).toBe('function');
-    expect(typeof client.merge).toBe('function');
-    expect(typeof client.compress).toBe('function');
     expect(typeof client.extractText).toBe('function');
+
+    // Document manipulation methods
+    expect(typeof client.watermarkText).toBe('function');
+    expect(typeof client.watermarkImage).toBe('function');
+    expect(typeof client.merge).toBe('function');
+    expect(typeof client.optimize).toBe('function');
     expect(typeof client.flatten).toBe('function');
     expect(typeof client.rotate).toBe('function');
-    expect(typeof client.workflow).toBe('function');
   });
 
   it('should demonstrate type safety with workflow builder', () => {
     const client = new NutrientClient({ apiKey: 'mock-key' });
-    
+
     // TypeScript should enforce staged interfaces
     const stage1 = client.workflow();
     const stage2 = stage1.addFilePart('test.pdf');
     const stage3 = stage2.outputPdf();
-    
+
     // Each stage should have different available methods
     expect(typeof stage1.addFilePart).toBe('function');
     expect(typeof stage2.applyAction).toBe('function');

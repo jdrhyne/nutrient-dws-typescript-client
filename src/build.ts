@@ -6,10 +6,10 @@ const DEFAULT_DIMENSION = { value: 100, unit: '%' as const }
 /**
  * Internal action type that holds FileInput for deferred registration
  */
-export interface ActionWithFileInput {
+export interface ActionWithFileInput<Action extends components['schemas']['BuildAction'] = components['schemas']['BuildAction']> {
   __needsFileRegistration: true;
   fileInput: FileInput;
-  createAction: (fileKey: string) => components['schemas']['BuildAction'];
+  createAction: (fileHandle: components["schemas"]["FileHandle"]) => Action;
 }
 
 /**
@@ -69,20 +69,24 @@ export const BuildActions = {
    * @param options - Watermark options
    */
   watermarkImage(
-    image: string,
+    image: FileInput,
     options: Partial<Omit<components['schemas']['ImageWatermarkAction'], 'type' | 'image'>> = {
       width: DEFAULT_DIMENSION,
       height: DEFAULT_DIMENSION,
       rotation: 0,
     },
-  ): components['schemas']['ImageWatermarkAction'] {
+  ): ActionWithFileInput<components['schemas']['ImageWatermarkAction']> {
     return {
-      type: 'watermark',
-      image: { url: image },
-      ...options,
-      rotation: options.rotation ?? 0,
-      width: options.width ?? DEFAULT_DIMENSION,
-      height: options.height ?? DEFAULT_DIMENSION,
+      __needsFileRegistration: true,
+      fileInput: image,
+      createAction: (fileHandle: components["schemas"]["FileHandle"]): components['schemas']['ImageWatermarkAction'] => ({
+        type: 'watermark',
+        image: fileHandle,
+        ...options,
+        rotation: options.rotation ?? 0,
+        width: options.width ?? DEFAULT_DIMENSION,
+        height: options.height ?? DEFAULT_DIMENSION,
+      })
     };
   },
 
@@ -101,13 +105,13 @@ export const BuildActions = {
    * Create an apply Instant JSON action
    * @param file - Instant JSON file input
    */
-  applyInstantJson(file: FileInput): ActionWithFileInput {
+  applyInstantJson(file: FileInput): ActionWithFileInput<components['schemas']['ApplyInstantJsonAction']> {
     return {
       __needsFileRegistration: true,
       fileInput: file,
-      createAction: (fileKey: string) => ({
+      createAction: (fileHandle: components["schemas"]["FileHandle"]): components['schemas']['ApplyInstantJsonAction'] => ({
         type: 'applyInstantJson',
-        file: fileKey,
+        file: fileHandle,
       }),
     };
   },
@@ -115,14 +119,16 @@ export const BuildActions = {
   /**
    * Create an apply XFDF action
    * @param file - XFDF file input
+   * @param options - Apply Xfdf options
    */
-  applyXfdf(file: FileInput): ActionWithFileInput {
+  applyXfdf(file: FileInput, options?: Partial<Omit<components['schemas']['ApplyXfdfAction'], 'type' | 'file'>>): ActionWithFileInput<components['schemas']['ApplyXfdfAction']> {
     return {
       __needsFileRegistration: true,
       fileInput: file,
-      createAction: (fileKey: string) => ({
+      createAction: (fileHandle: components["schemas"]["FileHandle"]): components['schemas']['ApplyXfdfAction'] => ({
         type: 'applyXfdf',
-        file: fileKey,
+        file: fileHandle,
+        ...options
       }),
     };
   },
@@ -131,18 +137,21 @@ export const BuildActions = {
    * Create redactions with text search
    * @param text - Text to search and redact
    * @param options - Redaction options
+   * @param strategyOptions - Redaction strategy options
    */
   createRedactionsText(
     text: string,
-    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsText'], 'text'>,
+    options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
+    strategyOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsText'], 'text'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'text',
       strategyOptions: {
         text,
-        ...options,
+        ...strategyOptions,
       },
+      ...options,
     };
   },
 
@@ -150,18 +159,21 @@ export const BuildActions = {
    * Create redactions with regex pattern
    * @param regex - Regex pattern to search and redact
    * @param options - Redaction options
+   * @param strategyOptions - Redaction strategy options
    */
   createRedactionsRegex(
     regex: string,
-    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsRegex'], 'regex'>,
+    options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
+    strategyOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsRegex'], 'regex'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'regex',
       strategyOptions: {
         regex,
-        ...options
+        ...strategyOptions
       },
+      ...options,
     };
   },
 
@@ -169,18 +181,21 @@ export const BuildActions = {
    * Create redactions with preset pattern
    * @param preset - Preset pattern to search and redact
    * @param options - Redaction options
+   * @param strategyOptions - Redaction strategy options
    */
   createRedactionsPreset(
     preset: components['schemas']['SearchPreset'],
-    options?: Omit<components['schemas']['CreateRedactionsStrategyOptionsPreset'], 'preset'>,
+    options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
+    strategyOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsPreset'], 'preset'>,
   ): components['schemas']['CreateRedactionsAction'] {
     return {
       type: 'createRedactions',
       strategy: 'preset',
       strategyOptions: {
         preset,
-        ...options,
+        ...strategyOptions,
       },
+      ...options,
     };
   },
 
@@ -251,6 +266,29 @@ export const BuildOutputs = {
   },
 
   /**
+   * PDF/UA output configuration
+   * @param options - PDF/UA output options
+   */
+  pdfua(options?: {
+    metadata?: components['schemas']['Metadata'];
+    labels?: components['schemas']['Label'][];
+    userPassword?: string;
+    ownerPassword?: string;
+    userPermissions?: components['schemas']['PDFUserPermission'][];
+    optimize?: components['schemas']['OptimizePdf'];
+  }): components['schemas']['PDFUAOutput'] {
+    return {
+      type: 'pdfua',
+      ...(options?.metadata && { metadata: options.metadata }),
+      ...(options?.labels && { labels: options.labels }),
+      ...(options?.userPassword && { user_password: options.userPassword }),
+      ...(options?.ownerPassword && { owner_password: options.ownerPassword }),
+      ...(options?.userPermissions && { user_permissions: options.userPermissions }),
+      ...(options?.optimize && { optimize: options.optimize }),
+    };
+  },
+
+  /**
    * Image output configuration
    * @param options - Image output options
    */
@@ -284,11 +322,11 @@ export const BuildOutputs = {
   }): components['schemas']['JSONContentOutput'] {
     return {
       type: 'json-content',
-      ...(options?.plainText !== undefined && { plainText: options.plainText }),
-      ...(options?.structuredText !== undefined && { structuredText: options.structuredText }),
-      ...(options?.keyValuePairs !== undefined && { keyValuePairs: options.keyValuePairs }),
-      ...(options?.tables !== undefined && { tables: options.tables }),
-      ...(options?.language && { language: options.language }),
+      plainText: options?.plainText ?? true,
+      structuredText: options?.structuredText ?? false,
+      keyValuePairs: options?.keyValuePairs ?? false,
+      tables: options?.tables ?? true,
+      language: options?.language,
     };
   },
 
@@ -303,14 +341,35 @@ export const BuildOutputs = {
   },
 
   /**
+   * HTML output configuration
+   * @param layout - The layout type to use for conversion to HTML
+   */
+  html(layout: 'page' | 'reflow'): components['schemas']['HTMLOutput'] {
+    return {
+      type: 'html',
+      layout,
+    };
+  },
+
+  /**
+   * Markdown output configuration
+   */
+  markdown(): components['schemas']['MarkdownOutput'] {
+    return {
+      type: 'markdown'
+    }
+  },
+
+  /**
    * Get MIME type and filename for a given output configuration
    * @param output - The output configuration
    * @returns MIME type and optional filename
    */
-  getMimeTypeForOutput(output: components['schemas']['BuildOutput']): { mimeType: string; filename?: string } {
+  getMimeTypeForOutput(output: Exclude<components['schemas']['BuildOutput'], components['schemas']['JSONContentOutput']>): { mimeType: string; filename?: string } {
     switch (output.type) {
       case 'pdf':
       case 'pdfa':
+      case 'pdfua':
         return { mimeType: 'application/pdf', filename: 'output.pdf' };
       case 'image': {
         const imageOutput = output as components['schemas']['BuildOutput'] & { format?: string };
@@ -332,8 +391,16 @@ export const BuildOutputs = {
           mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
           filename: 'output.pptx'
         };
-      case 'json-content':
-        return { mimeType: 'application/json', filename: 'output.json' };
+      case 'html':
+        return {
+          mimeType: 'text/html',
+          filename: 'output.html'
+        }
+      case 'markdown':
+        return {
+          mimeType: 'text/markdown',
+          filename: 'output.md'
+        }
       default:
         return { mimeType: 'application/octet-stream', filename: 'output' };
     }
