@@ -47,7 +47,7 @@ Phone: (555) 123-4567
 Credit Card: 4111-1111-1111-1111
 Medical Record: MR-2024-12345
 License: DL-ABC-123456`;
-    
+
     return this.generateSimplePdf(content);
   }
 
@@ -60,26 +60,28 @@ Product | Q1 | Q2 | Q3 | Q4
 Widget A | 100 | 120 | 140 | 160
 Widget B | 80 | 90 | 100 | 110
 Widget C | 60 | 70 | 80 | 90`;
-    
+
     return this.generateSimplePdf(content);
   }
 
   /**
    * Generates HTML content with various elements
    */
-  static generateHtmlContent(options: {
-    title?: string;
-    includeStyles?: boolean;
-    includeTable?: boolean;
-    includeImages?: boolean;
-    includeForm?: boolean;
-  } = {}): Buffer {
+  static generateHtmlContent(
+    options: {
+      title?: string;
+      includeStyles?: boolean;
+      includeTable?: boolean;
+      includeImages?: boolean;
+      includeForm?: boolean;
+    } = {},
+  ): Buffer {
     const {
       title = 'Test Document',
       includeStyles = true,
       includeTable = false,
       includeImages = false,
-      includeForm = false
+      includeForm = false,
     } = options;
 
     let html = `<!DOCTYPE html>
@@ -216,19 +218,23 @@ Widget C | 60 | 70 | 80 | 90`;
   /**
    * Generates XFDF annotation content
    */
-  static generateXfdf(annotations: Array<{
-    type: 'highlight' | 'text' | 'ink' | 'square' | 'circle';
-    page: number;
-    rect: number[];
-    content?: string;
-    color?: string;
-  }> = [{
-    type: 'highlight',
-    page: 0,
-    rect: [100, 100, 200, 150],
-    color: '#FFFF00',
-    content: 'Important text',
-  }]): Buffer {
+  static generateXfdf(
+    annotations: Array<{
+      type: 'highlight' | 'text' | 'ink' | 'square' | 'circle';
+      page: number;
+      rect: number[];
+      content?: string;
+      color?: string;
+    }> = [
+      {
+        type: 'highlight',
+        page: 0,
+        rect: [100, 100, 200, 150],
+        color: '#FFFF00',
+        content: 'Important text',
+      },
+    ],
+  ): Buffer {
     let xfdf = `<?xml version="1.0" encoding="UTF-8"?>
 <xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve">
     <annots>`;
@@ -271,31 +277,41 @@ Widget C | 60 | 70 | 80 | 90`;
   /**
    * Generates Instant JSON annotation content
    */
-  static generateInstantJson(annotations: Array<{
-    v: number,
-    type: string;
-    pageIndex: number;
-    [key: string]: unknown;
-  }> = [{
-    v: 2,
-    type: "pspdfkit/text",
-    pageIndex: 0,
-    bbox: [100, 100, 200, 150],
-    content: "Test annotation",
-    fontSize: 14,
-    opacity: 1,
-    horizontalAlign: "left",
-    verticalAlign: "top"
-  }]): Buffer {
-    return Buffer.from(JSON.stringify({
-      format: 'https://pspdfkit.com/instant-json/v1',
-      annotations: annotations.map(annot => ({
-        ...annot,
-        id: `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }))
-    }, null, 2));
+  static generateInstantJson(
+    annotations: Array<{
+      v: number;
+      type: string;
+      pageIndex: number;
+      [key: string]: unknown;
+    }> = [
+      {
+        v: 2,
+        type: 'pspdfkit/text',
+        pageIndex: 0,
+        bbox: [100, 100, 200, 150],
+        content: 'Test annotation',
+        fontSize: 14,
+        opacity: 1,
+        horizontalAlign: 'left',
+        verticalAlign: 'top',
+      },
+    ],
+  ): Buffer {
+    return Buffer.from(
+      JSON.stringify(
+        {
+          format: 'https://pspdfkit.com/instant-json/v1',
+          annotations: annotations.map((annot) => ({
+            ...annot,
+            id: `annotation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })),
+        },
+        null,
+        2,
+      ),
+    );
   }
 }
 
@@ -307,14 +323,14 @@ export class ResultValidator {
    * Validates that the result contains a valid PDF
    */
   static validatePdfOutput(result: unknown): void {
-    const typedResult = result as { 
-      success: boolean; 
+    const typedResult = result as {
+      success: boolean;
       output?: {
         buffer: Uint8Array;
         mimeType: string;
       };
     };
-    
+
     if (!('success' in typedResult)) {
       throw new Error('Result must have success property');
     }
@@ -330,7 +346,7 @@ export class ResultValidator {
     if (typedResult.output.buffer.length === 0) {
       throw new Error('Output buffer cannot be empty');
     }
-    
+
     // Check for PDF header
     const header = Buffer.from(typedResult.output.buffer.slice(0, 5)).toString();
     if (!header.match(/^%PDF-/)) {
@@ -342,18 +358,18 @@ export class ResultValidator {
    * Validates Office document output
    */
   static validateOfficeOutput(result: unknown, format: 'docx' | 'xlsx' | 'pptx'): void {
-    const typedResult = result as { 
-      success: boolean; 
-      output?: { 
-        buffer: Uint8Array; 
-        mimeType: string; 
+    const typedResult = result as {
+      success: boolean;
+      output?: {
+        buffer: Uint8Array;
+        mimeType: string;
       };
     };
-    
+
     const mimeTypes = {
       docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     };
 
     if (!typedResult.success || !typedResult.output) {
@@ -374,14 +390,14 @@ export class ResultValidator {
    * Validates image output
    */
   static validateImageOutput(result: unknown, format?: 'png' | 'jpeg' | 'jpg' | 'webp'): void {
-    const typedResult = result as { 
-      success: boolean; 
-      output?: { 
-        buffer: Uint8Array; 
-        mimeType: string; 
+    const typedResult = result as {
+      success: boolean;
+      output?: {
+        buffer: Uint8Array;
+        mimeType: string;
       };
     };
-    
+
     if (!typedResult.success || !typedResult.output) {
       throw new Error('Result must be successful with output');
     }
@@ -391,15 +407,15 @@ export class ResultValidator {
     if (typedResult.output.buffer.length === 0) {
       throw new Error('Output buffer cannot be empty');
     }
-    
+
     if (format) {
       const formatMimeTypes: Record<string, string[]> = {
         png: ['image/png'],
         jpg: ['image/jpeg'],
         jpeg: ['image/jpeg'],
-        webp: ['image/webp']
+        webp: ['image/webp'],
       };
-      
+
       const validMimeTypes = formatMimeTypes[format] ?? [`image/${format}`];
       if (!validMimeTypes.includes(typedResult.output.mimeType)) {
         throw new Error(`Expected format ${format}, got ${typedResult.output.mimeType}`);
@@ -415,13 +431,13 @@ export class ResultValidator {
    * Validates JSON extraction output
    */
   static validateJsonOutput(result: unknown): void {
-    const typedResult = result as { 
-      success: boolean; 
-      output?: { 
-        data?: unknown; 
+    const typedResult = result as {
+      success: boolean;
+      output?: {
+        data?: unknown;
       };
     };
-    
+
     if (!typedResult.success || !typedResult.output) {
       throw new Error('Result must be successful with output');
     }
@@ -437,16 +453,16 @@ export class ResultValidator {
    * Validates error response
    */
   static validateErrorResponse(result: unknown, expectedErrorType?: string): void {
-    const typedResult = result as { 
-      success: boolean; 
-      errors?: Array<{ 
-        error: { 
-          name: string; 
-          code: string; 
-        }; 
-      }>; 
+    const typedResult = result as {
+      success: boolean;
+      errors?: Array<{
+        error: {
+          name: string;
+          code: string;
+        };
+      }>;
     };
-    
+
     if (typedResult.success) {
       throw new Error('Result should not be successful');
     }
@@ -456,11 +472,10 @@ export class ResultValidator {
     if (typedResult.errors.length === 0) {
       throw new Error('Errors array cannot be empty');
     }
-    
+
     if (expectedErrorType) {
-      const hasExpectedError = typedResult.errors.some(error => 
-        error.error.name === expectedErrorType || 
-        error.error.code === expectedErrorType
+      const hasExpectedError = typedResult.errors.some(
+        (error) => error.error.name === expectedErrorType || error.error.code === expectedErrorType,
       );
       if (!hasExpectedError) {
         throw new Error(`Expected error type ${expectedErrorType} not found`);

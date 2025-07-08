@@ -1,7 +1,13 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse, type ResponseType } from 'axios';
 import FormData from 'form-data';
 import { type NormalizedFileData } from './inputs';
-import { APIError, AuthenticationError, NetworkError, NutrientError, ValidationError } from './errors';
+import {
+  APIError,
+  AuthenticationError,
+  NetworkError,
+  NutrientError,
+  ValidationError,
+} from './errors';
 import type { NutrientClientOptions } from './types';
 import type { Methods, Endpoints, RequestConfig, ApiResponse, ResponseTypeMap } from './types/http';
 
@@ -12,7 +18,7 @@ import type { Methods, Endpoints, RequestConfig, ApiResponse, ResponseTypeMap } 
 export async function sendRequest<Method extends Methods, Endpoint extends Endpoints<Method>>(
   config: RequestConfig<Method, Endpoint>,
   clientOptions: NutrientClientOptions,
-  responseType: ResponseType
+  responseType: ResponseType,
 ): Promise<ApiResponse<Method, Endpoint>> {
   try {
     // Resolve API key (string or async function)
@@ -32,7 +38,7 @@ export async function sendRequest<Method extends Methods, Endpoint extends Endpo
       },
       timeout: config.timeout ?? 30000, // 30 second default timeout
       validateStatus: () => true, // Handle all status codes manually
-      responseType
+      responseType,
     };
 
     prepareRequestBody<Method, Endpoint>(axiosConfig, config);
@@ -81,7 +87,7 @@ function prepareRequestBody<Method extends Methods, Endpoint extends Endpoints<M
   config: RequestConfig<Method, Endpoint>,
 ): AxiosRequestConfig {
   if (config.method === 'POST') {
-    if (["/build", "/analyze_build"].includes(config.endpoint as string)) {
+    if (['/build', '/analyze_build'].includes(config.endpoint as string)) {
       const typedConfig = config as RequestConfig<'POST', '/build'>;
 
       if (typedConfig.data.files && typedConfig.data.files.size > 0) {
@@ -107,30 +113,33 @@ function prepareRequestBody<Method extends Methods, Endpoint extends Endpoints<M
         };
       }
 
-      return axiosConfig
-    } else if (config.endpoint === "/sign") {
+      return axiosConfig;
+    } else if (config.endpoint === '/sign') {
       const typedConfig = config as RequestConfig<'POST', '/sign'>;
 
       const formData = new FormData();
-      appendFileToFormData(formData, "file", typedConfig.data.file);
+      appendFileToFormData(formData, 'file', typedConfig.data.file);
       if (typedConfig.data.image) {
-        appendFileToFormData(formData, 'image', typedConfig.data.image)
+        appendFileToFormData(formData, 'image', typedConfig.data.image);
       }
       if (typedConfig.data.graphicImage) {
-        appendFileToFormData(formData, 'graphicImage', typedConfig.data.graphicImage)
+        appendFileToFormData(formData, 'graphicImage', typedConfig.data.graphicImage);
       }
       if (typedConfig.data.data) {
         formData.append('data', JSON.stringify(typedConfig.data.data));
       } else {
-        formData.append('data', JSON.stringify({
-          "signatureType": "cades",
-          "cadesLevel": "b-lt"
-        }));
+        formData.append(
+          'data',
+          JSON.stringify({
+            signatureType: 'cades',
+            cadesLevel: 'b-lt',
+          }),
+        );
       }
       axiosConfig.data = formData;
 
-      return axiosConfig
-    } else if (config.endpoint === "/ai/redact") {
+      return axiosConfig;
+    } else if (config.endpoint === '/ai/redact') {
       const typedConfig = config as RequestConfig<'POST', '/ai/redact'>;
 
       if (typedConfig.data.file && typedConfig.data.fileKey) {
@@ -147,7 +156,7 @@ function prepareRequestBody<Method extends Methods, Endpoint extends Endpoints<M
         };
       }
 
-      return axiosConfig
+      return axiosConfig;
     }
   }
   // Fallback, passing data as JSON
@@ -158,17 +167,13 @@ function prepareRequestBody<Method extends Methods, Endpoint extends Endpoints<M
       'Content-Type': 'application/json',
     };
   }
-  return axiosConfig
+  return axiosConfig;
 }
 
 /**
  * Appends file to FormData with proper format (Node.js only)
  */
-function appendFileToFormData(
-  formData: FormData,
-  key: string,
-  file: NormalizedFileData,
-): void {
+function appendFileToFormData(formData: FormData, key: string, file: NormalizedFileData): void {
   if (Buffer.isBuffer(file.data)) {
     formData.append(key, file.data, {
       filename: file.filename,
@@ -195,7 +200,9 @@ function appendFileToFormData(
 /**
  * Handles HTTP response and converts to standardized format
  */
-function handleResponse<Method extends Methods, Endpoint extends Endpoints<Method>>(response: AxiosResponse): ApiResponse<Method, Endpoint> {
+function handleResponse<Method extends Methods, Endpoint extends Endpoints<Method>>(
+  response: AxiosResponse,
+): ApiResponse<Method, Endpoint> {
   const { status, statusText, headers } = response;
   const data = response.data as ResponseTypeMap[Method][Endpoint];
 
@@ -247,7 +254,7 @@ function extractErrorMessage(data: unknown): string | null {
     if (typeof errorData['error_message'] === 'string') {
       return errorData['error_message'];
     }
-    
+
     // Common error message fields
     if (typeof errorData['message'] === 'string') {
       return errorData['message'];
@@ -261,7 +268,7 @@ function extractErrorMessage(data: unknown): string | null {
     if (typeof errorData['details'] === 'string') {
       return errorData['details'];
     }
-    
+
     // Handle nested error objects
     if (typeof errorData['error'] === 'object' && errorData['error'] !== null) {
       const nestedError = errorData['error'] as Record<string, unknown>;
@@ -272,7 +279,7 @@ function extractErrorMessage(data: unknown): string | null {
         return nestedError['description'];
       }
     }
-    
+
     // Handle errors array (common in validation responses)
     if (Array.isArray(errorData['errors']) && errorData['errors'].length > 0) {
       const firstError = errorData['errors'][0] as unknown;
@@ -294,7 +301,10 @@ function extractErrorMessage(data: unknown): string | null {
 /**
  * Converts various error types to NutrientError
  */
-function convertError<Method extends Methods, Endpoint extends Endpoints<Method>>(error: unknown, config: RequestConfig<Method, Endpoint>): NutrientError {
+function convertError<Method extends Methods, Endpoint extends Endpoints<Method>>(
+  error: unknown,
+  config: RequestConfig<Method, Endpoint>,
+): NutrientError {
   if (error instanceof NutrientError) {
     return error;
   }

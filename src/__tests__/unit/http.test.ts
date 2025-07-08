@@ -73,8 +73,6 @@ jest.mock('../../inputs', () => ({
   }),
 }));
 
-
-
 describe('HTTP Layer', () => {
   const mockClientOptions: NutrientClientOptions = {
     apiKey: 'test-api-key',
@@ -107,19 +105,21 @@ describe('HTTP Layer', () => {
       const config: RequestConfig<'GET', '/account/info'> = {
         endpoint: '/account/info',
         method: 'GET',
-        data: undefined
+        data: undefined,
       };
 
       const result = await sendRequest(config, mockClientOptions, 'json');
 
-      expect(mockedAxios).toHaveBeenCalledWith(expect.objectContaining({
-        method: 'GET',
-        url: 'https://api.test.com/v1/account/info',
-        headers: {
-          Authorization: 'Bearer test-api-key',
-        },
-        timeout: 30000,
-      }));
+      expect(mockedAxios).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'GET',
+          url: 'https://api.test.com/v1/account/info',
+          headers: {
+            Authorization: 'Bearer test-api-key',
+          },
+          timeout: 30000,
+        }),
+      );
 
       expect(result).toEqual({
         data: { result: 'success' },
@@ -146,9 +146,8 @@ describe('HTTP Layer', () => {
       const config: RequestConfig<'GET', '/account/info'> = {
         endpoint: '/account/info',
         method: 'GET',
-        data: undefined
+        data: undefined,
       };
-
 
       await sendRequest(config, asyncOptions, 'json');
 
@@ -170,9 +169,8 @@ describe('HTTP Layer', () => {
       const config: RequestConfig<'GET', '/account/info'> = {
         endpoint: '/account/info',
         method: 'GET',
-        data: undefined
+        data: undefined,
       };
-
 
       await expect(sendRequest(config, asyncOptions, 'json')).rejects.toThrow(AuthenticationError);
       await expect(sendRequest(config, asyncOptions, 'json')).rejects.toThrow(
@@ -190,9 +188,8 @@ describe('HTTP Layer', () => {
       const config: RequestConfig<'GET', '/account/info'> = {
         endpoint: '/account/info',
         method: 'GET',
-        data: undefined
+        data: undefined,
       };
-
 
       await expect(sendRequest(config, asyncOptions, 'json')).rejects.toThrow(AuthenticationError);
       await expect(sendRequest(config, asyncOptions, 'json')).rejects.toThrow(
@@ -214,7 +211,7 @@ describe('HTTP Layer', () => {
         endpoint: '/build',
         method: 'POST',
         data: {
-          instructions: { parts: [{ file: 'test.pdf'} ] }
+          instructions: { parts: [{ file: 'test.pdf' }] },
         },
       };
 
@@ -222,10 +219,8 @@ describe('HTTP Layer', () => {
 
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ parts:
-              expect.arrayContaining([
-                expect.objectContaining({ file: 'test.pdf' })
-              ])
+          data: expect.objectContaining({
+            parts: expect.arrayContaining([expect.objectContaining({ file: 'test.pdf' })]),
           }),
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
@@ -249,17 +244,20 @@ describe('HTTP Layer', () => {
         method: 'POST',
         data: {
           files: new Map<string, NormalizedFileData>([
-            ['document', {
-              data: new Uint8Array([1, 2, 3, 4]),
-              filename: 'file.bin',
-              contentType: 'application/octet-stream'
-            }]
+            [
+              'document',
+              {
+                data: new Uint8Array([1, 2, 3, 4]),
+                filename: 'file.bin',
+                contentType: 'application/octet-stream',
+              },
+            ],
           ]),
           instructions: {
             parts: [{ file: 'document' }],
             output: { type: 'pdf' },
           },
-        }
+        },
       };
 
       await sendRequest(config, mockClientOptions, 'arraybuffer');
@@ -267,7 +265,7 @@ describe('HTTP Layer', () => {
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'document',
         expect.any(Buffer), // Expecting a Buffer in Node.js
-        { filename: 'file.bin', contentType: 'application/octet-stream' }
+        { filename: 'file.bin', contentType: 'application/octet-stream' },
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith('instructions', expect.any(String));
     });
@@ -285,7 +283,7 @@ describe('HTTP Layer', () => {
       const config: RequestConfig<'GET', '/account/info'> = {
         endpoint: '/account/info',
         method: 'GET',
-        data: undefined
+        data: undefined,
       };
 
       await expect(sendRequest(config, mockClientOptions, 'json')).rejects.toMatchObject({
@@ -309,7 +307,7 @@ describe('HTTP Layer', () => {
       const config: RequestConfig<'POST', '/build'> = {
         endpoint: '/build',
         method: 'POST',
-        data: { } as never
+        data: {} as never,
       };
 
       await expect(sendRequest(config, mockClientOptions, 'arraybuffer')).rejects.toMatchObject({
@@ -333,7 +331,7 @@ describe('HTTP Layer', () => {
       const config: RequestConfig<'GET', '/account/info'> = {
         endpoint: '/account/info',
         method: 'GET',
-        data: undefined
+        data: undefined,
       };
 
       await expect(sendRequest(config, mockClientOptions, 'json')).rejects.toMatchObject({
@@ -342,7 +340,6 @@ describe('HTTP Layer', () => {
         code: 'NETWORK_ERROR',
       });
     });
-
 
     it('should use custom timeout', async () => {
       const mockResponse = {
@@ -410,27 +407,36 @@ describe('HTTP Layer', () => {
         method: 'POST',
         data: {
           files: new Map<string, NormalizedFileData>([
-            ['file1', {
-              data: new Uint8Array([1, 2, 3]),
-              filename: 'file1.bin',
-              contentType: 'application/octet-stream'
-            }],
-            ['file2', {
-              data: new Uint8Array([4, 5, 6]),
-              filename: 'file2.bin',
-              contentType: 'application/octet-stream'
-            }],
-            ['file3', {
-              data: new Uint8Array([7, 8, 9]),
-              filename: 'file3.bin',
-              contentType: 'application/octet-stream'
-            }],
+            [
+              'file1',
+              {
+                data: new Uint8Array([1, 2, 3]),
+                filename: 'file1.bin',
+                contentType: 'application/octet-stream',
+              },
+            ],
+            [
+              'file2',
+              {
+                data: new Uint8Array([4, 5, 6]),
+                filename: 'file2.bin',
+                contentType: 'application/octet-stream',
+              },
+            ],
+            [
+              'file3',
+              {
+                data: new Uint8Array([7, 8, 9]),
+                filename: 'file3.bin',
+                contentType: 'application/octet-stream',
+              },
+            ],
           ]),
           instructions: {
             parts: [{ file: 'file1' }, { file: 'file2' }, { file: 'file3' }],
             output: { type: 'pdf' },
           },
-        }
+        },
       };
 
       await sendRequest(config, mockClientOptions, 'arraybuffer');
@@ -439,17 +445,17 @@ describe('HTTP Layer', () => {
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'file1',
         expect.any(Buffer), // Expecting a Buffer in Node.js
-        { filename: 'file1.bin', contentType: 'application/octet-stream' }
+        { filename: 'file1.bin', contentType: 'application/octet-stream' },
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'file2',
         expect.any(Buffer), // Expecting a Buffer in Node.js
-        { filename: 'file2.bin', contentType: 'application/octet-stream' }
+        { filename: 'file2.bin', contentType: 'application/octet-stream' },
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'file3',
         expect.any(Buffer), // Expecting a Buffer in Node.js
-        { filename: 'file3.bin', contentType: 'application/octet-stream' }
+        { filename: 'file3.bin', contentType: 'application/octet-stream' },
       );
       expect(mockFormDataInstance.append).toHaveBeenCalledWith(
         'instructions',
@@ -474,7 +480,7 @@ describe('HTTP Layer', () => {
         endpoint: '/build',
         method: 'POST',
         data: {
-          instructions: { parts: [{ file: 'test.pdf'} ] }
+          instructions: { parts: [{ file: 'test.pdf' }] },
         },
       };
 

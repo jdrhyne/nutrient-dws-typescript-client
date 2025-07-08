@@ -4,13 +4,14 @@ import type {
   TypedWorkflowResult,
   UrlInput,
   WorkflowDryRunResult,
-  WorkflowExecuteOptions, WorkflowOutput,
+  WorkflowExecuteOptions,
+  WorkflowOutput,
 } from '../types';
 import type { ActionWithFileInput } from '../build';
 import { BuildOutputs } from '../build';
 import { BaseBuilder } from './base';
 import { NutrientError, ValidationError } from '../errors';
-import type { NormalizedFileData} from '../inputs';
+import type { NormalizedFileData } from '../inputs';
 import { isRemoteFileInput, processFileInput, validateFileInput } from '../inputs';
 import type { components } from '../generated/api-types';
 import type { ResponseType } from 'axios';
@@ -23,13 +24,13 @@ export type ApplicableAction = components['schemas']['BuildAction'] | ActionWith
 /**
  * Workflow builder implementation using the composable Build API
  */
-export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = undefined> 
-  extends BaseBuilder<TypedWorkflowResult<TOutput>> {
-  
+export class WorkflowBuilder<
+  TOutput extends keyof OutputTypeMap | undefined = undefined,
+> extends BaseBuilder<TypedWorkflowResult<TOutput>> {
   private buildInstructions: components['schemas']['BuildInstructions'] = {
     parts: [],
   };
-  
+
   private assets: Map<string, Exclude<FileInput, UrlInput>> = new Map();
   private assetIndex = 0;
   private currentStep = 0;
@@ -51,7 +52,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
 
     const assetKey = `asset_${this.assetIndex++}`;
     this.assets.set(assetKey, asset);
-    
+
     return assetKey;
   }
 
@@ -65,21 +66,22 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   ): this {
     this.ensureNotExecuted();
 
-    let fileField: components["schemas"]["FileHandle"];
+    let fileField: components['schemas']['FileHandle'];
     if (isRemoteFileInput(file)) {
-      fileField = { url: typeof file === 'string' ? file : file.url}
+      fileField = { url: typeof file === 'string' ? file : file.url };
     } else {
       fileField = this.registerAssets(file);
     }
 
-    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
+    const processedActions = actions
+      ? actions.map((action) => this.processAction(action))
+      : undefined;
 
     const filePart: components['schemas']['FilePart'] = {
       file: fileField,
       ...options,
       ...(processedActions && processedActions.length > 0 ? { actions: processedActions } : {}),
     };
-
 
     this.buildInstructions.parts.push(filePart);
     return this;
@@ -95,15 +97,17 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   ): this {
     this.ensureNotExecuted();
 
-    let htmlField: components["schemas"]["FileHandle"];
+    let htmlField: components['schemas']['FileHandle'];
     if (isRemoteFileInput(html)) {
-      htmlField =  { url: typeof html === 'string' ? html : html.url}
+      htmlField = { url: typeof html === 'string' ? html : html.url };
     } else {
       htmlField = this.registerAssets(html);
     }
 
-    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
-    
+    const processedActions = actions
+      ? actions.map((action) => this.processAction(action))
+      : undefined;
+
     const htmlPart: components['schemas']['HTMLPart'] = {
       html: htmlField,
       ...options,
@@ -122,9 +126,11 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
     actions?: ApplicableAction[],
   ): this {
     this.ensureNotExecuted();
-    
-    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
-    
+
+    const processedActions = actions
+      ? actions.map((action) => this.processAction(action))
+      : undefined;
+
     const newPagePart: components['schemas']['NewPagePart'] = {
       page: 'new',
       ...options,
@@ -146,11 +152,13 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
     actions?: ApplicableAction[],
   ): this {
     this.ensureNotExecuted();
-    
+
     const { layer, ...documentOptions } = options ?? {};
-    
-    const processedActions = actions ? actions.map(action => this.processAction(action)) : undefined;
-    
+
+    const processedActions = actions
+      ? actions.map((action) => this.processAction(action))
+      : undefined;
+
     const documentPart: components['schemas']['DocumentPart'] = {
       document: { id: documentId, ...(layer && { layer }) },
       ...documentOptions,
@@ -167,9 +175,11 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   private processAction(action: ApplicableAction): components['schemas']['BuildAction'] {
     if (this.isActionWithFileInput(action)) {
       // Register the file and create the actual action
-      let fileHandle: components["schemas"]["FileHandle"];
+      let fileHandle: components['schemas']['FileHandle'];
       if (isRemoteFileInput(action.fileInput)) {
-        fileHandle =  { url: typeof action.fileInput === 'string' ? action.fileInput : action.fileInput.url}
+        fileHandle = {
+          url: typeof action.fileInput === 'string' ? action.fileInput : action.fileInput.url,
+        };
       } else {
         fileHandle = this.registerAssets(action.fileInput);
       }
@@ -190,10 +200,10 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    */
   applyActions(actions: ApplicableAction[]): this {
     this.ensureNotExecuted();
-    
+
     this.buildInstructions.actions ??= [];
-    
-    const processedActions = actions.map(action => this.processAction(action));
+
+    const processedActions = actions.map((action) => this.processAction(action));
     this.buildInstructions.actions.push(...processedActions);
     return this;
   }
@@ -233,7 +243,9 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   /**
    * Sets PDF/UA output
    */
-  outputPdfUa(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowBuilder<'pdfua'> {
+  outputPdfUa(
+    options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
+  ): WorkflowBuilder<'pdfua'> {
     this.output({ type: 'pdfua', ...options });
     return this as WorkflowBuilder<'pdfua'>;
   }
@@ -241,9 +253,14 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   /**
    * Sets image output
    */
-  outputImage<T extends 'png' | 'jpeg' | 'jpg' | 'webp'>(format: T, options?: Omit<components['schemas']['ImageOutput'], 'type' | 'format'>): WorkflowBuilder<T> {
+  outputImage<T extends 'png' | 'jpeg' | 'jpg' | 'webp'>(
+    format: T,
+    options?: Omit<components['schemas']['ImageOutput'], 'type' | 'format'>,
+  ): WorkflowBuilder<T> {
     if (!options?.dpi && !options?.height && !options?.width) {
-      throw new ValidationError('Image output requires at least one of the following options: dpi, height, width');
+      throw new ValidationError(
+        'Image output requires at least one of the following options: dpi, height, width',
+      );
     }
     this.output({ type: 'image', format: format, ...options });
     return this as unknown as WorkflowBuilder<T>;
@@ -268,7 +285,9 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   /**
    * Set Markdown output
    */
-  outputMarkdown(options?: Omit<components['schemas']['MarkdownOutput'], 'type'>): WorkflowBuilder<'markdown'> {
+  outputMarkdown(
+    options?: Omit<components['schemas']['MarkdownOutput'], 'type'>,
+  ): WorkflowBuilder<'markdown'> {
     this.output({ type: 'markdown', ...options });
     return this as WorkflowBuilder<'markdown'>;
   }
@@ -276,7 +295,9 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   /**
    * Sets JSON content extraction output
    */
-  outputJson(options?: Omit<components['schemas']['JSONContentOutput'], 'type'>): WorkflowBuilder<'json-content'> {
+  outputJson(
+    options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
+  ): WorkflowBuilder<'json-content'> {
     this.output({ type: 'json-content', ...options });
     return this as WorkflowBuilder<'json-content'>;
   }
@@ -297,7 +318,9 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    */
   private ensureNotExecuted(): void {
     if (this.isExecuted) {
-      throw new ValidationError('This workflow has already been executed. Create a new workflow builder for additional operations.');
+      throw new ValidationError(
+        'This workflow has already been executed. Create a new workflow builder for additional operations.',
+      );
     }
   }
 
@@ -307,10 +330,12 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   private async prepareFiles(): Promise<Map<string, NormalizedFileData>> {
     const requestFiles = new Map<string, NormalizedFileData>();
 
-    const processedEntries: [string, NormalizedFileData][] = await Promise.all(Array.from(this.assets.entries()).map(async ([key, value]) => {
-      const normalizedFileData = await processFileInput(value);
-      return [key, normalizedFileData];
-    }));
+    const processedEntries: [string, NormalizedFileData][] = await Promise.all(
+      Array.from(this.assets.entries()).map(async ([key, value]) => {
+        const normalizedFileData = await processFileInput(value);
+        return [key, normalizedFileData];
+      }),
+    );
 
     for (const [key, data] of processedEntries) {
       requestFiles.set(key, data);
@@ -335,7 +360,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
   async execute(options?: WorkflowExecuteOptions): Promise<TypedWorkflowResult<TOutput>> {
     this.ensureNotExecuted();
     this.currentStep = 0;
-    
+
     const result: TypedWorkflowResult<TOutput> = {
       success: false,
       errors: [],
@@ -355,7 +380,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
 
       const files = await this.prepareFiles();
 
-      let responseType: ResponseType = 'arraybuffer'
+      let responseType: ResponseType = 'arraybuffer';
       if (outputConfig.type === 'json-content') {
         responseType = 'json';
       } else if (['html', 'markdown'].includes(outputConfig.type as string)) {
@@ -378,9 +403,10 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
       if (outputConfig.type === 'json-content') {
         result.success = true;
         result.output = {
-          data: response
-        } as unknown as TOutput extends keyof OutputTypeMap ? OutputTypeMap[TOutput] : WorkflowOutput;
-
+          data: response,
+        } as unknown as TOutput extends keyof OutputTypeMap
+          ? OutputTypeMap[TOutput]
+          : WorkflowOutput;
       } else if (['html', 'markdown'].includes(outputConfig.type as string)) {
         const { mimeType, filename } = BuildOutputs.getMimeTypeForOutput(outputConfig);
 
@@ -390,7 +416,6 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
           mimeType,
           filename,
         } as TOutput extends keyof OutputTypeMap ? OutputTypeMap[TOutput] : WorkflowOutput;
-
       } else {
         const { mimeType, filename } = BuildOutputs.getMimeTypeForOutput(outputConfig);
         // Use standard ArrayBuffer to Uint8Array conversion for browser compatibility
@@ -403,9 +428,6 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
           filename,
         } as TOutput extends keyof OutputTypeMap ? OutputTypeMap[TOutput] : WorkflowOutput;
       }
-
-
-
     } catch (error) {
       result.errors?.push({
         step: this.currentStep,
@@ -423,7 +445,7 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
    */
   async dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult> {
     this.ensureNotExecuted();
-    
+
     const result: WorkflowDryRunResult = {
       success: false,
       errors: [],
@@ -438,12 +460,11 @@ export class WorkflowBuilder<TOutput extends keyof OutputTypeMap | undefined = u
           instructions: this.buildInstructions,
         },
         'json',
-        options?.timeout
+        options?.timeout,
       );
 
       result.success = true;
       result.analysis = response;
-
     } catch (error) {
       result.errors?.push({
         step: 0,

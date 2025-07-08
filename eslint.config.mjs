@@ -1,4 +1,4 @@
-import { defineConfig } from 'eslint/config';
+import { defineConfig, globalIgnores } from 'eslint/config';
 import typescriptEslint from '@typescript-eslint/eslint-plugin';
 import jest from 'eslint-plugin-jest';
 import globals from 'globals';
@@ -18,15 +18,14 @@ const compat = new FlatCompat({
 
 export default defineConfig([
   js.configs.recommended,
+  globalIgnores([
+    'dist',
+    'node_modules',
+    'coverage',
+    'src/generated',
+    'examples',
+  ]),
   {
-    ignores: [
-      'dist',
-      'node_modules',
-      'coverage',
-      'generated',
-      'examples',
-      'src/types/nutrient-api.ts',
-    ],
     extends: compat.extends(
       'eslint:recommended',
       'plugin:@typescript-eslint/recommended',

@@ -1,7 +1,7 @@
 /**
  * Advanced E2E tests for NutrientClient
  * These tests cover all API methods not included in integration.test.ts
- * 
+ *
  * To run these tests with a live API:
  * 1. Set NUTRIENT_API_KEY environment variable
  * 2. Run: NUTRIENT_API_KEY=your_key npm test -- e2e-advanced.test
@@ -14,7 +14,7 @@ import { ResultValidator, samplePDF, samplePNG, TestDocumentGenerator } from './
 import 'dotenv/config';
 
 // Skip integration tests in CI/automated environments unless explicitly enabled with valid API key
-const shouldRunIntegrationTests = Boolean(process.env["NUTRIENT_API_KEY"]);
+const shouldRunIntegrationTests = Boolean(process.env['NUTRIENT_API_KEY']);
 
 // Use conditional describe based on environment
 const describeE2E = shouldRunIntegrationTests ? describe : describe.skip;
@@ -29,8 +29,8 @@ describeE2E('Advanced E2E Tests with Live API', () => {
 
   beforeAll(() => {
     const options: NutrientClientOptions = {
-      apiKey: process.env["NUTRIENT_API_KEY"] ?? '',
-      baseUrl: process.env["NUTRIENT_BASE_URL"] ?? 'https://api.nutrient.io',
+      apiKey: process.env['NUTRIENT_API_KEY'] ?? '',
+      baseUrl: process.env['NUTRIENT_BASE_URL'] ?? 'https://api.nutrient.io',
     };
 
     client = new NutrientClient(options);
@@ -65,7 +65,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .outputPdf()
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
 
@@ -76,12 +76,12 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .addFilePart(testSensitivePDF)
           .applyActions([
             BuildActions.createRedactionsRegex('\\d{3}-\\d{2}-\\d{4}'), // SSN pattern
-            BuildActions.applyRedactions()
+            BuildActions.applyRedactions(),
           ])
           .outputPdf()
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
 
       it('should apply multiple regex patterns', async () => {
@@ -92,12 +92,12 @@ describeE2E('Advanced E2E Tests with Live API', () => {
             BuildActions.createRedactionsRegex('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}'), // Email
             BuildActions.createRedactionsRegex('\\(\\d{3}\\) \\d{3}-\\d{4}'), // Phone
             BuildActions.createRedactionsRegex('\\d{4}-\\d{4}-\\d{4}-\\d{4}'), // Credit card
-            BuildActions.applyRedactions()
+            BuildActions.applyRedactions(),
           ])
           .outputPdf()
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
 
@@ -110,12 +110,12 @@ describeE2E('Advanced E2E Tests with Live API', () => {
             BuildActions.createRedactionsPreset('email-address'),
             BuildActions.createRedactionsPreset('international-phone-number'),
             BuildActions.createRedactionsPreset('social-security-number'),
-            BuildActions.applyRedactions()
+            BuildActions.applyRedactions(),
           ])
           .outputPdf()
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
   });
@@ -125,54 +125,50 @@ describeE2E('Advanced E2E Tests with Live API', () => {
       const result = await client
         .workflow()
         .addFilePart(testTablePDF)
-        .applyAction(BuildActions.watermarkImage(samplePNG, {
-          opacity: 0.3,
-          width: { value: 200, unit: "pt" },
-          height: { value: 100, unit: "pt" },
-        }))
+        .applyAction(
+          BuildActions.watermarkImage(samplePNG, {
+            opacity: 0.3,
+            width: { value: 200, unit: 'pt' },
+            height: { value: 100, unit: 'pt' },
+          }),
+        )
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 30000);
 
     it('should add image watermark with custom positioning', async () => {
       const result = await client
         .workflow()
         .addFilePart(testTablePDF)
-        .applyAction(BuildActions.watermarkImage(samplePNG, {
-          opacity: 0.5,
-          width: { value: 150, unit: "pt" },
-          height: { value: 150, unit: "pt" },
-          top: { value: 100, unit: "pt" },
-          left: { value: 100, unit: "pt" },
-        }))
+        .applyAction(
+          BuildActions.watermarkImage(samplePNG, {
+            opacity: 0.5,
+            width: { value: 150, unit: 'pt' },
+            height: { value: 150, unit: 'pt' },
+            top: { value: 100, unit: 'pt' },
+            left: { value: 100, unit: 'pt' },
+          }),
+        )
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 30000);
   });
 
   describe('HTML to PDF Conversion', () => {
     it('should convert HTML to PDF with default settings', async () => {
-      const result = await client
-        .workflow()
-        .addHtmlPart(testHtmlContent)
-        .outputPdf()
-        .execute();
+      const result = await client.workflow().addHtmlPart(testHtmlContent).outputPdf().execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 30000);
 
     it('should convert HTML with custom page size and margins', async () => {
-      const result = await client
-        .workflow()
-        .addHtmlPart(testHtmlContent)
-        .outputPdf()
-        .execute();
+      const result = await client.workflow().addHtmlPart(testHtmlContent).outputPdf().execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 30000);
 
     it('should convert HTML and apply actions', async () => {
@@ -181,12 +177,12 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .addHtmlPart(testHtmlContent)
         .applyActions([
           BuildActions.watermarkText('DRAFT', { opacity: 0.3 }),
-          BuildActions.flatten()
+          BuildActions.flatten(),
         ])
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 30000);
 
     it('should combine HTML with existing PDF', async () => {
@@ -197,7 +193,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 30000);
   });
 
@@ -211,21 +207,18 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .outputPdf()
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
 
       it('should apply XFDF and flatten annotations', async () => {
         const result = await client
           .workflow()
           .addFilePart(testTablePDF)
-          .applyActions([
-            BuildActions.applyXfdf(testXfdfContent),
-            BuildActions.flatten()
-          ])
+          .applyActions([BuildActions.applyXfdf(testXfdfContent), BuildActions.flatten()])
           .outputPdf()
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
 
@@ -238,7 +231,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .outputPdf()
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
   });
@@ -251,11 +244,11 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .addFilePart(testSensitivePDF)
           .outputPdf({
             user_password: 'user123',
-            owner_password: 'owner456'
+            owner_password: 'owner456',
           })
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
 
       it('should set PDF permissions', async () => {
@@ -264,11 +257,11 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .addFilePart(testTablePDF)
           .outputPdf({
             owner_password: 'owner123',
-            user_permissions: ['printing', 'extract', 'fill_forms']
+            user_permissions: ['printing', 'extract', 'fill_forms'],
           })
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
 
@@ -281,11 +274,11 @@ describeE2E('Advanced E2E Tests with Live API', () => {
             metadata: {
               title: 'Test Document',
               author: 'Test Author',
-            }
+            },
           })
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
 
@@ -301,11 +294,11 @@ describeE2E('Advanced E2E Tests with Live API', () => {
               mrcCompression: true,
               imageOptimizationQuality: 3,
               linearize: true,
-            }
+            },
           })
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
 
@@ -317,11 +310,11 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .outputPdfA({
             conformance: 'pdfa-2a',
             vectorization: true,
-            rasterization: true
+            rasterization: true,
           })
           .execute();
 
-        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+        expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
       }, 30000);
     });
   });
@@ -334,7 +327,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .outputOffice('xlsx')
         .execute();
 
-      expect(() => ResultValidator.validateOfficeOutput(result, 'xlsx')).not.toThrow()
+      expect(() => ResultValidator.validateOfficeOutput(result, 'xlsx')).not.toThrow();
     }, 30000);
 
     it('should convert PDF to PowerPoint (PPTX)', async () => {
@@ -344,7 +337,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .outputOffice('pptx')
         .execute();
 
-      expect(() => ResultValidator.validateOfficeOutput(result, 'pptx')).not.toThrow()
+      expect(() => ResultValidator.validateOfficeOutput(result, 'pptx')).not.toThrow();
     }, 30000);
   });
 
@@ -358,10 +351,11 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         })
         .execute();
 
-      expect(() => ResultValidator.validateImageOutput(result, 'jpeg')).not.toThrow()
+      expect(() => ResultValidator.validateImageOutput(result, 'jpeg')).not.toThrow();
     }, 30000);
 
     // TODO: Issue with DWS upstream which doesn't allow rescaling but not talked about in docs
+    // eslint-disable-next-line jest/no-disabled-tests
     it.skip('should convert PDF to PNG with custom dimensions', async () => {
       const result = await client
         .workflow()
@@ -372,7 +366,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         })
         .execute();
 
-      expect(() => ResultValidator.validateImageOutput(result, 'png')).not.toThrow()
+      expect(() => ResultValidator.validateImageOutput(result, 'png')).not.toThrow();
     }, 30000);
 
     it('should convert PDF to WebP format', async () => {
@@ -384,7 +378,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         })
         .execute();
 
-      expect(() => ResultValidator.validateImageOutput(result, 'webp')).not.toThrow()
+      expect(() => ResultValidator.validateImageOutput(result, 'webp')).not.toThrow();
     }, 30000);
   });
 
@@ -394,11 +388,11 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .workflow()
         .addFilePart(testTablePDF)
         .outputJson({
-          tables: true
+          tables: true,
         })
         .execute();
 
-      expect(() => ResultValidator.validateJsonOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validateJsonOutput(result)).not.toThrow();
     }, 30000);
 
     it('should extract key-value pairs', async () => {
@@ -406,23 +400,23 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .workflow()
         .addFilePart(testTablePDF)
         .outputJson({
-          keyValuePairs: true
+          keyValuePairs: true,
         })
         .execute();
 
-      expect(() => ResultValidator.validateJsonOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validateJsonOutput(result)).not.toThrow();
     }, 30000);
 
     it('should extract specific page range content', async () => {
       const result = await client
         .workflow()
         .addFilePart(testSensitivePDF, {
-          pages: { start: 0, end: 0 }
+          pages: { start: 0, end: 0 },
         })
         .outputJson()
         .execute();
 
-      expect(() => ResultValidator.validateJsonOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validateJsonOutput(result)).not.toThrow();
     }, 30000);
   });
 
@@ -445,44 +439,46 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           BuildActions.watermarkText('CONFIDENTIAL', {
             opacity: 0.2,
             fontSize: 60,
-            rotation: 45
+            rotation: 45,
           }),
-          BuildActions.flatten()
+          BuildActions.flatten(),
         ])
         .outputPdf({
-          optimize: { imageOptimizationQuality: 2 }
+          optimize: { imageOptimizationQuality: 2 },
         })
         .execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 60000);
 
     it('should perform document assembly with redactions', async () => {
-      const pdf1 = TestDocumentGenerator.generateSimplePdf("SSN: 123-45-6789");
-      const pdf2 = TestDocumentGenerator.generateSimplePdf("email: secret@example.com");
+      const pdf1 = TestDocumentGenerator.generateSimplePdf('SSN: 123-45-6789');
+      const pdf2 = TestDocumentGenerator.generateSimplePdf('email: secret@example.com');
 
       const result = await client
         .workflow()
         // First document with redactions
         .addFilePart(pdf1, undefined, [
           BuildActions.createRedactionsRegex('\\d{3}-\\d{2}-\\d{4}'),
-          BuildActions.applyRedactions()
+          BuildActions.applyRedactions(),
         ])
         // Second document with different redactions
         .addFilePart(pdf2, undefined, [
           BuildActions.createRedactionsRegex('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}'),
-          BuildActions.applyRedactions()
+          BuildActions.applyRedactions(),
         ])
         // Apply watermark to entire document
-        .applyAction(BuildActions.watermarkText('REDACTED COPY', {
-          opacity: 0.3,
-          fontSize: 48,
-          fontColor: '#FF0000'
-        }))
+        .applyAction(
+          BuildActions.watermarkText('REDACTED COPY', {
+            opacity: 0.3,
+            fontSize: 48,
+            fontColor: '#FF0000',
+          }),
+        )
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 45000);
   });
 
@@ -490,13 +486,9 @@ describeE2E('Advanced E2E Tests with Live API', () => {
     it('should handle invalid HTML content gracefully', async () => {
       const invalidHtml = Buffer.from('<html><body><unclosed-tag>Invalid HTML');
 
-      const result = await client
-        .workflow()
-        .addHtmlPart(invalidHtml)
-        .outputPdf()
-        .execute();
+      const result = await client.workflow().addHtmlPart(invalidHtml).outputPdf().execute();
 
-      expect(() => ResultValidator.validateErrorResponse(result)).toThrow()
+      expect(() => ResultValidator.validateErrorResponse(result)).toThrow();
     }, 30000);
 
     it('should handle invalid XFDF content', async () => {
@@ -509,7 +501,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validateErrorResponse(result)).not.toThrow()
+      expect(() => ResultValidator.validateErrorResponse(result)).not.toThrow();
     }, 30000);
 
     it('should handle invalid Instant JSON', async () => {
@@ -522,7 +514,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validateErrorResponse(result)).not.toThrow()
+      expect(() => ResultValidator.validateErrorResponse(result)).not.toThrow();
     }, 30000);
   });
 
@@ -531,18 +523,20 @@ describeE2E('Advanced E2E Tests with Live API', () => {
       const actions = [];
       // Add multiple watermarks
       for (let i = 0; i < 5; i++) {
-        actions.push(BuildActions.watermarkText(`Layer ${i + 1}`, {
-          opacity: 0.1,
-          fontSize: 20 + i * 10,
-          rotation: i * 15
-        }));
+        actions.push(
+          BuildActions.watermarkText(`Layer ${i + 1}`, {
+            opacity: 0.1,
+            fontSize: 20 + i * 10,
+            rotation: i * 15,
+          }),
+        );
       }
       // Add multiple redaction patterns
       actions.push(
         BuildActions.createRedactionsRegex('\\d{3}-\\d{2}-\\d{4}'),
         BuildActions.createRedactionsRegex('[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}'),
         BuildActions.applyRedactions(),
-        BuildActions.flatten()
+        BuildActions.flatten(),
       );
 
       const result = await client
@@ -552,7 +546,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .outputPdf()
         .execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 60000);
 
     it('should handle workflows with many parts', async () => {
@@ -569,7 +563,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       const result = await (workflow as any).outputPdf().execute();
 
-      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow()
+      expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
     }, 90000);
   });
-})
+});

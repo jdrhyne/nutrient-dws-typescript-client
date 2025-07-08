@@ -6,9 +6,11 @@ import type {
   OutputTypeMap,
   TypedWorkflowResult,
   WorkflowDryRunResult,
-  WorkflowExecuteOptions, WorkflowInitialStage, WorkflowWithOutputStage,
+  WorkflowExecuteOptions,
+  WorkflowInitialStage,
+  WorkflowWithOutputStage,
 } from '../../types';
-import type { components } from '../../generated/api-types'
+import type { components } from '../../generated/api-types';
 import { ValidationError } from '../../errors';
 import * as workflowModule from '../../workflow';
 import * as inputsModule from '../../inputs';
@@ -75,8 +77,8 @@ interface MockWorkflowWithPartsStage extends MockWorkflowInitialStage {
       options?: Omit<components['schemas']['PDFUAOutput'], 'type'>,
     ) => MockWorkflowWithOutputStage<'pdfua'>
   >;
-  outputImage: jest.MockedFunction<<T extends 'png' | 'jpg' | 'jpeg' | 'webp'>
-    (
+  outputImage: jest.MockedFunction<
+    <T extends 'png' | 'jpg' | 'jpeg' | 'webp'>(
       format: T,
       options?: Omit<components['schemas']['ImageOutput'], 'type' | 'format'>,
     ) => MockWorkflowWithOutputStage<T>
@@ -93,7 +95,7 @@ interface MockWorkflowWithPartsStage extends MockWorkflowInitialStage {
     (
       options?: Omit<components['schemas']['MarkdownOutput'], 'type'>,
     ) => MockWorkflowWithOutputStage<'markdown'>
-  >
+  >;
   outputJson: jest.MockedFunction<
     (
       options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
@@ -101,7 +103,8 @@ interface MockWorkflowWithPartsStage extends MockWorkflowInitialStage {
   >;
 }
 
-interface MockWorkflowWithOutputStage<T extends keyof OutputTypeMap | undefined = undefined> extends WorkflowWithOutputStage<T> {
+interface MockWorkflowWithOutputStage<T extends keyof OutputTypeMap | undefined = undefined>
+  extends WorkflowWithOutputStage<T> {
   execute: jest.MockedFunction<
     (options?: WorkflowExecuteOptions) => Promise<TypedWorkflowResult<T>>
   >;
@@ -113,7 +116,9 @@ interface MockWorkflowWithOutputStage<T extends keyof OutputTypeMap | undefined 
 const mockValidateFileInput = inputsModule.validateFileInput as jest.MockedFunction<
   typeof inputsModule.validateFileInput
 >;
-const mockGetPdfPageCount = inputsModule.getPdfPageCount as jest.MockedFunction<typeof inputsModule.getPdfPageCount>
+const mockGetPdfPageCount = inputsModule.getPdfPageCount as jest.MockedFunction<
+  typeof inputsModule.getPdfPageCount
+>;
 const mockSendRequest = httpModule.sendRequest as jest.MockedFunction<
   typeof httpModule.sendRequest
 >;
@@ -124,11 +129,15 @@ const mockWorkflow = workflowModule.workflow as jest.MockedFunction<typeof workf
  * @param {MockWorkflowWithOutputStage} [customMockOutputStage] - Optional custom mock output stage
  * @returns {MockWorkflowWithPartsStage & MockWorkflowWithOutputStage} The mock workflow instance
  */
-function createMockWorkflowInstance(customMockOutputStage?: MockWorkflowWithOutputStage): MockWorkflowWithPartsStage & MockWorkflowWithOutputStage {
-  const mockOutputStage = customMockOutputStage ?? {
-    execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
-    dryRun: jest.fn(),
-  } as MockWorkflowWithOutputStage;
+function createMockWorkflowInstance(
+  customMockOutputStage?: MockWorkflowWithOutputStage,
+): MockWorkflowWithPartsStage & MockWorkflowWithOutputStage {
+  const mockOutputStage =
+    customMockOutputStage ??
+    ({
+      execute: jest.fn().mockResolvedValue({ success: true, output: { buffer: new Uint8Array() } }),
+      dryRun: jest.fn(),
+    } as MockWorkflowWithOutputStage);
 
   const mockWorkflowInstance = {
     addFilePart: jest.fn().mockReturnThis(),
@@ -163,7 +172,7 @@ describe('NutrientClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockValidateFileInput.mockReturnValue(true);
-    mockGetPdfPageCount.mockResolvedValue(10)
+    mockGetPdfPageCount.mockResolvedValue(10);
     mockSendRequest.mockResolvedValue({
       data: TestDocumentGenerator.generateSimplePdf() as never,
       status: 200,
@@ -439,14 +448,18 @@ describe('NutrientClient', () => {
       const files = ['file1.pdf'];
 
       await expect(client.merge(files)).rejects.toThrow(ValidationError);
-      await expect(client.merge(files)).rejects.toThrow('At least 2 files are required for merge operation');
+      await expect(client.merge(files)).rejects.toThrow(
+        'At least 2 files are required for merge operation',
+      );
     });
 
     it('should throw ValidationError when empty array is provided', async () => {
       const files: FileInput[] = [];
 
       await expect(client.merge(files)).rejects.toThrow(ValidationError);
-      await expect(client.merge(files)).rejects.toThrow('At least 2 files are required for merge operation');
+      await expect(client.merge(files)).rejects.toThrow(
+        'At least 2 files are required for merge operation',
+      );
     });
   });
 
@@ -457,11 +470,11 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ 
-          success: true, 
-          output: { 
+        execute: jest.fn().mockResolvedValue({
+          success: true,
+          output: {
             data: { text: 'Extracted text content' },
-          } 
+          },
         }),
         dryRun: jest.fn(),
       } as MockWorkflowWithOutputStage;
@@ -477,7 +490,7 @@ describe('NutrientClient', () => {
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined);
       expect(mockWorkflowInstance.outputJson).toHaveBeenCalledWith({
         plainText: true,
-        tables: false
+        tables: false,
       });
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
       expect(result).toEqual({
@@ -502,11 +515,11 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ 
-          success: true, 
-          output: { 
+        execute: jest.fn().mockResolvedValue({
+          success: true,
+          output: {
             data: { tables: [{ rows: [], columns: [] }] },
-          } 
+          },
         }),
         dryRun: jest.fn(),
       } as MockWorkflowWithOutputStage;
@@ -522,11 +535,11 @@ describe('NutrientClient', () => {
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined);
       expect(mockWorkflowInstance.outputJson).toHaveBeenCalledWith({
         plainText: false,
-        tables: true
+        tables: true,
       });
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
       expect(result).toEqual({
-          data: { tables: [{ rows: [], columns: [] }] }
+        data: { tables: [{ rows: [], columns: [] }] },
       });
     });
 
@@ -547,11 +560,11 @@ describe('NutrientClient', () => {
     beforeEach(() => {
       client = new NutrientClient(validOptions);
       const mockOutputStage = {
-        execute: jest.fn().mockResolvedValue({ 
-          success: true, 
-          output: { 
+        execute: jest.fn().mockResolvedValue({
+          success: true,
+          output: {
             data: { keyValuePairs: [{ key: 'Name', value: 'John Doe' }] },
-          } 
+          },
         }),
         dryRun: jest.fn(),
       } as MockWorkflowWithOutputStage;
@@ -568,11 +581,11 @@ describe('NutrientClient', () => {
       expect(mockWorkflowInstance.outputJson).toHaveBeenCalledWith({
         plainText: false,
         tables: false,
-        keyValuePairs: true
+        keyValuePairs: true,
       });
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
       expect(result).toEqual({
-        data: { keyValuePairs: [{ key: 'Name', value: 'John Doe' }] }
+        data: { keyValuePairs: [{ key: 'Name', value: 'John Doe' }] },
       });
     });
 
@@ -601,7 +614,7 @@ describe('NutrientClient', () => {
       await client.flatten(file);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
-        { type: 'flatten' }
+        { type: 'flatten' },
       ]);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
@@ -614,7 +627,7 @@ describe('NutrientClient', () => {
       await client.flatten(file, annotationIds);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
-        { type: 'flatten', annotationIds: ['ann1', 'ann2', 123] }
+        { type: 'flatten', annotationIds: ['ann1', 'ann2', 123] },
       ]);
     });
   });
@@ -635,7 +648,7 @@ describe('NutrientClient', () => {
       await client.rotate(file, angle);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
-        { type: 'rotate', rotateBy: 90 }
+        { type: 'rotate', rotateBy: 90 },
       ]);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
@@ -649,7 +662,7 @@ describe('NutrientClient', () => {
       await client.rotate(file, angle, pages);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, { pages }, [
-        { type: 'rotate', rotateBy: 180 }
+        { type: 'rotate', rotateBy: 180 },
       ]);
     });
   });
@@ -682,7 +695,10 @@ describe('NutrientClient', () => {
       const file = 'test-file.pdf';
       const userPassword = 'user123';
       const ownerPassword = 'owner456';
-      const permissions = ['printing', 'extract_accessibility'] as components['schemas']['PDFUserPermission'][];
+      const permissions = [
+        'printing',
+        'extract_accessibility',
+      ] as components['schemas']['PDFUserPermission'][];
 
       await client.passwordProtect(file, userPassword, ownerPassword, permissions);
 
@@ -711,7 +727,7 @@ describe('NutrientClient', () => {
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalledWith({
-        metadata: { title: 'My Document', author: 'John Doe' }
+        metadata: { title: 'My Document', author: 'John Doe' },
       });
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
     });
@@ -730,7 +746,7 @@ describe('NutrientClient', () => {
       const file = 'test-file.pdf';
       const labels = [
         { pages: [0, 1, 2], label: 'Cover' },
-        { pages: [3, 4, 5], label: 'Chapter 1' }
+        { pages: [3, 4, 5], label: 'Chapter 1' },
       ];
 
       await client.setPageLabels(file, labels);
@@ -739,8 +755,8 @@ describe('NutrientClient', () => {
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalledWith({
         labels: [
           { pages: [0, 1, 2], label: 'Cover' },
-          { pages: [3, 4, 5], label: 'Chapter 1' }
-        ]
+          { pages: [3, 4, 5], label: 'Chapter 1' },
+        ],
       });
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
     });
@@ -852,7 +868,13 @@ describe('NutrientClient', () => {
         includeAnnotations: true,
       };
 
-      await client.createRedactionsPreset(file, preset, 'stage', { start: 0, end: 4 }, presetOptions);
+      await client.createRedactionsPreset(
+        file,
+        preset,
+        'stage',
+        { start: 0, end: 4 },
+        presetOptions,
+      );
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
         expect.objectContaining({
@@ -986,7 +1008,7 @@ describe('NutrientClient', () => {
       await client.applyRedactions(file);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
-        { type: 'applyRedactions' }
+        { type: 'applyRedactions' },
       ]);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
@@ -1008,7 +1030,7 @@ describe('NutrientClient', () => {
       await client.addPage(file);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file);
-      expect(mockWorkflowInstance.addNewPage).toHaveBeenCalledWith( {"pageCount": 1});
+      expect(mockWorkflowInstance.addNewPage).toHaveBeenCalledWith({ pageCount: 1 });
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
     });
@@ -1020,7 +1042,7 @@ describe('NutrientClient', () => {
       await client.addPage(file, count);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file);
-      expect(mockWorkflowInstance.addNewPage).toHaveBeenCalledWith( {"pageCount": 3});
+      expect(mockWorkflowInstance.addNewPage).toHaveBeenCalledWith({ pageCount: 3 });
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
     });
@@ -1034,7 +1056,9 @@ describe('NutrientClient', () => {
 
       // Mock getPdfPageCount to test index logic
       // This is a simplified test since we can't easily mock the internal implementation
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 1, "start": 0}});
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 1, start: 0 },
+      });
       expect(mockWorkflowInstance.addNewPage).toHaveBeenCalled();
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
@@ -1057,7 +1081,7 @@ describe('NutrientClient', () => {
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalledWith({
-        optimize: { imageOptimizationQuality: 2 }
+        optimize: { imageOptimizationQuality: 2 },
       });
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
     });
@@ -1069,7 +1093,7 @@ describe('NutrientClient', () => {
       await client.optimize(file, options);
 
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalledWith({
-        optimize: { grayscaleText: true, grayscaleGraphics: false }
+        optimize: { grayscaleText: true, grayscaleGraphics: false },
       });
     });
   });
@@ -1087,13 +1111,17 @@ describe('NutrientClient', () => {
       const file = 'test-file.pdf';
       const pageRanges = [
         { start: 0, end: 2 },
-        { start: 3, end: 5 }
+        { start: 3, end: 5 },
       ];
 
       const result = await client.splitPdf(file, pageRanges);
 
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 2, "start": 0}});
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 5, "start": 3}});
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 2, start: 0 },
+      });
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 5, start: 3 },
+      });
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledTimes(2);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalledTimes(2);
       expect(mockWorkflowInstance.execute).toHaveBeenCalledTimes(2);
@@ -1116,8 +1144,12 @@ describe('NutrientClient', () => {
 
       await client.duplicatePages(file, pageIndices);
 
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 0, "start": 0}});
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 2, "start": 2}});
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 0, start: 0 },
+      });
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 2, start: 2 },
+      });
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledTimes(2);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
@@ -1139,9 +1171,15 @@ describe('NutrientClient', () => {
 
       await client.deletePages(file, pageIndices);
 
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 0, "start": 0}});
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 2, "start": 2}});
-      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {"pages": {"end": 9, "start": 4}});
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 0, start: 0 },
+      });
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 2, start: 2 },
+      });
+      expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
+        pages: { end: 9, start: 4 },
+      });
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledTimes(3);
       expect(mockWorkflowInstance.outputPdf).toHaveBeenCalled();
       expect(mockWorkflowInstance.execute).toHaveBeenCalled();
@@ -1235,10 +1273,40 @@ describe('NutrientClient', () => {
       const file = 'test-file.pdf';
 
       await expect(
-        client.convert(file, 'unsupported' as 'pdf' | 'pdfa' | 'pdfua' | 'png' | 'jpeg' | 'jpg' | 'webp' | 'html' | 'docx' | 'xlsx' | 'pptx' | 'markdown'),
+        client.convert(
+          file,
+          'unsupported' as
+            | 'pdf'
+            | 'pdfa'
+            | 'pdfua'
+            | 'png'
+            | 'jpeg'
+            | 'jpg'
+            | 'webp'
+            | 'html'
+            | 'docx'
+            | 'xlsx'
+            | 'pptx'
+            | 'markdown',
+        ),
       ).rejects.toThrow(ValidationError);
       await expect(
-        client.convert(file, 'unsupported' as 'pdf' | 'pdfa' | 'pdfua' | 'png' | 'jpeg' | 'jpg' | 'webp' | 'html' | 'docx' | 'xlsx' | 'pptx' | 'markdown'),
+        client.convert(
+          file,
+          'unsupported' as
+            | 'pdf'
+            | 'pdfa'
+            | 'pdfua'
+            | 'png'
+            | 'jpeg'
+            | 'jpg'
+            | 'webp'
+            | 'html'
+            | 'docx'
+            | 'xlsx'
+            | 'pptx'
+            | 'markdown',
+        ),
       ).rejects.toThrow('Unsupported target format: unsupported');
     });
   });

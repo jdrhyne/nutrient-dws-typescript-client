@@ -1,4 +1,9 @@
-import { getPdfPageCount, isRemoteFileInput, processFileInput, validateFileInput } from '../../inputs';
+import {
+  getPdfPageCount,
+  isRemoteFileInput,
+  processFileInput,
+  validateFileInput,
+} from '../../inputs';
 import { ValidationError } from '../../errors';
 import { Readable } from 'stream';
 import fs from 'fs';
@@ -40,8 +45,16 @@ describe('Input Processing (Node.js only)', () => {
 
     it('should validate structured input objects', () => {
       expect(validateFileInput({ type: 'file-path', path: 'test.pdf' })).toBe(true);
-      expect(validateFileInput({ type: 'buffer', buffer: Buffer.from('test'), filename: 'test.bin' })).toBe(true);
-      expect(validateFileInput({ type: 'uint8array', data: new Uint8Array([1, 2, 3]), filename: 'test.bin' })).toBe(true);
+      expect(
+        validateFileInput({ type: 'buffer', buffer: Buffer.from('test'), filename: 'test.bin' }),
+      ).toBe(true);
+      expect(
+        validateFileInput({
+          type: 'uint8array',
+          data: new Uint8Array([1, 2, 3]),
+          filename: 'test.bin',
+        }),
+      ).toBe(true);
       expect(validateFileInput({ type: 'url', url: 'https://example.com/test.pdf' })).toBe(true);
     });
 
@@ -104,8 +117,10 @@ describe('Input Processing (Node.js only)', () => {
     it('should process file path', async () => {
       const mockStream = new Readable();
 
-      const mockAccess = jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined as never)
-      const mockCreateReadStream  = jest.spyOn(fs, 'createReadStream').mockReturnValue(mockStream as fs.ReadStream);
+      const mockAccess = jest.spyOn(fs.promises, 'access').mockResolvedValue(undefined as never);
+      const mockCreateReadStream = jest
+        .spyOn(fs, 'createReadStream')
+        .mockReturnValue(mockStream as fs.ReadStream);
 
       const result = await processFileInput('/path/to/test.pdf');
 
@@ -129,23 +144,39 @@ describe('Input Processing (Node.js only)', () => {
       { name: 'URL string', input: 'https://example.com/test.pdf', expected: true },
       { name: 'File Path string', input: 'test.pdf', expected: false },
       { name: 'Buffer', input: Buffer.from('test'), expected: false },
-      { name: 'Uint8Array', input:  Uint8Array.from('test'), expected: false },
-      { name: 'URL Input', input: { type: 'url', url: 'https://example.com/test.pdf' }, expected: true },
+      { name: 'Uint8Array', input: Uint8Array.from('test'), expected: false },
+      {
+        name: 'URL Input',
+        input: { type: 'url', url: 'https://example.com/test.pdf' },
+        expected: true,
+      },
       { name: 'File Path Input', input: { type: 'file-path', path: 'test.pdf' }, expected: false },
-      { name: 'Buffer Input', input: { type: 'buffer', buffer: Buffer.from('test') }, expected: false },
-      { name: 'Uint8Array Input', input: { type: 'uint8array', data: Uint8Array.from('test') }, expected: false },
-    ]
+      {
+        name: 'Buffer Input',
+        input: { type: 'buffer', buffer: Buffer.from('test') },
+        expected: false,
+      },
+      {
+        name: 'Uint8Array Input',
+        input: { type: 'uint8array', data: Uint8Array.from('test') },
+        expected: false,
+      },
+    ];
 
     it.each(cases)('should return $expected for $name', (testCase) => {
       expect(isRemoteFileInput(testCase.input as FileInput)).toBe(testCase.expected);
-    })
-  })
+    });
+  });
 
   describe('processFileInput - Invalid inputs', () => {
     it('should throw for URL', async () => {
-      await expect(processFileInput('https://example.com/test.pdf')).rejects.toThrow(ValidationError);
+      await expect(processFileInput('https://example.com/test.pdf')).rejects.toThrow(
+        ValidationError,
+      );
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      await expect(processFileInput({ type: "url", url: 'https://example.com/test.pdf' } as any)).rejects.toThrow(ValidationError);
+      await expect(
+        processFileInput({ type: 'url', url: 'https://example.com/test.pdf' } as any),
+      ).rejects.toThrow(ValidationError);
     });
 
     it('should throw for null or undefined', async () => {
@@ -165,12 +196,16 @@ describe('Input Processing (Node.js only)', () => {
 
   describe('getPdfPageCount', () => {
     const cases = [
-      { name: 'PDF with 1 page', input: TestDocumentGenerator.generateSimplePdf("Text"), expected: 1 },
+      {
+        name: 'PDF with 1 page',
+        input: TestDocumentGenerator.generateSimplePdf('Text'),
+        expected: 1,
+      },
       { name: 'PDF with 6 pages', input: samplePDF, expected: 6 },
-    ]
+    ];
 
     it.each(cases)('should return $expected for $name', async (testCase) => {
       await expect(getPdfPageCount(testCase.input)).resolves.toEqual(testCase.expected);
-    })
-  })
+    });
+  });
 });

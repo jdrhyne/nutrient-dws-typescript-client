@@ -1,4 +1,4 @@
-import type {  NutrientClientOptions, RequestTypeMap, ResponseTypeMap } from '../types';
+import type { NutrientClientOptions, RequestTypeMap, ResponseTypeMap } from '../types';
 import { sendRequest } from '../http';
 import type { ResponseType } from 'axios';
 
@@ -31,7 +31,7 @@ export abstract class BaseBuilder<TResult = unknown> {
       },
       timeout,
     };
-    
+
     const response = await sendRequest(config, this.clientOptions, responseType);
     return response.data;
   }

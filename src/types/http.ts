@@ -3,54 +3,54 @@ import type { NormalizedFileData } from '../inputs';
 import type { ValueOf } from '@typescript-eslint/eslint-plugin/dist/util';
 
 export type RequestTypeMap = {
-  "GET": {
-    "/account/info": undefined;
-  }
-  "POST": {
-    "/build": {
+  GET: {
+    '/account/info': undefined;
+  };
+  POST: {
+    '/build': {
       instructions: components['schemas']['BuildInstructions'];
       files?: Map<string, NormalizedFileData>;
-    },
-    "/analyze_build": {
+    };
+    '/analyze_build': {
       instructions: components['schemas']['BuildInstructions'];
-    },
-    "/sign": {
+    };
+    '/sign': {
       file: NormalizedFileData;
       data?: components['schemas']['CreateDigitalSignature'];
       image?: NormalizedFileData;
       graphicImage?: NormalizedFileData;
-    }
-    "/ai/redact": {
+    };
+    '/ai/redact': {
       data: components['schemas']['RedactData'];
       fileKey?: string;
       file?: NormalizedFileData;
-    }
-    "/tokens": components['schemas']['CreateAuthTokenParameters']
-  }
-  "DELETE": {
-    "/tokens": {id: string}
-  }
-}
+    };
+    '/tokens': components['schemas']['CreateAuthTokenParameters'];
+  };
+  DELETE: {
+    '/tokens': { id: string };
+  };
+};
 
 export type ResponseTypeMap = {
-  "GET": {
-    "/account/info": operations['get-account-info']['responses']['200']['content']['application/json'];
-  }
-  "POST": {
-    "/build": ValueOf<components["responses"]["BuildResponseOk"]['content']>,
-    "/analyze_build": components["schemas"]["AnalyzeBuildResponse"],
-    "/sign": string,
-    "/ai/redact": string,
-    "/tokens": components['schemas']['CreateAuthTokenResponse'],
-  }
-  "DELETE": {
-    "/tokens": undefined
-  }
-}
+  GET: {
+    '/account/info': operations['get-account-info']['responses']['200']['content']['application/json'];
+  };
+  POST: {
+    '/build': ValueOf<components['responses']['BuildResponseOk']['content']>;
+    '/analyze_build': components['schemas']['AnalyzeBuildResponse'];
+    '/sign': string;
+    '/ai/redact': string;
+    '/tokens': components['schemas']['CreateAuthTokenResponse'];
+  };
+  DELETE: {
+    '/tokens': undefined;
+  };
+};
 
-
-export type Methods = keyof RequestTypeMap & keyof ResponseTypeMap
-export type Endpoints<Method extends Methods> =  keyof RequestTypeMap[Method] & keyof ResponseTypeMap[Method]
+export type Methods = keyof RequestTypeMap & keyof ResponseTypeMap;
+export type Endpoints<Method extends Methods> = keyof RequestTypeMap[Method] &
+  keyof ResponseTypeMap[Method];
 
 /**
  * HTTP request configuration for API calls

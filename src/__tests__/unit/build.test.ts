@@ -248,7 +248,7 @@ describe('BuildActions', () => {
           text: 'secret',
           caseSensitive: true,
           wholeWord: true,
-        }
+        },
       });
     });
   });
@@ -282,7 +282,7 @@ describe('BuildActions', () => {
         strategyOptions: {
           regex: '[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}',
           caseSensitive: false,
-        }
+        },
       });
     });
   });
@@ -316,7 +316,7 @@ describe('BuildActions', () => {
         strategyOptions: {
           preset: 'email-address',
           start: 1,
-        }
+        },
       });
     });
   });
@@ -335,7 +335,7 @@ describe('BuildOutputs', () => {
     it('should create PDF output with all options', () => {
       const options = {
         metadata: { title: 'Test Document' },
-        labels: [{pages: [0], label: 'Page I-III'}],
+        labels: [{ pages: [0], label: 'Page I-III' }],
         userPassword: 'user123',
         ownerPassword: 'owner123',
         userPermissions: ['print'] as string[] as components['schemas']['PDFUserPermission'][],
@@ -347,7 +347,7 @@ describe('BuildOutputs', () => {
       expect(output).toEqual({
         type: 'pdf',
         metadata: { title: 'Test Document' },
-        labels: [{pages: [0], label: 'Page I-III'}],
+        labels: [{ pages: [0], label: 'Page I-III' }],
         user_password: 'user123',
         owner_password: 'owner123',
         user_permissions: ['print'],
@@ -428,7 +428,7 @@ describe('BuildOutputs', () => {
     it('should create PDF/UA output with all options', () => {
       const options = {
         metadata: { title: 'Accessible Document' },
-        labels: [{pages: [0], label: 'Cover Page'}],
+        labels: [{ pages: [0], label: 'Cover Page' }],
         userPassword: 'user123',
         ownerPassword: 'owner123',
         userPermissions: ['print'] as string[] as components['schemas']['PDFUserPermission'][],
@@ -440,7 +440,7 @@ describe('BuildOutputs', () => {
       expect(output).toEqual({
         type: 'pdfua',
         metadata: { title: 'Accessible Document' },
-        labels: [{pages: [0], label: 'Cover Page'}],
+        labels: [{ pages: [0], label: 'Cover Page' }],
         user_password: 'user123',
         owner_password: 'owner123',
         user_permissions: ['print'],

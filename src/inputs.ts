@@ -16,7 +16,9 @@ export interface NormalizedFileData {
 /**
  * Processes various file input types into a normalized format (Node.js only)
  */
-export async function processFileInput(input: Exclude<FileInput, UrlInput>): Promise<NormalizedFileData> {
+export async function processFileInput(
+  input: Exclude<FileInput, UrlInput>,
+): Promise<NormalizedFileData> {
   if (typeof input === 'string') {
     return await processFilePathInput(input);
   }
@@ -49,7 +51,6 @@ export async function processFileInput(input: Exclude<FileInput, UrlInput>): Pro
 
   throw new ValidationError('Invalid file input provided', { input });
 }
-
 
 /**
  * Process Buffer (Node.js)
@@ -125,9 +126,7 @@ export function validateFileInput(input: unknown): input is FileInput {
 
   if (typeof input === 'object' && input !== null && 'type' in input) {
     const typedInput = input as { type: string };
-    return ['file-path', 'buffer', 'uint8array', 'url'].includes(
-      typedInput.type,
-    );
+    return ['file-path', 'buffer', 'uint8array', 'url'].includes(typedInput.type);
   }
 
   return false;
@@ -147,7 +146,9 @@ export function isRemoteFileInput(input: FileInput): input is UrlInput | string 
 /**
  * Process Remote File Input
  */
-export async function processRemoteFileInput(input: UrlInput | string): Promise<NormalizedFileData> {
+export async function processRemoteFileInput(
+  input: UrlInput | string,
+): Promise<NormalizedFileData> {
   let url: string;
   if (typeof input === 'string') {
     url = input;
@@ -164,7 +165,7 @@ export async function processRemoteFileInput(input: UrlInput | string): Promise<
 
 /**
  * Fetches data from a URL and returns it as a Buffer
- * 
+ *
  * @param url - The URL to fetch data from
  * @returns A Buffer containing the fetched data
  * @throws {ValidationError} If the fetch fails or returns a non-OK response
@@ -195,7 +196,7 @@ async function fetchFromUrl(url: string): Promise<Buffer> {
 
 /**
  * Zero dependency way to get the number of pages in a PDF.
- * 
+ *
  * @param pdfInput - File path, URL, Buffer, or Uint8Array. Has to be of a PDF file
  * @returns Number of pages in a PDF
  * @throws {ValidationError} If the input is not a valid PDF or if the page count cannot be determined
@@ -245,9 +246,12 @@ export async function getPdfPageCount(pdfInput: FileInput): Promise<number> {
         pdfBytes = await fetchFromUrl(pdfInput.url);
         break;
       default:
-        throw new ValidationError(`Unsupported input type: ${(pdfInput as { type: string }).type}`, {
-          input: pdfInput,
-        });
+        throw new ValidationError(
+          `Unsupported input type: ${(pdfInput as { type: string }).type}`,
+          {
+            input: pdfInput,
+          },
+        );
     }
   } else {
     throw new ValidationError('Invalid PDF input provided', { input: pdfInput });

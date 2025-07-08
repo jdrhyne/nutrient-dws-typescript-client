@@ -1,4 +1,3 @@
-
 /**
  * Represents a file path input (Node.js only)
  */
@@ -36,15 +35,14 @@ export interface UrlInput {
 /**
  * Union type for all possible file inputs (Node.js only)
  */
-export type FileInput = 
-  | FilePathInput 
-  | BufferInput 
-  | Uint8ArrayInput 
+export type FileInput =
+  | FilePathInput
+  | BufferInput
+  | Uint8ArrayInput
   | UrlInput
-  | Buffer        // Node.js Buffer
-  | Uint8Array    // Raw binary data
-  | string;       // File path or URL
-
+  | Buffer // Node.js Buffer
+  | Uint8Array // Raw binary data
+  | string; // File path or URL
 
 /**
  * Type guard to check if input is a Buffer

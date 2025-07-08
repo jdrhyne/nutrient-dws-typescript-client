@@ -3,10 +3,7 @@ export { NutrientClient } from './client';
 export { BuildActions, BuildOutputs } from './build';
 
 // Builder exports
-export {
-  WorkflowBuilder,
-  StagedWorkflowBuilder,
-} from './builders';
+export { WorkflowBuilder, StagedWorkflowBuilder } from './builders';
 
 // Error exports
 export {
@@ -40,7 +37,6 @@ export type {
   TypedWorkflowResult,
   WorkflowDryRunResult,
 } from './types';
-
 
 // Utility exports
 export { validateFileInput, processFileInput, type NormalizedFileData } from './inputs';

@@ -30,12 +30,36 @@ class CoverageAnalyzer {
   private initializeCoverageMap(): void {
     // Client convenience methods
     const convenienceMethods = [
-      'ocr', 'watermarkText', 'watermarkImage', 'convert', 'merge',
-      'extractText', 'extractTable', 'extractKeyValuePairs', 'flatten', 'rotate', 'workflow',
-      'getAccountInfo', 'createToken', 'deleteToken', 'signPdf', 'createRedactionsAI',
-      'passwordProtect', 'setMetadata', 'setPageLabels', 'applyInstantJson', 'applyXfdf',
-      'createRedactionsPreset', 'createRedactionsRegex', 'createRedactionsText', 'applyRedactions',
-      'addPage', 'optimize', 'splitPdf', 'duplicatePages', 'deletePages'
+      'ocr',
+      'watermarkText',
+      'watermarkImage',
+      'convert',
+      'merge',
+      'extractText',
+      'extractTable',
+      'extractKeyValuePairs',
+      'flatten',
+      'rotate',
+      'workflow',
+      'getAccountInfo',
+      'createToken',
+      'deleteToken',
+      'signPdf',
+      'createRedactionsAI',
+      'passwordProtect',
+      'setMetadata',
+      'setPageLabels',
+      'applyInstantJson',
+      'applyXfdf',
+      'createRedactionsPreset',
+      'createRedactionsRegex',
+      'createRedactionsText',
+      'applyRedactions',
+      'addPage',
+      'optimize',
+      'splitPdf',
+      'duplicatePages',
+      'deletePages',
     ];
 
     for (const method of convenienceMethods) {
@@ -45,16 +69,28 @@ class CoverageAnalyzer {
         hasUnitTest: false,
         hasIntegrationTest: false,
         hasE2ETest: false,
-        testFiles: []
+        testFiles: [],
       });
     }
 
     // Workflow builder methods
     const workflowMethods = [
-      'addFilePart', 'addHtmlPart', 'addNewPage', 'addDocumentPart',
-      'applyActions', 'applyAction', 'outputPdf', 'outputPdfA', 'outputPdfUA',
-      'outputImage', 'outputOffice', 'outputJson', 'outputHtml', 'outputMarkdown',
-      'execute', 'dryRun'
+      'addFilePart',
+      'addHtmlPart',
+      'addNewPage',
+      'addDocumentPart',
+      'applyActions',
+      'applyAction',
+      'outputPdf',
+      'outputPdfA',
+      'outputPdfUA',
+      'outputImage',
+      'outputOffice',
+      'outputJson',
+      'outputHtml',
+      'outputMarkdown',
+      'execute',
+      'dryRun',
     ];
 
     for (const method of workflowMethods) {
@@ -64,15 +100,23 @@ class CoverageAnalyzer {
         hasUnitTest: false,
         hasIntegrationTest: false,
         hasE2ETest: false,
-        testFiles: []
+        testFiles: [],
       });
     }
 
     // Build actions
     const buildActions = [
-      'ocr', 'rotate', 'watermarkText', 'watermarkImage', 'flatten',
-      'applyInstantJson', 'applyXfdf', 'createRedactionsText',
-      'createRedactionsRegex', 'createRedactionsPreset', 'applyRedactions'
+      'ocr',
+      'rotate',
+      'watermarkText',
+      'watermarkImage',
+      'flatten',
+      'applyInstantJson',
+      'applyXfdf',
+      'createRedactionsText',
+      'createRedactionsRegex',
+      'createRedactionsPreset',
+      'applyRedactions',
     ];
 
     for (const action of buildActions) {
@@ -82,7 +126,7 @@ class CoverageAnalyzer {
         hasUnitTest: false,
         hasIntegrationTest: false,
         hasE2ETest: false,
-        testFiles: []
+        testFiles: [],
       });
     }
   }
@@ -112,9 +156,10 @@ class CoverageAnalyzer {
 
   private analyzeTestFile(filename: string, content: string): void {
     // Determine test type
-    const isUnit = filename.includes('client.test') || 
-                   filename.includes('workflow.test') || 
-                   filename.includes('build.test');
+    const isUnit =
+      filename.includes('client.test') ||
+      filename.includes('workflow.test') ||
+      filename.includes('build.test');
     const isIntegration = filename.includes('integration.test');
     const isE2E = filename.includes('e2e');
 
@@ -125,10 +170,10 @@ class CoverageAnalyzer {
         new RegExp(`${methodPattern}\\s*\\(`),
         new RegExp(`\\.${methodPattern.split('\\.').pop()}\\s*\\(`),
         new RegExp(`describe\\s*\\(\\s*['"\`].*${methodPattern}.*['"\`]`),
-        new RegExp(`it\\s*\\(\\s*['"\`].*${methodPattern}.*['"\`]`)
+        new RegExp(`it\\s*\\(\\s*['"\`].*${methodPattern}.*['"\`]`),
       ];
 
-      const hasTest = patterns.some(pattern => pattern.test(content));
+      const hasTest = patterns.some((pattern) => pattern.test(content));
 
       if (hasTest) {
         if (isUnit) item.hasUnitTest = true;
@@ -158,18 +203,20 @@ class CoverageAnalyzer {
     // Generate summary
     report += '## Summary\n\n';
     const totalMethods = this.coverage.size;
-    const withUnit = Array.from(this.coverage.values()).filter(i => i.hasUnitTest).length;
-    const withIntegration = Array.from(this.coverage.values()).filter(i => i.hasIntegrationTest).length;
-    const withE2E = Array.from(this.coverage.values()).filter(i => i.hasE2ETest).length;
-    const fullyCovered = Array.from(this.coverage.values()).filter(i => 
-      i.hasUnitTest && (i.hasIntegrationTest || i.hasE2ETest)
+    const withUnit = Array.from(this.coverage.values()).filter((i) => i.hasUnitTest).length;
+    const withIntegration = Array.from(this.coverage.values()).filter(
+      (i) => i.hasIntegrationTest,
+    ).length;
+    const withE2E = Array.from(this.coverage.values()).filter((i) => i.hasE2ETest).length;
+    const fullyCovered = Array.from(this.coverage.values()).filter(
+      (i) => i.hasUnitTest && (i.hasIntegrationTest || i.hasE2ETest),
     ).length;
 
     report += `- Total API Methods: ${totalMethods}\n`;
-    report += `- Methods with Unit Tests: ${withUnit} (${((withUnit/totalMethods)*100).toFixed(1)}%)\n`;
-    report += `- Methods with Integration Tests: ${withIntegration} (${((withIntegration/totalMethods)*100).toFixed(1)}%)\n`;
-    report += `- Methods with E2E Tests: ${withE2E} (${((withE2E/totalMethods)*100).toFixed(1)}%)\n`;
-    report += `- Fully Covered Methods: ${fullyCovered} (${((fullyCovered/totalMethods)*100).toFixed(1)}%)\n\n`;
+    report += `- Methods with Unit Tests: ${withUnit} (${((withUnit / totalMethods) * 100).toFixed(1)}%)\n`;
+    report += `- Methods with Integration Tests: ${withIntegration} (${((withIntegration / totalMethods) * 100).toFixed(1)}%)\n`;
+    report += `- Methods with E2E Tests: ${withE2E} (${((withE2E / totalMethods) * 100).toFixed(1)}%)\n`;
+    report += `- Fully Covered Methods: ${fullyCovered} (${((fullyCovered / totalMethods) * 100).toFixed(1)}%)\n\n`;
 
     // Detailed coverage by category
     for (const [category, items] of categories) {
@@ -191,7 +238,7 @@ class CoverageAnalyzer {
     // Missing coverage section
     report += '## Missing E2E Coverage\n\n';
     const missingE2E = Array.from(this.coverage.values())
-      .filter(i => !i.hasE2ETest && !i.hasIntegrationTest)
+      .filter((i) => !i.hasE2ETest && !i.hasIntegrationTest)
       .sort((a, b) => a.category.localeCompare(b.category) || a.method.localeCompare(b.method));
 
     if (missingE2E.length === 0) {
@@ -221,7 +268,7 @@ class CoverageAnalyzer {
 
     for (const [file, methods] of fileMap) {
       report += `### ${file}\n`;
-      report += methods.map(m => `- ${m}`).join('\n');
+      report += methods.map((m) => `- ${m}`).join('\n');
       report += '\n\n';
     }
 
@@ -250,7 +297,9 @@ class CoverageAnalyzer {
     console.log('\n📊 Test Coverage Summary\n');
 
     const totalMethods = this.coverage.size;
-    const withE2E = Array.from(this.coverage.values()).filter(i => i.hasE2ETest || i.hasIntegrationTest).length;
+    const withE2E = Array.from(this.coverage.values()).filter(
+      (i) => i.hasE2ETest || i.hasIntegrationTest,
+    ).length;
     const percentage = ((withE2E / totalMethods) * 100).toFixed(1);
 
     // eslint-disable-next-line no-console

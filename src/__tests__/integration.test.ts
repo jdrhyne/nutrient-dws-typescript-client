@@ -1,7 +1,7 @@
 /**
  * Integration tests for NutrientClient
  * These tests demonstrate real-world usage patterns and ensure components work together
- * 
+ *
  * To run these tests with a live API:
  * 1. Set NUTRIENT_API_KEY environment variable
  * 2. Run: NUTRIENT_API_KEY=your_key npm test -- integration.test
@@ -15,7 +15,7 @@ import { sampleDOCX, samplePDF, samplePNG, TestDocumentGenerator } from './helpe
 import { getPdfPageCount } from '../inputs';
 
 // Skip integration tests in CI/automated environments unless explicitly enabled with valid API key
-const shouldRunIntegrationTests = Boolean(process.env["NUTRIENT_API_KEY"]);
+const shouldRunIntegrationTests = Boolean(process.env['NUTRIENT_API_KEY']);
 
 // Use conditional describe based on environment
 const describeIntegration = shouldRunIntegrationTests ? describe : describe.skip;
@@ -25,8 +25,8 @@ describeIntegration('Integration Tests with Live API', () => {
 
   beforeAll(() => {
     const options: NutrientClientOptions = {
-      apiKey: process.env["NUTRIENT_API_KEY"] ?? '',
-      baseUrl: process.env["NUTRIENT_BASE_URL"] ?? 'https://api.nutrient.io',
+      apiKey: process.env['NUTRIENT_API_KEY'] ?? '',
+      baseUrl: process.env['NUTRIENT_BASE_URL'] ?? 'https://api.nutrient.io',
     };
 
     client = new NutrientClient(options);
@@ -47,7 +47,7 @@ describeIntegration('Integration Tests with Live API', () => {
     describe('createToken()', () => {
       it('should create a new authentication token', async () => {
         const tokenParams = {
-          expirationTime: 0
+          expirationTime: 0,
         };
 
         const token = await client.createToken(tokenParams);
@@ -76,7 +76,7 @@ describeIntegration('Integration Tests with Live API', () => {
 
       it('should sign a PDF with custom image', async () => {
         const result = await client.signPdf(samplePDF, undefined, {
-          image: samplePNG
+          image: samplePNG,
         });
 
         expect(result).toBeDefined();
@@ -98,7 +98,10 @@ describeIntegration('Integration Tests with Live API', () => {
 
       it('should redact specific pages', async () => {
         // Test with specific pages
-        const result = await client.createRedactionsAI(samplePDF, "React Email", 'apply', { start: 1, end: 2 });
+        const result = await client.createRedactionsAI(samplePDF, 'React Email', 'apply', {
+          start: 1,
+          end: 2,
+        });
 
         expect(result).toBeDefined();
         expect(result.buffer).toBeInstanceOf(Uint8Array);
@@ -107,9 +110,9 @@ describeIntegration('Integration Tests with Live API', () => {
 
       it('should redact with page range', async () => {
         // Test with page range
-        const result = await client.createRedactionsAI(samplePDF, "React Email", 'stage', {
+        const result = await client.createRedactionsAI(samplePDF, 'React Email', 'stage', {
           start: 1,
-          end: 3
+          end: 3,
         });
 
         expect(result).toBeDefined();
@@ -121,36 +124,63 @@ describeIntegration('Integration Tests with Live API', () => {
 
   describe('Convenience Methods', () => {
     describe('convert()', () => {
-      const cases: {input: Buffer, inputType: Exclude<keyof OutputTypeMap, 'json-content'>, outputType: Exclude<keyof OutputTypeMap, 'json-content'>, expected: string}[] = [
-        {input: samplePDF, inputType: 'pdf', outputType: 'pdfa', expected: 'application/pdf'},
-        {input: samplePDF, inputType: 'pdf', outputType: 'pdfua', expected: 'application/pdf'},
-        {input: samplePDF, inputType: 'pdf', outputType: 'pdf', expected: 'application/pdf'},
-        {input: samplePDF, inputType: 'pdf', outputType: 'docx', expected: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'},
-        {input: samplePDF, inputType: 'pdf', outputType: 'xlsx', expected: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},
-        {input: samplePDF, inputType: 'pdf', outputType: 'pptx', expected: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'},
-        {input: sampleDOCX, inputType: 'docx', outputType: 'pdf', expected: 'application/pdf'},
-        {input: samplePDF, inputType: 'pdf', outputType: 'png', expected: 'image/png'},
-        {input: samplePDF, inputType: 'pdf', outputType: 'jpeg', expected: 'image/jpeg'},
+      const cases: {
+        input: Buffer;
+        inputType: Exclude<keyof OutputTypeMap, 'json-content'>;
+        outputType: Exclude<keyof OutputTypeMap, 'json-content'>;
+        expected: string;
+      }[] = [
+        { input: samplePDF, inputType: 'pdf', outputType: 'pdfa', expected: 'application/pdf' },
+        { input: samplePDF, inputType: 'pdf', outputType: 'pdfua', expected: 'application/pdf' },
+        { input: samplePDF, inputType: 'pdf', outputType: 'pdf', expected: 'application/pdf' },
+        {
+          input: samplePDF,
+          inputType: 'pdf',
+          outputType: 'docx',
+          expected: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        },
+        {
+          input: samplePDF,
+          inputType: 'pdf',
+          outputType: 'xlsx',
+          expected: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+        {
+          input: samplePDF,
+          inputType: 'pdf',
+          outputType: 'pptx',
+          expected: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        },
+        { input: sampleDOCX, inputType: 'docx', outputType: 'pdf', expected: 'application/pdf' },
+        { input: samplePDF, inputType: 'pdf', outputType: 'png', expected: 'image/png' },
+        { input: samplePDF, inputType: 'pdf', outputType: 'jpeg', expected: 'image/jpeg' },
         // {input: samplePDF, inputType: 'pdf', outputType: 'jpg', expected: 'image/jpeg'}, // FIXME: Upstream return image/jpg which is not a real type
-        {input: samplePDF, inputType: 'pdf', outputType: 'webp', expected: 'image/webp'},
+        { input: samplePDF, inputType: 'pdf', outputType: 'webp', expected: 'image/webp' },
         // {input: samplePDF, inputType: 'pdf', outputType: 'html', expected: 'text/html'}, // FIXME: 500 error upstream
-        {input: samplePDF, inputType: 'pdf', outputType: 'markdown', expected: 'text/markdown'},
-      ]
-      it.each(cases)('should convert $inputType to $outputType', async (testCase) => {
-        const result = await client.convert(testCase.input, testCase.outputType);
+        { input: samplePDF, inputType: 'pdf', outputType: 'markdown', expected: 'text/markdown' },
+      ];
+      it.each(cases)(
+        'should convert $inputType to $outputType',
+        async (testCase) => {
+          const result = await client.convert(testCase.input, testCase.outputType);
 
-        expect(result).toBeDefined();
-        if (testCase.outputType !== 'markdown' && testCase.outputType !== 'html') {
-          const typedResult = result as OutputTypeMap[Exclude<keyof OutputTypeMap, 'json-content' | 'markdown' | 'html'>];
-          // eslint-disable-next-line jest/no-conditional-expect
-          expect(typedResult.buffer).toBeInstanceOf(Uint8Array);
-        } else {
-          const typedResult = result as OutputTypeMap['markdown' | 'html'];
-          // eslint-disable-next-line jest/no-conditional-expect
-          expect(typedResult.content).toEqual(expect.any(String));
-        }
-        expect(result.mimeType).toBe(testCase.expected);
-      }, 90000);
+          expect(result).toBeDefined();
+          if (testCase.outputType !== 'markdown' && testCase.outputType !== 'html') {
+            const typedResult = result as OutputTypeMap[Exclude<
+              keyof OutputTypeMap,
+              'json-content' | 'markdown' | 'html'
+            >];
+            // eslint-disable-next-line jest/no-conditional-expect
+            expect(typedResult.buffer).toBeInstanceOf(Uint8Array);
+          } else {
+            const typedResult = result as OutputTypeMap['markdown' | 'html'];
+            // eslint-disable-next-line jest/no-conditional-expect
+            expect(typedResult.content).toEqual(expect.any(String));
+          }
+          expect(result.mimeType).toBe(testCase.expected);
+        },
+        90000,
+      );
     });
 
     describe('ocr()', () => {
@@ -217,7 +247,7 @@ describeIntegration('Integration Tests with Live API', () => {
           { imageOptimizationQuality: 1 }, // low
           { imageOptimizationQuality: 2 }, // medium
           { imageOptimizationQuality: 3 }, // high
-          { imageOptimizationQuality: 4, mrcCompression: true } // maximum
+          { imageOptimizationQuality: 4, mrcCompression: true }, // maximum
         ];
 
         for (const option of options) {
@@ -280,7 +310,7 @@ describeIntegration('Integration Tests with Live API', () => {
         .addFilePart(pdf1, undefined, [BuildActions.rotate(90)])
         .addHtmlPart(html)
         .addFilePart(pdf2)
-        .addNewPage({ layout: { size: 'A4'} })
+        .addNewPage({ layout: { size: 'A4' } })
         .applyActions([
           BuildActions.watermarkText('DRAFT', { opacity: 0.3 }),
           BuildActions.flatten(),
@@ -311,7 +341,6 @@ describeIntegration('Integration Tests with Live API', () => {
       expect(result.analysis?.required_features).toBeDefined();
     }, 30000);
 
-
     it('should execute workflow with redaction actions', async () => {
       const result = await client
         .workflow()
@@ -320,7 +349,7 @@ describeIntegration('Integration Tests with Live API', () => {
           // Create redactions using text search
           BuildActions.createRedactionsText('confidential', {}, { caseSensitive: false }),
           // Apply the created redactions
-          BuildActions.applyRedactions()
+          BuildActions.applyRedactions(),
         ])
         .outputPdf()
         .execute();
@@ -337,7 +366,7 @@ describeIntegration('Integration Tests with Live API', () => {
           // Create redactions using regex pattern
           BuildActions.createRedactionsRegex('\\d{3}-\\d{2}-\\d{4}', {}, { caseSensitive: false }),
           // Apply the created redactions
-          BuildActions.applyRedactions()
+          BuildActions.applyRedactions(),
         ])
         .outputPdf()
         .execute();
@@ -354,7 +383,7 @@ describeIntegration('Integration Tests with Live API', () => {
           // Create redactions using preset pattern
           BuildActions.createRedactionsPreset('email-address'),
           // Apply the created redactions
-          BuildActions.applyRedactions()
+          BuildActions.applyRedactions(),
         ])
         .outputPdf()
         .execute();
@@ -393,8 +422,8 @@ describeIntegration('Integration Tests with Live API', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle invalid file input gracefully',async () => {
-      await expect(client.convert(null as unknown as Buffer, 'pdf')).rejects.toThrow()
+    it('should handle invalid file input gracefully', async () => {
+      await expect(client.convert(null as unknown as Buffer, 'pdf')).rejects.toThrow();
     }, 15000);
 
     it('should handle API errors with proper error types', async () => {
@@ -402,7 +431,9 @@ describeIntegration('Integration Tests with Live API', () => {
         apiKey: 'invalid-api-key',
       });
 
-      await expect(invalidClient.convert(Buffer.from('test'), 'pdf')).rejects.toThrow('HTTP 401: Unauthorized')
+      await expect(invalidClient.convert(Buffer.from('test'), 'pdf')).rejects.toThrow(
+        'HTTP 401: Unauthorized',
+      );
     }, 15000);
 
     it('should handle network timeouts', async () => {

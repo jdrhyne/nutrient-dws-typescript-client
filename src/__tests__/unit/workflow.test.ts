@@ -116,10 +116,12 @@ describe('WorkflowBuilder', () => {
       expect(registerAssetsSpy).not.toHaveBeenCalled();
 
       // Verify the file part was added with the URL
-      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+      expect(
+        workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1],
+      ).toEqual(
         expect.objectContaining({
-          file: { url: urlString }
-        })
+          file: { url: urlString },
+        }),
       );
 
       registerAssetsSpy.mockRestore();
@@ -139,10 +141,12 @@ describe('WorkflowBuilder', () => {
       expect(registerAssetsSpy).not.toHaveBeenCalled();
 
       // Verify the file part was added with the URL
-      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+      expect(
+        workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1],
+      ).toEqual(
         expect.objectContaining({
-          file: { url: urlObject.url }
-        })
+          file: { url: urlObject.url },
+        }),
       );
 
       registerAssetsSpy.mockRestore();
@@ -160,7 +164,7 @@ describe('WorkflowBuilder', () => {
       const result = workflow.addHtmlPart(
         Buffer.from('<html><body>Hello</body></html>'),
         { assets: ['style.css'] },
-        [BuildActions.rotate(90)]
+        [BuildActions.rotate(90)],
       );
 
       expect(result).toBe(workflow);
@@ -180,10 +184,12 @@ describe('WorkflowBuilder', () => {
       expect(registerAssetsSpy).not.toHaveBeenCalled();
 
       // Verify the HTML part was added with the URL
-      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+      expect(
+        workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1],
+      ).toEqual(
         expect.objectContaining({
-          html: { url: urlString }
-        })
+          html: { url: urlString },
+        }),
       );
 
       registerAssetsSpy.mockRestore();
@@ -203,10 +209,12 @@ describe('WorkflowBuilder', () => {
       expect(registerAssetsSpy).not.toHaveBeenCalled();
 
       // Verify the HTML part was added with the URL
-      expect(workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1]).toEqual(
+      expect(
+        workflow['buildInstructions'].parts[workflow['buildInstructions'].parts.length - 1],
+      ).toEqual(
         expect.objectContaining({
-          html: { url: urlObject.url }
-        })
+          html: { url: urlObject.url },
+        }),
       );
 
       registerAssetsSpy.mockRestore();
@@ -221,10 +229,7 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should add new page with options and actions', () => {
-      const result = workflow.addNewPage(
-        { pageCount: 3 },
-        [BuildActions.rotate(90)]
-      );
+      const result = workflow.addNewPage({ pageCount: 3 }, [BuildActions.rotate(90)]);
 
       expect(result).toBe(workflow);
     });
@@ -238,11 +243,9 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should add document part with options and actions', () => {
-      const result = workflow.addDocumentPart(
-        'doc-id-123',
-        { layer: 'layer1' },
-        [BuildActions.rotate(90)]
-      );
+      const result = workflow.addDocumentPart('doc-id-123', { layer: 'layer1' }, [
+        BuildActions.rotate(90),
+      ]);
 
       expect(result).toBe(workflow);
     });
@@ -250,10 +253,7 @@ describe('WorkflowBuilder', () => {
 
   describe('applyActions', () => {
     it('should apply actions to workflow', () => {
-      const result = workflow.applyActions([
-        BuildActions.ocr('english'),
-        BuildActions.flatten()
-      ]);
+      const result = workflow.applyActions([BuildActions.ocr('english'), BuildActions.flatten()]);
 
       expect(result).toBe(workflow);
     });
@@ -373,7 +373,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
-        'arraybuffer'
+        'arraybuffer',
       );
     });
 
@@ -415,7 +415,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
-        'arraybuffer'
+        'arraybuffer',
       );
     });
 
@@ -450,16 +450,18 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
-        'json'
+        'json',
       );
     });
 
     it('should execute watermark workflow with correct action', async () => {
-      workflow.applyAction(BuildActions.watermarkText('CONFIDENTIAL', {
-        width: { value: 50, unit: '%' },
-        height: { value: 50, unit: '%' },
-        opacity: 0.5,
-      }));
+      workflow.applyAction(
+        BuildActions.watermarkText('CONFIDENTIAL', {
+          width: { value: 50, unit: '%' },
+          height: { value: 50, unit: '%' },
+          opacity: 0.5,
+        }),
+      );
 
       const mockBlob = new Blob(['watermarked'], { type: 'application/pdf' });
       mockSendRequest.mockResolvedValueOnce({
@@ -487,7 +489,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
-        'arraybuffer'
+        'arraybuffer',
       );
     });
 
@@ -525,7 +527,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
-        'arraybuffer'
+        'arraybuffer',
       );
     });
 
@@ -558,7 +560,9 @@ describe('WorkflowBuilder', () => {
       expect(result.success).toBe(true);
       expect(result.output).toBeDefined();
       expect(result.output?.buffer).toBeInstanceOf(Uint8Array);
-      expect(result.output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      expect(result.output?.mimeType).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
     });
 
     it('should handle Build API errors', async () => {
@@ -606,7 +610,7 @@ describe('WorkflowBuilder', () => {
           timeout: 60000,
         }),
         mockClientOptions,
-        'arraybuffer'
+        'arraybuffer',
       );
     });
   });
@@ -625,7 +629,9 @@ describe('WorkflowBuilder', () => {
 
       const { output } = await workflow.execute();
       expect(output?.buffer).toBeInstanceOf(Uint8Array);
-      expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      expect(output?.mimeType).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
     });
 
     it('should get workflow output', async () => {
@@ -643,7 +649,9 @@ describe('WorkflowBuilder', () => {
 
       expect(output).toBeDefined();
       expect(output?.buffer).toBeInstanceOf(Uint8Array);
-      expect(output?.mimeType).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      expect(output?.mimeType).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
     });
 
     it('should set correct mimetype for JSON output', async () => {
@@ -660,9 +668,11 @@ describe('WorkflowBuilder', () => {
       const result = await workflow.execute();
 
       expect(result.success).toBe(true);
-      expect(result.output).toEqual(expect.objectContaining({
-        data: expect.any(Object),
-      }));
+      expect(result.output).toEqual(
+        expect.objectContaining({
+          data: expect.any(Object),
+        }),
+      );
     });
 
     it('should fallback to determined mimetype when content-type header is missing', async () => {
@@ -698,18 +708,18 @@ describe('WorkflowBuilder', () => {
               unit_cost: 2,
               units: 1,
               cost: 2,
-              usage: ['$.actions[0]']
-            }
+              usage: ['$.actions[0]'],
+            },
           ],
           annotation_api: [
             {
               unit_cost: 0.5,
               units: 3,
               cost: 1.5,
-              usage: ['$.parts[0].actions[0]']
-            }
-          ]
-        }
+              usage: ['$.parts[0].actions[0]'],
+            },
+          ],
+        },
       };
 
       mockSendRequest.mockResolvedValueOnce({
@@ -740,7 +750,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
-        'json'
+        'json',
       );
     });
 
@@ -758,18 +768,18 @@ describe('WorkflowBuilder', () => {
               unit_cost: 2,
               units: 2,
               cost: 4,
-              usage: ['$.actions[0]']
-            }
+              usage: ['$.actions[0]'],
+            },
           ],
           document_editor_api: [
             {
               unit_cost: 1.5,
               units: 1,
               cost: 1.5,
-              usage: ['$.parts[1].actions[0]']
-            }
-          ]
-        }
+              usage: ['$.parts[1].actions[0]'],
+            },
+          ],
+        },
       };
 
       mockSendRequest.mockResolvedValueOnce({
@@ -811,7 +821,7 @@ describe('WorkflowBuilder', () => {
           }),
         }),
         mockClientOptions,
-        'json'
+        'json',
       );
     });
 
@@ -833,7 +843,7 @@ describe('WorkflowBuilder', () => {
           timeout,
         }),
         mockClientOptions,
-        'json'
+        'json',
       );
     });
 
