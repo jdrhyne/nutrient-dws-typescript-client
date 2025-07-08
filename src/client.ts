@@ -23,6 +23,37 @@ import type { NormalizedFileData } from './inputs';
 import type { ApplicableAction } from './builders/workflow';
 
 /**
+ * Normalizes page parameters according to the requirements:
+ * - start and end are inclusive
+ * - start defaults to 0 (first page)
+ * - end defaults to -1 (last page)
+ * - negative end values loop from the end of the document
+ * 
+ * @param pages - The page parameters to normalize
+ * @param pageCount - The total number of pages in the document (required for negative indices)
+ * @returns Normalized page parameters
+ * @private
+ */
+function normalizePageParams(
+  pages?: { start?: number; end?: number },
+  pageCount?: number
+): { start: number; end: number } {
+  let start = pages?.start ?? 0;
+  let end = pages?.end ?? -1;
+
+  // Handle negative end values if pageCount is provided
+  if (pageCount !== undefined && start < 0) {
+    start = pageCount + start;
+  }
+
+  if (pageCount !== undefined && end < 0) {
+    end = pageCount + end;
+  }
+
+  return { start, end };
+}
+
+/**
  * Main client for interacting with the Nutrient Document Web Services API.
  *
  * @example
@@ -241,7 +272,9 @@ export class NutrientClient {
    * @param file - The file to redact
    * @param criteria - AI redaction criteria
    * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional pages to redact
+   * @param pages - Optional pages to redact. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @param options - Optional redaction options
    * @returns Promise resolving to the redacted document
    *
@@ -265,7 +298,15 @@ export class NutrientClient {
    *   'document.pdf',
    *   'Remove all PII',
    *   'stage',
-   *   { start: 0, end: 2 }
+   *   { start: 0, end: 2 }  // Pages 0, 1, 2
+   * );
+   * 
+   * // Redact the last 3 pages
+   * const result = await client.createRedactionsAI(
+   *   'document.pdf',
+   *   'Remove all PII',
+   *   'stage',
+   *   { start: -3, end: -1 }  // Last three pages
    * );
    * ```
    */
@@ -289,7 +330,7 @@ export class NutrientClient {
             documents: [
               {
                 file: 'file',
-                pages: pages ? { start: pages.start ?? 0, end: pages.end ?? -1 } : undefined,
+                pages: pages ? normalizePageParams(pages) : undefined,
               },
             ],
             criteria,
@@ -599,7 +640,9 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param file - The file to extract text from
-   * @param pages - Optional page range to extract text from
+   * @param pages - Optional page range to extract text from. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @returns Promise resolving to the extracted text data
    *
    * @example
@@ -608,15 +651,22 @@ export class NutrientClient {
    * console.log(result.data);
    *
    * // Extract text from specific pages
-   * const result = await client.extractText('document.pdf', { start: 0, end: 2 }); // First 3 pages
+   * const result = await client.extractText('document.pdf', { start: 0, end: 2 }); // Pages 0, 1, 2
+   * 
+   * // Extract text from the last page
+   * const result = await client.extractText('document.pdf', { end: -1 }); // Last page
+   * 
+   * // Extract text from the second-to-last page to the end
+   * const result = await client.extractText('document.pdf', { start: -2 }); // Second-to-last and last page
    * ```
    */
   async extractText(
     file: FileInput,
     pages?: { start?: number; end?: number },
   ): Promise<OutputTypeMap['json-content']> {
+    const normalizedPages = pages ? normalizePageParams(pages) : undefined;
     const result = await this.workflow()
-      .addFilePart(file, pages ? { pages } : undefined)
+      .addFilePart(file, normalizedPages ? { pages: normalizedPages } : undefined)
       .outputJson({ plainText: true, tables: false })
       .execute();
     return this.processTypedWorkflowResult<'json-content'>(result);
@@ -627,7 +677,9 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param file - The file to extract table from
-   * @param pages - Optional page range to extract tables from
+   * @param pages - Optional page range to extract tables from. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @returns Promise resolving to the extracted table data
    *
    * @example
@@ -636,15 +688,22 @@ export class NutrientClient {
    * console.log(result.data);
    *
    * // Extract tables from specific pages
-   * const result = await client.extractTable('document.pdf', { start: 0, end: 2 }); // First 3 pages
+   * const result = await client.extractTable('document.pdf', { start: 0, end: 2 }); // Pages 0, 1, 2
+   * 
+   * // Extract tables from the last page
+   * const result = await client.extractTable('document.pdf', { end: -1 }); // Last page
+   * 
+   * // Extract tables from the second-to-last page to the end
+   * const result = await client.extractTable('document.pdf', { start: -2 }); // Second-to-last and last page
    * ```
    */
   async extractTable(
     file: FileInput,
     pages?: { start?: number; end?: number },
   ): Promise<OutputTypeMap['json-content']> {
+    const normalizedPages = pages ? normalizePageParams(pages) : undefined;
     const result = await this.workflow()
-      .addFilePart(file, pages ? { pages } : undefined)
+      .addFilePart(file, normalizedPages ? { pages: normalizedPages } : undefined)
       .outputJson({ plainText: false, tables: true })
       .execute();
     return this.processTypedWorkflowResult<'json-content'>(result);
@@ -655,7 +714,9 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param file - The file to extract KVPs from
-   * @param pages - Optional page range to extract KVPs from
+   * @param pages - Optional page range to extract KVPs from. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @returns Promise resolving to the extracted KVPs data
    *
    * @example
@@ -664,15 +725,22 @@ export class NutrientClient {
    * console.log(result.data);
    *
    * // Extract KVPs from specific pages
-   * const result = await client.extractKeyValuePairs('document.pdf', { start: 0, end: 2 }); // First 3 pages
+   * const result = await client.extractKeyValuePairs('document.pdf', { start: 0, end: 2 }); // Pages 0, 1, 2
+   * 
+   * // Extract KVPs from the last page
+   * const result = await client.extractKeyValuePairs('document.pdf', { end: -1 }); // Last page
+   * 
+   * // Extract KVPs from the second-to-last page to the end
+   * const result = await client.extractKeyValuePairs('document.pdf', { start: -2 }); // Second-to-last and last page
    * ```
    */
   async extractKeyValuePairs(
     file: FileInput,
     pages?: { start?: number; end?: number },
   ): Promise<OutputTypeMap['json-content']> {
+    const normalizedPages = pages ? normalizePageParams(pages) : undefined;
     const result = await this.workflow()
-      .addFilePart(file, pages ? { pages } : undefined)
+      .addFilePart(file, normalizedPages ? { pages: normalizedPages } : undefined)
       .outputJson({ plainText: false, tables: false, keyValuePairs: true })
       .execute();
     return this.processTypedWorkflowResult<'json-content'>(result);
@@ -705,27 +773,57 @@ export class NutrientClient {
    * Rotates pages in a document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The file to rotate
+   * @param pdf - The file to rotate
    * @param angle - Rotation angle (90, 180, or 270 degrees)
-   * @param pages - Optional page range to rotate (e.g., { start: 1, end: 3 })
-   * @returns Promise resolving to the rotated document
+   * @param pages - Optional page range to rotate. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
+   * @returns Promise resolving to the entire document with specified pages rotated
    *
    * @example
    * ```typescript
    * const result = await client.rotate('document.pdf', 90);
-   * // Or rotate specific pages:
-   * const result = await client.rotate('document.pdf', 90, { start: 1, end: 3 });
+   * 
+   * // Rotate specific pages:
+   * const result = await client.rotate('document.pdf', 90, { start: 1, end: 3 }); // Pages 1, 2, 3
+   * 
+   * // Rotate the last page:
+   * const result = await client.rotate('document.pdf', 90, { end: -1 }); // Last page
+   * 
+   * // Rotate from page 2 to the second-to-last page:
+   * const result = await client.rotate('document.pdf', 90, { start: 2, end: -2 });
    * ```
    */
   async rotate(
-    file: FileInput,
+    pdf: FileInput,
     angle: 90 | 180 | 270,
     pages?: { start?: number; end?: number },
   ): Promise<WorkflowOutput> {
     const rotateAction = BuildActions.rotate(angle);
+    const workflow = this.workflow();
 
-    const result = await this.workflow()
-      .addFilePart(file, pages ? { pages } : undefined, [rotateAction])
+    if (pages) {
+      const pageCount = await getPdfPageCount(pdf);
+      const normalizedPages = normalizePageParams(pages, pageCount);
+
+      // Add pages before the range to rotate
+      if (normalizedPages.start > 0) {
+        workflow.addFilePart(pdf, { pages: { start: 0, end: normalizedPages.start - 1 } });
+      }
+
+      // Add the specific pages with rotation action
+      workflow.addFilePart(pdf, { pages: normalizedPages }, [rotateAction]);
+
+      // Add pages after the range to rotate
+      if (normalizedPages.end < pageCount - 1) {
+        workflow.addFilePart(pdf, { pages: { start: normalizedPages.end + 1, end: pageCount - 1 } });
+      }
+    } else {
+      // If no pages specified, rotate the entire document
+      workflow.addFilePart(pdf, undefined, [rotateAction]);
+    }
+
+    const result = await (workflow as WorkflowWithPartsStage)
       .outputPdf()
       .execute();
     return this.processWorkflowResult(result);
@@ -877,10 +975,12 @@ export class NutrientClient {
    * Creates redaction annotations based on a preset pattern
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to create redactions in
+   * @param pdf - The PDF file to create redactions in
    * @param preset - The preset pattern to search for (e.g., 'email-address', 'social-security-number')
    * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional page range to create redactions in
+   * @param pages - Optional page range to create redactions in. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @param presetOptions - Optional settings for the preset strategy
    * @param options - Optional settings for creating redactions
    * @returns Promise resolving to the document with redaction annotations
@@ -888,18 +988,27 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.createRedactionsPreset('document.pdf', 'email-address');
+   * 
    * // Or with options:
    * const result = await client.createRedactionsPreset(
    *   'document.pdf',
    *   'social-security-number',
    *   'stage',
-   *   { start: 0, end: 4 },
+   *   { start: 0, end: 4 },  // Pages 0, 1, 2, 3, 4
    *   { includeAnnotations: true }
+   * );
+   * 
+   * // Create redactions on the last 3 pages:
+   * const result = await client.createRedactionsPreset(
+   *   'document.pdf',
+   *   'email-address',
+   *   'stage',
+   *   { start: -3, end: -1 }  // Last three pages
    * );
    * ```
    */
   async createRedactionsPreset(
-    file: FileInput,
+    pdf: FileInput,
     preset: components['schemas']['SearchPreset'],
     redaction_state: 'stage' | 'apply' = 'stage',
     pages?: { start?: number; end?: number },
@@ -912,9 +1021,13 @@ export class NutrientClient {
       'type' | 'strategyOptions' | 'strategy'
     >,
   ): Promise<WorkflowOutput> {
+    // Get page count for handling negative indices
+    const pageCount = pages?.end && pages.end < 0 ? await getPdfPageCount(pdf) : undefined;
+    const normalizedPages = normalizePageParams(pages, pageCount);
+
     const createRedactionsAction = BuildActions.createRedactionsPreset(preset, options, {
-      start: pages?.start ?? undefined,
-      limit: pages?.end ? pages.end - (pages?.start ?? 0) + 1 : undefined,
+      start: normalizedPages.start,
+      limit: normalizedPages.end >= 0 ? normalizedPages.end - normalizedPages.start + 1 : undefined,
       ...presetOptions,
     });
     const actions: ApplicableAction[] = [createRedactionsAction];
@@ -924,7 +1037,7 @@ export class NutrientClient {
     }
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, actions)
+      .addFilePart(pdf, undefined, actions)
       .outputPdf()
       .execute();
     return this.processWorkflowResult(result);
@@ -934,10 +1047,12 @@ export class NutrientClient {
    * Creates redaction annotations based on a regular expression
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to create redactions in
+   * @param pdf - The PDF file to create redactions in
    * @param regex - The regular expression to search for
    * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional page range to create redactions in
+   * @param pages - Optional page range to create redactions in. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @param regrexOptions - Optional settings for the regex strategy
    * @param options - Optional settings for creating redactions
    * @returns Promise resolving to the document with redaction annotations
@@ -945,18 +1060,27 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.createRedactionsRegex('document.pdf', 'Account:\\s*\\d{8,12}');
+   * 
    * // Or with options:
    * const result = await client.createRedactionsRegex(
    *   'document.pdf',
    *   'Account:\\s*\\d{8,12}',
    *   'stage',
-   *   { start: 0, end: 4 },
+   *   { start: 0, end: 4 },  // Pages 0, 1, 2, 3, 4
    *   { caseSensitive: false, includeAnnotations: true }
+   * );
+   * 
+   * // Create redactions on the last 3 pages:
+   * const result = await client.createRedactionsRegex(
+   *   'document.pdf',
+   *   'Account:\\s*\\d{8,12}',
+   *   'stage',
+   *   { start: -3, end: -1 }  // Last three pages
    * );
    * ```
    */
   async createRedactionsRegex(
-    file: FileInput,
+    pdf: FileInput,
     regex: string,
     redaction_state: 'stage' | 'apply' = 'stage',
     pages?: { start?: number; end?: number },
@@ -969,9 +1093,13 @@ export class NutrientClient {
       'type' | 'strategyOptions' | 'strategy'
     >,
   ): Promise<WorkflowOutput> {
+    // Get page count for handling negative indices
+    const pageCount = pages?.end && pages.end < 0 ? await getPdfPageCount(pdf) : undefined;
+    const normalizedPages = normalizePageParams(pages, pageCount);
+
     const createRedactionsAction = BuildActions.createRedactionsRegex(regex, options, {
-      start: pages?.start ?? undefined,
-      limit: pages?.end ? pages.end - (pages?.start ?? 0) + 1 : undefined,
+      start: normalizedPages.start,
+      limit: normalizedPages.end >= 0 ? normalizedPages.end - normalizedPages.start + 1 : undefined,
       ...regrexOptions,
     });
     const actions: ApplicableAction[] = [createRedactionsAction];
@@ -981,7 +1109,7 @@ export class NutrientClient {
     }
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, actions)
+      .addFilePart(pdf, undefined, actions)
       .outputPdf()
       .execute();
     return this.processWorkflowResult(result);
@@ -991,10 +1119,12 @@ export class NutrientClient {
    * Creates redaction annotations based on text
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to create redactions in
+   * @param pdf - The PDF file to create redactions in
    * @param text - The text to search for
    * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional page range to create redactions in
+   * @param pages - Optional page range to create redactions in. 
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @param textOptions - Optional settings for the text strategy
    * @param options - Optional settings for creating redactions
    * @returns Promise resolving to the document with redaction annotations
@@ -1002,18 +1132,27 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.createRedactionsText('document.pdf', 'email@example.com');
+   * 
    * // Or with options:
    * const result = await client.createRedactionsText(
    *   'document.pdf',
    *   'email@example.com',
    *   'stage',
-   *   { start: 0, end: 4 },
+   *   { start: 0, end: 4 },  // Pages 0, 1, 2, 3, 4
    *   { caseSensitive: false, includeAnnotations: true }
+   * );
+   * 
+   * // Create redactions on the last 3 pages:
+   * const result = await client.createRedactionsText(
+   *   'document.pdf',
+   *   'email@example.com',
+   *   'stage',
+   *   { start: -3, end: -1 }  // Last three pages
    * );
    * ```
    */
   async createRedactionsText(
-    file: FileInput,
+    pdf: FileInput,
     text: string,
     redaction_state: 'stage' | 'apply' = 'stage',
     pages?: { start?: number; end?: number },
@@ -1026,9 +1165,13 @@ export class NutrientClient {
       'type' | 'strategyOptions' | 'strategy'
     >,
   ): Promise<WorkflowOutput> {
+    // Get page count for handling negative indices
+    const pageCount = pages?.end && pages.end < 0 ? await getPdfPageCount(pdf) : undefined;
+    const normalizedPages = normalizePageParams(pages, pageCount);
+
     const createRedactionsAction = BuildActions.createRedactionsText(text, options, {
-      start: pages?.start ?? undefined,
-      limit: pages?.end ? pages.end - (pages?.start ?? 0) + 1 : undefined,
+      start: normalizedPages.start,
+      limit: normalizedPages.end >= 0 ? normalizedPages.end - normalizedPages.start + 1 : undefined,
       ...textOptions,
     });
     const actions: ApplicableAction[] = [createRedactionsAction];
@@ -1038,7 +1181,7 @@ export class NutrientClient {
     }
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, actions)
+      .addFilePart(pdf, undefined, actions)
       .outputPdf()
       .execute();
     return this.processWorkflowResult(result);
@@ -1070,7 +1213,7 @@ export class NutrientClient {
    * Adds blank pages to a document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to add pages to
+   * @param pdf - The PDF file to add pages to
    * @param count - The number of blank pages to add
    * @param index - Optional index where to add the blank pages (0-based). If not provided, pages are added at the end.
    * @returns Promise resolving to the document with added pages
@@ -1084,12 +1227,12 @@ export class NutrientClient {
    * const result = await client.addPage('document.pdf', 1, 1);
    * ```
    */
-  async addPage(file: FileInput, count: number = 1, index?: number): Promise<WorkflowOutput> {
+  async addPage(pdf: FileInput, count: number = 1, index?: number): Promise<WorkflowOutput> {
     let result: WorkflowResult;
 
     // If no index is provided or it's the end of the document, simply add pages at the end
     if (index === undefined) {
-      const builder = this.workflow().addFilePart(file);
+      const builder = this.workflow().addFilePart(pdf);
 
       // Add the specified number of blank pages
       builder.addNewPage({ pageCount: count });
@@ -1097,10 +1240,10 @@ export class NutrientClient {
       result = await builder.outputPdf().execute();
     } else {
       // Get the actual page count of the PDF
-      const pageCount = await getPdfPageCount(file);
+      const pageCount = await getPdfPageCount(pdf);
 
       // Validate that the index is within range
-      if (index < 0 || index > pageCount) {
+      if (index < -pageCount || index > pageCount) {
         throw new ValidationError(
           `Index ${index} is out of range (document has ${pageCount} pages)`,
         );
@@ -1110,7 +1253,8 @@ export class NutrientClient {
 
       // Add pages before the specified index
       if (index > 0) {
-        builder.addFilePart(file, { pages: { start: 0, end: index - 1 } });
+        const beforePages = normalizePageParams({ start: 0, end: index - 1 }, pageCount);
+        builder.addFilePart(pdf, { pages: beforePages });
       }
 
       // Add the blank pages
@@ -1118,7 +1262,8 @@ export class NutrientClient {
 
       // Add pages after the specified index
       if (index < pageCount) {
-        builder.addFilePart(file, { pages: { start: index, end: pageCount - 1 } });
+        const afterPages = normalizePageParams({ start: index, end: pageCount - 1 }, pageCount);
+        builder.addFilePart(pdf, { pages: afterPages });
       }
 
       result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
@@ -1159,15 +1304,24 @@ export class NutrientClient {
    * Splits a PDF document into multiple parts based on page ranges
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to split
-   * @param pageRanges - Array of page ranges to extract
+   * @param pdf - The PDF file to split
+   * @param pageRanges - Array of page ranges to extract.
+   *                    For each range, start defaults to 0 (first page), end defaults to -1 (last page).
+   *                    Both start and end are inclusive. Negative end values count from the end of the document.
    * @returns Promise resolving to an array of PDF documents, one for each page range
    *
    * @example
    * ```typescript
    * const results = await client.splitPdf('document.pdf', [
-   *   { start: 0, end: 2 },  // Pages 1-3
-   *   { start: 3, end: 5 }   // Pages 4-6
+   *   { start: 0, end: 2 },  // Pages 0, 1, 2
+   *   { start: 3, end: 5 }   // Pages 3, 4, 5
+   * ]);
+   * 
+   * // Split using negative indices
+   * const results = await client.splitPdf('document.pdf', [
+   *   { start: 0, end: 2 },     // First three pages
+   *   { start: 3, end: -3 },    // Middle pages
+   *   { start: -2, end: -1 }    // Last two pages
    * ]);
    *
    * // Process each resulting PDF
@@ -1178,21 +1332,24 @@ export class NutrientClient {
    * ```
    */
   async splitPdf(
-    file: FileInput,
-    pageRanges: { start: number; end: number }[],
+    pdf: FileInput,
+    pageRanges: { start?: number; end?: number }[],
   ): Promise<WorkflowOutput[]> {
     if (!pageRanges || pageRanges.length === 0) {
       throw new ValidationError('At least one page range is required for splitting');
     }
 
     // Get the actual page count of the PDF
-    const pageCount = await getPdfPageCount(file);
+    const pageCount = await getPdfPageCount(pdf);
+
+    // Normalize and validate all page ranges
+    const normalizedRanges = pageRanges.map(range => normalizePageParams(range, pageCount));
 
     // Validate that all page ranges are within bounds
-    for (const range of pageRanges) {
-      if (range.start < 0 || range.end >= pageCount || range.start > range.end) {
+    for (const range of normalizedRanges) {
+      if (range.start > range.end) {
         throw new ValidationError(
-          `Page range ${JSON.stringify(range)} is invalid (document has ${pageCount} pages)`,
+          `Page range ${JSON.stringify(range)} is invalid (start > end)`,
         );
       }
     }
@@ -1200,9 +1357,9 @@ export class NutrientClient {
     // Create a separate workflow for each page range
     const workflows: Promise<WorkflowResult>[] = [];
 
-    for (const range of pageRanges) {
+    for (const range of normalizedRanges) {
       const builder = this.workflow();
-      builder.addFilePart(file, { pages: range });
+      builder.addFilePart(pdf, { pages: range });
       workflows.push((builder as WorkflowWithPartsStage).outputPdf().execute());
     }
 
@@ -1215,8 +1372,9 @@ export class NutrientClient {
    * Creates a new PDF containing only the specified pages in the order provided
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to extract pages from
-   * @param pageIndices - Array of page indices to include in the new PDF (0-based)
+   * @param pdf - The PDF file to extract pages from
+   * @param pageIndices - Array of page indices to include in the new PDF (0-based).
+   *                     Negative indices count from the end of the document (e.g., -1 is the last page).
    * @returns Promise resolving to a new document with only the specified pages
    *
    * @example
@@ -1229,28 +1387,45 @@ export class NutrientClient {
    *
    * // Create a new PDF with duplicated pages
    * const result = await client.duplicatePages('document.pdf', [0, 0, 1, 1, 0]);
+   * 
+   * // Create a new PDF with the first and last pages
+   * const result = await client.duplicatePages('document.pdf', [0, -1]);
+   * 
+   * // Create a new PDF with the last three pages in reverse order
+   * const result = await client.duplicatePages('document.pdf', [-1, -2, -3]);
    * ```
    */
-  async duplicatePages(file: FileInput, pageIndices: number[]): Promise<WorkflowOutput> {
+  async duplicatePages(pdf: FileInput, pageIndices: number[]): Promise<WorkflowOutput> {
     if (!pageIndices || pageIndices.length === 0) {
       throw new ValidationError('At least one page index is required for duplication');
     }
 
     // Get the actual page count of the PDF
-    const pageCount = await getPdfPageCount(file);
+    const pageCount = await getPdfPageCount(pdf);
+
+    // Normalize negative indices
+    const normalizedIndices = pageIndices.map(index => {
+      if (index < 0) {
+        // Handle negative indices (e.g., -1 is the last page)
+        return pageCount + index;
+      }
+      return index;
+    });
 
     // Validate that all page indices are within range
-    if (pageIndices.some((index) => index < 0 || index >= pageCount)) {
+    if (normalizedIndices.some((index) => index < 0 || index >= pageCount)) {
       throw new ValidationError(
-        `Page indices ${pageIndices.toString()} is out of range (document has ${pageCount} pages)`,
+        `Page indices ${pageIndices.toString()} are out of range (document has ${pageCount} pages)`,
       );
     }
 
     const builder = this.workflow();
 
     // Add each page in the order specified
-    for (const pageIndex of pageIndices) {
-      builder.addFilePart(file, { pages: { start: pageIndex, end: pageIndex } });
+    for (const pageIndex of normalizedIndices) {
+      // Use normalizePageParams to ensure consistent handling
+      const pageRange = normalizePageParams({ start: pageIndex, end: pageIndex });
+      builder.addFilePart(pdf, { pages: pageRange });
     }
 
     const result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
@@ -1261,32 +1436,50 @@ export class NutrientClient {
    * Deletes pages from a PDF document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to modify
-   * @param pageIndices - Array of page indices to delete (0-based)
+   * @param pdf - The PDF file to modify
+   * @param pageIndices - Array of page indices to delete (0-based).
+   *                     Negative indices count from the end of the document (e.g., -1 is the last page).
    * @returns Promise resolving to the document with deleted pages
    *
    * @example
    * ```typescript
-   * const result = await client.deletePages('document.pdf', [1, 3]); // Delete second and fourth pages
+   * // Delete second and fourth pages
+   * const result = await client.deletePages('document.pdf', [1, 3]);
+   * 
+   * // Delete the last page
+   * const result = await client.deletePages('document.pdf', [-1]);
+   * 
+   * // Delete the first and last two pages
+   * const result = await client.deletePages('document.pdf', [0, -1, -2]);
    * ```
    */
-  async deletePages(file: FileInput, pageIndices: number[]): Promise<WorkflowOutput> {
+  async deletePages(pdf: FileInput, pageIndices: number[]): Promise<WorkflowOutput> {
     if (!pageIndices || pageIndices.length === 0) {
       throw new ValidationError('At least one page index is required for deletion');
     }
 
-    // Remove duplicate and sort the deleteIndices
-    const deleteIndices = [...new Set(pageIndices)].sort((a, b) => a - b);
-
     // Get the actual page count of the PDF
-    const pageCount = await getPdfPageCount(file);
+    const pageCount = await getPdfPageCount(pdf);
+
+    // Normalize negative indices
+    const normalizedIndices = pageIndices.map(index => {
+      if (index < 0) {
+        // Handle negative indices (e.g., -1 is the last page)
+        return pageCount + index;
+      }
+      return index;
+    });
+
+    // Remove duplicates and sort the deleteIndices
+    const deleteIndices = [...new Set(normalizedIndices)].sort((a, b) => a - b);
 
     // Validate that all page indices are within range
-    if (pageIndices.some((index) => index < 0 || index >= pageCount)) {
+    if (deleteIndices.some((index) => index < 0 || index >= pageCount)) {
       throw new ValidationError(
         `Page indices ${pageIndices.toString()} are out of range (document has ${pageCount} pages)`,
       );
     }
+
     const builder = this.workflow();
 
     // Group consecutive pages that should be kept into ranges
@@ -1295,15 +1488,16 @@ export class NutrientClient {
 
     for (const deleteIndex of deleteIndices) {
       if (currentPage < deleteIndex) {
-        pageRanges.push({ start: currentPage, end: deleteIndex - 1 });
+        pageRanges.push(normalizePageParams({ start: currentPage, end: deleteIndex - 1 }));
       }
       currentPage = deleteIndex + 1;
     }
+
     if (
       (currentPage > 0 || (currentPage == 0 && deleteIndices.length == 0)) &&
       currentPage < pageCount
     ) {
-      pageRanges.push({ start: currentPage, end: pageCount - 1 });
+      pageRanges.push(normalizePageParams({ start: currentPage, end: pageCount - 1 }));
     }
 
     if (pageRanges.length === 0) {
@@ -1311,7 +1505,7 @@ export class NutrientClient {
     }
 
     pageRanges.forEach((range) => {
-      builder.addFilePart(file, { pages: range });
+      builder.addFilePart(pdf, { pages: range });
     });
 
     const result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
