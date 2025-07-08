@@ -14,8 +14,6 @@ export async function sendRequest<Method extends Methods, Endpoint extends Endpo
   clientOptions: NutrientClientOptions,
   responseType: ResponseType
 ): Promise<ApiResponse<Method, Endpoint>> {
-  //TODO: Remove
-  console.log(JSON.stringify(config))
   try {
     // Resolve API key (string or async function)
     const apiKey = await resolveApiKey(clientOptions.apiKey);
@@ -45,8 +43,6 @@ export async function sendRequest<Method extends Methods, Endpoint extends Endpo
     // Handle response
     return handleResponse<Method, Endpoint>(response);
   } catch (error) {
-    //TODO: Remove
-    console.error(error)
     throw convertError(error, config);
   }
 }
@@ -116,8 +112,21 @@ function prepareRequestBody<Method extends Methods, Endpoint extends Endpoints<M
       const typedConfig = config as RequestConfig<'POST', '/sign'>;
 
       const formData = new FormData();
-      appendFileToFormData(formData, typedConfig.data.fileKey, typedConfig.data.file);
-      formData.append('data', JSON.stringify(typedConfig.data.data));
+      appendFileToFormData(formData, "file", typedConfig.data.file);
+      if (typedConfig.data.image) {
+        appendFileToFormData(formData, 'image', typedConfig.data.image)
+      }
+      if (typedConfig.data.graphicImage) {
+        appendFileToFormData(formData, 'graphicImage', typedConfig.data.graphicImage)
+      }
+      if (typedConfig.data.data) {
+        formData.append('data', JSON.stringify(typedConfig.data.data));
+      } else {
+        formData.append('data', JSON.stringify({
+          "signatureType": "cades",
+          "cadesLevel": "b-lt"
+        }));
+      }
       axiosConfig.data = formData;
 
       return axiosConfig

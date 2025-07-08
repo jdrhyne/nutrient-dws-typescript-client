@@ -26,7 +26,6 @@ jobs:
       if: secrets.NUTRIENT_API_KEY != ''
       env:
         NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
-        RUN_INTEGRATION_TESTS: true
       run: |
         echo "Running scheduled E2E tests to detect API changes..."
         npm test -- --testPathPattern="(integration|e2e-advanced)\.test\.ts$" --verbose --passWithNoTests

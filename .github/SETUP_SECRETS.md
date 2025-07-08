@@ -77,7 +77,7 @@ echo "NUTRIENT_API_KEY=your_api_key_here" > .env
 
 # Run E2E tests locally
 source .env
-RUN_INTEGRATION_TESTS=true npm test -- e2e
+npm test -- e2e
 ```
 
 ## Troubleshooting

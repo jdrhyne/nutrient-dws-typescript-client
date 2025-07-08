@@ -394,10 +394,10 @@ npm test -- --coverage
 npm test -- --testPathPattern="^((?!integration|e2e).)*$"
 
 # Run integration tests (requires API key)
-NUTRIENT_API_KEY=your_key RUN_INTEGRATION_TESTS=true npm test -- integration
+NUTRIENT_API_KEY=your_key npm test -- integration
 
 # Run E2E tests (requires API key)
-NUTRIENT_API_KEY=your_key RUN_INTEGRATION_TESTS=true npm test -- e2e
+NUTRIENT_API_KEY=your_key npm test -- e2e
 
 # Run specific test file
 npm test -- client.test.ts

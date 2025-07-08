@@ -850,11 +850,9 @@ describe('NutrientClient', () => {
       const preset = 'social-security-number';
       const presetOptions = {
         includeAnnotations: true,
-        start: 0,
-        limit: 5,
       };
 
-      await client.createRedactionsPreset(file, preset, presetOptions);
+      await client.createRedactionsPreset(file, preset, 'stage', { start: 0, end: 4 }, presetOptions);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
         expect.objectContaining({
@@ -906,7 +904,7 @@ describe('NutrientClient', () => {
         caseSensitive: false,
       };
 
-      await client.createRedactionsRegex(file, regex, regexOptions);
+      await client.createRedactionsRegex(file, regex, 'stage', undefined, regexOptions);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
         expect.objectContaining({
@@ -957,7 +955,7 @@ describe('NutrientClient', () => {
         wholeWord: true,
       };
 
-      await client.createRedactionsText(file, text, textOptions);
+      await client.createRedactionsText(file, text, 'stage', undefined, textOptions);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, undefined, [
         expect.objectContaining({

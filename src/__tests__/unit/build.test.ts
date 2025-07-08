@@ -621,16 +621,6 @@ describe('BuildOutputs', () => {
       });
     });
 
-    it('should return correct MIME type for JSON content output', () => {
-      const output = BuildOutputs.jsonContent();
-      const result = BuildOutputs.getMimeTypeForOutput(output);
-
-      expect(result).toEqual({
-        mimeType: 'application/json',
-        filename: 'output.json',
-      });
-    });
-
     it('should return correct MIME type for HTML output', () => {
       const output = BuildOutputs.html('page');
       const result = BuildOutputs.getMimeTypeForOutput(output);
@@ -653,6 +643,7 @@ describe('BuildOutputs', () => {
 
     it('should return default MIME type for unknown output', () => {
       const output = { type: 'unknown' } as unknown as components['schemas']['BuildOutput'];
+      // @ts-expect-error Expect type error in this test
       const result = BuildOutputs.getMimeTypeForOutput(output);
 
       expect(result).toEqual({

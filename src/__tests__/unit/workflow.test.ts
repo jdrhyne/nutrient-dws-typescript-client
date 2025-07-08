@@ -292,7 +292,7 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should set image output', () => {
-      const result = workflow.outputImage('png');
+      const result = workflow.outputImage('png', { dpi: 500 });
       expect(result).toBe(workflow);
     });
 

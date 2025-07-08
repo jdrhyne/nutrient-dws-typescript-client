@@ -10,9 +10,12 @@ import type {
 } from './types';
 import { ValidationError, NutrientError } from './errors';
 import { workflow } from './workflow';
-import type { components } from './generated/api-types';
+import type { components, operations } from './generated/api-types';
 import { BuildActions } from './build';
-import { getPdfPageCount } from './inputs';
+import { getPdfPageCount, isRemoteFileInput, processFileInput, processRemoteFileInput } from './inputs';
+import { sendRequest } from './http';
+import type { NormalizedFileData } from './inputs';
+import type { ApplicableAction } from './builders/workflow';
 
 /**
  * Main client for interacting with the Nutrient Document Web Services API.
@@ -74,6 +77,205 @@ export class NutrientClient {
     }
   }
 
+  /**
+   * Gets account information for the current API key
+   * 
+   * @returns Promise resolving to account information
+   * 
+   * @example
+   * ```typescript
+   * const accountInfo = await client.getAccountInfo();
+   * console.log(accountInfo.organization);
+   * ```
+   */
+  async getAccountInfo(): Promise<operations['get-account-info']['responses']['200']['content']['application/json']> {
+    const response = await sendRequest(
+      {
+        method: 'GET',
+        endpoint: '/account/info',
+        data: undefined,
+      },
+      this.options,
+      'json'
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Creates a new authentication token
+   * 
+   * @param params - Parameters for creating the token
+   * @returns Promise resolving to the created token information
+   * 
+   * @example
+   * ```typescript
+   * const token = await client.createToken({
+   *   name: 'My API Token',
+   *   expiresIn: '30d'
+   * });
+   * console.log(token.id);
+   * ```
+   */
+  async createToken(params: components['schemas']['CreateAuthTokenParameters']): Promise<components['schemas']['CreateAuthTokenResponse']> {
+    const response = await sendRequest(
+      {
+        method: 'POST',
+        endpoint: '/tokens',
+        data: params,
+      },
+      this.options,
+      'json'
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Deletes an authentication token
+   * 
+   * @param id - ID of the token to delete
+   * @returns Promise resolving when the token is deleted
+   * 
+   * @example
+   * ```typescript
+   * await client.deleteToken('token-id-123');
+   * ```
+   */
+  async deleteToken(id: string): Promise<void> {
+    await sendRequest(
+      {
+        method: 'DELETE',
+        endpoint: '/tokens',
+        data: { id },
+      },
+      this.options,
+      'json'
+    );
+  }
+
+  /**
+   * Signs a PDF document
+   * 
+   * @param file - The PDF file to sign
+   * @param data - Signature data
+   * @param options - Additional options
+   * @returns Promise resolving to the signed PDF file ID
+   * 
+   * @example
+   * ```typescript
+   * const fileId = await client.signPdf('document.pdf', {
+   *   signature: {
+   *     name: 'John Doe',
+   *     location: 'San Francisco',
+   *     reason: 'Approval'
+   *   }
+   * });
+   * ```
+   */
+  async signPdf(
+    file: FileInput,
+    data?: components['schemas']['CreateDigitalSignature'],
+    options?: {
+      image?: FileInput;
+      graphicImage?: FileInput;
+    }
+  ): Promise<WorkflowOutput> {
+    // Normalize the file input
+    const normalizedFile = isRemoteFileInput(file) ? await processRemoteFileInput(file) : await processFileInput(file);
+
+    // Prepare optional files
+    let normalizedImage: NormalizedFileData | undefined;
+    let normalizedGraphicImage: NormalizedFileData | undefined;
+
+    if (options?.image) {
+      normalizedImage = isRemoteFileInput(options.image) ? await processRemoteFileInput(options.image) : await processFileInput(options.image);
+    }
+
+    if (options?.graphicImage) {
+      normalizedGraphicImage = isRemoteFileInput(options.graphicImage) ? await processRemoteFileInput(options.graphicImage) : await processFileInput(options.graphicImage);
+    }
+
+    const response = await sendRequest(
+      {
+        method: 'POST',
+        endpoint: '/sign',
+        data: {
+          file: normalizedFile,
+          data,
+          image: normalizedImage,
+          graphicImage: normalizedGraphicImage,
+        },
+      },
+      this.options,
+      'arraybuffer'
+    );
+
+    const buffer = new Uint8Array(response.data as unknown as ArrayBuffer);
+
+    return { mimeType: 'application/pdf', filename: 'output.pdf', buffer };
+  }
+
+  /**
+   * Uses AI to redact sensitive information in a document
+   *
+   * @param data - Redaction parameters
+   * @param file - Optional file to redact
+   * @param pages - Optional pages to redact
+   * @returns Promise resolving to the redacted file ID
+   *
+   * @example
+   * ```typescript
+   * // Redact with file
+   * const fileId = await client.aiRedact(
+   *   { types: ['PERSON', 'EMAIL'] },
+   *   'document.pdf'
+   * );
+   *
+   * // Redact with file ID
+   * const fileId = await client.aiRedact(
+   *   { 
+   *     types: ['PERSON', 'EMAIL'],
+   *     fileId: 'existing-file-id'
+   *   }
+   * );
+   * ```
+   */
+  async createRedactionsAI(
+    file: FileInput,
+    criteria: string,
+    redaction_state: 'stage' | 'apply' = 'stage',
+    pages?: { start?: number; end?: number },
+    options?: components['schemas']['RedactData']['options'],
+  ): Promise<WorkflowOutput> {
+    const normalizedFile = isRemoteFileInput(file) ? await processRemoteFileInput(file) : await processFileInput(file);
+
+    const response = await sendRequest(
+      {
+        method: 'POST',
+        endpoint: '/ai/redact',
+        data: {
+          data: {
+            documents: [{
+              file: "file",
+              pages: pages ? { start: pages.start ?? 0, end: pages.end ?? -1 } : undefined
+            }],
+            criteria,
+            redaction_state,
+            options,
+          },
+          file: normalizedFile,
+          fileKey: 'file',
+        },
+      },
+      this.options,
+      'arraybuffer'
+    )
+
+    const buffer = new Uint8Array(response.data as unknown as ArrayBuffer);
+
+    return { mimeType: 'application/pdf', filename: 'output.pdf', buffer };
+  }
   /**
    * Creates a new WorkflowBuilder for chaining multiple operations
    *
@@ -651,13 +853,24 @@ export class NutrientClient {
   async createRedactionsPreset(
     file: FileInput,
     preset: components['schemas']['SearchPreset'],
-    presetOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsPreset'], 'preset'>,
+    redaction_state: 'stage' | 'apply' = 'stage',
+    pages?: { start?: number; end?: number },
+    presetOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsPreset'], 'preset' | 'start' | 'limit'>,
     options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
   ): Promise<WorkflowOutput> {
-    const createRedactionsAction = BuildActions.createRedactionsPreset(preset, options, presetOptions);
+    const createRedactionsAction = BuildActions.createRedactionsPreset(preset, options, {
+      start: pages?.start ?? undefined,
+      limit: pages?.end ? pages.end - (pages?.start ?? 0) + 1 :  undefined,
+      ...presetOptions
+    });
+    const actions: ApplicableAction[] = [createRedactionsAction]
+
+    if (redaction_state === 'apply') {
+      actions.push(BuildActions.applyRedactions());
+    }
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, [createRedactionsAction])
+      .addFilePart(file, undefined, actions)
       .outputPdf()
       .execute();
     return this.processWorkflowResult(result);
@@ -686,13 +899,24 @@ export class NutrientClient {
   async createRedactionsRegex(
     file: FileInput,
     regex: string,
-    regrexOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsRegex'], 'regex'>,
+    redaction_state: 'stage' | 'apply' = 'stage',
+    pages?: { start?: number; end?: number },
+    regrexOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsRegex'], 'regex' | 'start' | 'limit'>,
     options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
   ): Promise<WorkflowOutput> {
-    const createRedactionsAction = BuildActions.createRedactionsRegex(regex, options, regrexOptions);
+    const createRedactionsAction = BuildActions.createRedactionsRegex(regex, options, {
+      start: pages?.start ?? undefined,
+      limit: pages?.end ? pages.end - (pages?.start ?? 0) + 1 :  undefined,
+      ...regrexOptions
+    });
+    const actions: ApplicableAction[] = [createRedactionsAction]
+
+    if (redaction_state === 'apply') {
+      actions.push(BuildActions.applyRedactions());
+    }
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, [createRedactionsAction])
+      .addFilePart(file, undefined, actions)
       .outputPdf()
       .execute();
     return this.processWorkflowResult(result);
@@ -721,13 +945,24 @@ export class NutrientClient {
   async createRedactionsText(
     file: FileInput,
     text: string,
-    textOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsText'], 'text'>,
+    redaction_state: 'stage' | 'apply' = 'stage',
+    pages?: { start?: number; end?: number },
+    textOptions?: Omit<components['schemas']['CreateRedactionsStrategyOptionsText'], 'text' | 'start' | 'limit'>,
     options?: Omit<components['schemas']['CreateRedactionsAction'], 'type' | 'strategyOptions' | 'strategy'>,
   ): Promise<WorkflowOutput> {
-    const createRedactionsAction = BuildActions.createRedactionsText(text, options, textOptions);
+    const createRedactionsAction = BuildActions.createRedactionsText(text, options, {
+      start: pages?.start ?? undefined,
+      limit: pages?.end ? pages.end - (pages?.start ?? 0) + 1 :  undefined,
+      ...textOptions
+    });
+    const actions: ApplicableAction[] = [createRedactionsAction]
+
+    if (redaction_state === 'apply') {
+      actions.push(BuildActions.applyRedactions());
+    }
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, [createRedactionsAction])
+      .addFilePart(file, undefined, actions)
       .outputPdf()
       .execute();
     return this.processWorkflowResult(result);

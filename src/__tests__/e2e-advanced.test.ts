@@ -4,7 +4,7 @@
  * 
  * To run these tests with a live API:
  * 1. Set NUTRIENT_API_KEY environment variable
- * 2. Run: NUTRIENT_API_KEY=your_key RUN_INTEGRATION_TESTS=true npm test -- e2e-advanced.test
+ * 2. Run: NUTRIENT_API_KEY=your_key npm test -- e2e-advanced.test
  */
 
 import { NutrientClient } from '../client';
@@ -19,7 +19,7 @@ const shouldRunIntegrationTests = Boolean(process.env["NUTRIENT_API_KEY"]);
 // Use conditional describe based on environment
 const describeE2E = shouldRunIntegrationTests ? describe : describe.skip;
 
-describe('Advanced E2E Tests with Live API', () => {
+describeE2E('Advanced E2E Tests with Live API', () => {
   let client: NutrientClient;
   let testSensitivePDF: Buffer;
   let testTablePDF: Buffer;

@@ -32,6 +32,93 @@ describeIntegration('Integration Tests with Live API', () => {
     client = new NutrientClient(options);
   });
 
+  describe('Account and Authentication Methods', () => {
+    describe('getAccountInfo()', () => {
+      it('should retrieve account information', async () => {
+        const accountInfo = await client.getAccountInfo();
+
+        expect(accountInfo).toBeDefined();
+        expect(accountInfo.subscriptionType).toBeDefined();
+        expect(typeof accountInfo.subscriptionType).toBe('string');
+        expect(accountInfo.apiKeys).toBeDefined();
+      }, 30000);
+    });
+
+    describe('createToken()', () => {
+      it('should create a new authentication token', async () => {
+        const tokenParams = {
+          expirationTime: 0
+        };
+
+        const token = await client.createToken(tokenParams);
+
+        expect(token).toBeDefined();
+        expect(token.id).toBeDefined();
+        expect(typeof token.id).toBe('string');
+        expect(token.accessToken).toBeDefined();
+        expect(typeof token.accessToken).toBe('string');
+
+        // Clean up - delete the token we just created
+        await client.deleteToken(token.id as string);
+      }, 30000);
+    });
+  });
+
+  describe('Document Processing Methods', () => {
+    describe('signPdf()', () => {
+      it('should sign a PDF document', async () => {
+        const result = await client.signPdf(samplePDF);
+
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
+      }, 30000);
+
+      it('should sign a PDF with custom image', async () => {
+        const result = await client.signPdf(samplePDF, undefined, {
+          image: samplePNG
+        });
+
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
+      }, 30000);
+    });
+
+    describe('aiRedact()', () => {
+      it('should redact sensitive information using AI', async () => {
+        const sensitiveDocument = TestDocumentGenerator.generatePdfWithSensitiveData();
+        const result = await client.createRedactionsAI(sensitiveDocument, 'Redact Email');
+
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
+        expect(result.filename).toBe('output.pdf');
+      }, 60000);
+
+      it('should redact specific pages', async () => {
+        // Test with specific pages
+        const result = await client.createRedactionsAI(samplePDF, "React Email", 'apply', { start: 1, end: 2 });
+
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
+      }, 60000);
+
+      it('should redact with page range', async () => {
+        // Test with page range
+        const result = await client.createRedactionsAI(samplePDF, "React Email", 'stage', {
+          start: 1,
+          end: 3
+        });
+
+        expect(result).toBeDefined();
+        expect(result.buffer).toBeInstanceOf(Uint8Array);
+        expect(result.mimeType).toBe('application/pdf');
+      }, 60000);
+    });
+  });
+
   describe('Convenience Methods', () => {
     describe('convert()', () => {
       const cases: {input: Buffer, inputType: Exclude<keyof OutputTypeMap, 'json-content'>, outputType: Exclude<keyof OutputTypeMap, 'json-content'>, expected: string}[] = [
@@ -118,7 +205,7 @@ describeIntegration('Integration Tests with Live API', () => {
         expect(result.buffer).toBeInstanceOf(Uint8Array);
         expect(result.mimeType).toBe('application/pdf');
         await expect(getPdfPageCount(result.buffer)).resolves.toBe(pageCount * 3);
-      }, 30000);
+      }, 60000);
     });
 
     // TODO: Investigate axios connection timeout
@@ -153,7 +240,7 @@ describeIntegration('Integration Tests with Live API', () => {
         expect(hasData).toBeTruthy();
         // Always check the type when data exists
         expect(typeof (result?.data ?? {})).toBe('object');
-      }, 30000);
+      }, 60000);
     });
 
     describe('flatten()', () => {

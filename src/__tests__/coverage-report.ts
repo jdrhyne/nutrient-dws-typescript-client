@@ -6,6 +6,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 interface CoverageItem {
   method: string;
@@ -27,10 +30,14 @@ class CoverageAnalyzer {
   private initializeCoverageMap(): void {
     // Client convenience methods
     const convenienceMethods = [
-      'ocr', 'watermark', 'convert', 'merge', 'compress', 
-      'extractText', 'flatten', 'rotate', 'workflow'
+      'ocr', 'watermarkText', 'watermarkImage', 'convert', 'merge',
+      'extractText', 'extractTable', 'extractKeyValuePairs', 'flatten', 'rotate', 'workflow',
+      'getAccountInfo', 'createToken', 'deleteToken', 'signPdf', 'createRedactionsAI',
+      'passwordProtect', 'setMetadata', 'setPageLabels', 'applyInstantJson', 'applyXfdf',
+      'createRedactionsPreset', 'createRedactionsRegex', 'createRedactionsText', 'applyRedactions',
+      'addPage', 'optimize', 'splitPdf', 'duplicatePages', 'deletePages'
     ];
-    
+
     for (const method of convenienceMethods) {
       this.coverage.set(`client.${method}`, {
         method: `client.${method}`,
@@ -45,8 +52,9 @@ class CoverageAnalyzer {
     // Workflow builder methods
     const workflowMethods = [
       'addFilePart', 'addHtmlPart', 'addNewPage', 'addDocumentPart',
-      'applyActions', 'applyAction', 'outputPdf', 'outputPdfA',
-      'outputImage', 'outputOffice', 'outputJson', 'execute', 'dryRun'
+      'applyActions', 'applyAction', 'outputPdf', 'outputPdfA', 'outputPdfUA',
+      'outputImage', 'outputOffice', 'outputJson', 'outputHtml', 'outputMarkdown',
+      'execute', 'dryRun'
     ];
 
     for (const method of workflowMethods) {
@@ -80,12 +88,25 @@ class CoverageAnalyzer {
   }
 
   analyzeTestFiles(): void {
-    const testFiles = fs.readdirSync(this.testDirectory)
-      .filter(file => file.endsWith('.test.ts'));
+    this.scanDirectoryForTests(this.testDirectory);
+  }
 
-    for (const file of testFiles) {
-      const content = fs.readFileSync(path.join(this.testDirectory, file), 'utf-8');
-      this.analyzeTestFile(file, content);
+  private scanDirectoryForTests(directory: string): void {
+    const entries = fs.readdirSync(directory, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        // Recursively scan subdirectories
+        this.scanDirectoryForTests(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.test.ts')) {
+        // Process test files
+        const content = fs.readFileSync(fullPath, 'utf-8');
+        // Use relative path from test directory for consistent reporting
+        const relativePath = path.relative(this.testDirectory, fullPath);
+        this.analyzeTestFile(relativePath, content);
+      }
     }
   }
 
@@ -227,7 +248,7 @@ class CoverageAnalyzer {
   printSummary(): void {
     // eslint-disable-next-line no-console
     console.log('\n📊 Test Coverage Summary\n');
-    
+
     const totalMethods = this.coverage.size;
     const withE2E = Array.from(this.coverage.values()).filter(i => i.hasE2ETest || i.hasIntegrationTest).length;
     const percentage = ((withE2E / totalMethods) * 100).toFixed(1);
@@ -236,7 +257,7 @@ class CoverageAnalyzer {
     console.log(`Total API Methods: ${totalMethods}`);
     // eslint-disable-next-line no-console
     console.log(`Methods with E2E/Integration Tests: ${withE2E} (${percentage}%)`);
-    
+
     const missing = totalMethods - withE2E;
     if (missing > 0) {
       // eslint-disable-next-line no-console

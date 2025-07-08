@@ -15,7 +15,6 @@ export type RequestTypeMap = {
       instructions: components['schemas']['BuildInstructions'];
     },
     "/sign": {
-      fileKey: string;
       file: NormalizedFileData;
       data?: components['schemas']['CreateDigitalSignature'];
       image?: NormalizedFileData;

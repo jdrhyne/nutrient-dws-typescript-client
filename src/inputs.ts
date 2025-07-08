@@ -145,6 +145,24 @@ export function isRemoteFileInput(input: FileInput): input is UrlInput | string 
 }
 
 /**
+ * Process Remote File Input
+ */
+export async function processRemoteFileInput(input: UrlInput | string): Promise<NormalizedFileData> {
+  let url: string;
+  if (typeof input === 'string') {
+    url = input;
+  } else {
+    url = input.url;
+  }
+
+  const buffer = await fetchFromUrl(url);
+  return {
+    data: buffer,
+    filename: 'buffer',
+  };
+}
+
+/**
  * Fetches data from a URL and returns it as a Buffer
  * 
  * @param url - The URL to fetch data from
