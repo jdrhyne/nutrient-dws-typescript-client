@@ -231,14 +231,21 @@ export async function getPdfPageCount(pdfData: NormalizedFileData): Promise<numb
   // Convert to string for regex operations
   const pdfContent = pdfBytes.toString('binary');
 
-  // Find all PDF objects
-  const objectRegex = /(\d+)\s+(\d+)\s+obj(.*?)endobj/gs;
+  // Find all PDF objects - using a safer regex pattern to avoid catastrophic backtracking
+  // Limit the content between obj and endobj to avoid ReDoS vulnerability
   const objects: Array<[string, string, string]> = [];
 
-  let match;
-  while ((match = objectRegex.exec(pdfContent)) !== null) {
-    if (match[1] && match[2] && match[3]) {
-      objects.push([match[1], match[2], match[3]]);
+  // Split by 'endobj' and process each chunk
+  const chunks = pdfContent.split('endobj');
+  for (let i = 0; i < chunks.length - 1; i++) {
+    // For each chunk, find the start of the object
+    const objMatch = /(\d+)\s+(\d+)\s+obj/.exec(chunks[i] as string);
+    if (objMatch?.[1] && objMatch[2]) {
+      const objNum = objMatch[1];
+      const genNum = objMatch[2];
+      // Extract content after 'obj'
+      const content = (chunks[i] as string).substring(objMatch.index + objMatch[0].length);
+      objects.push([objNum, genNum, content]);
     }
   }
 
@@ -268,18 +275,22 @@ export async function getPdfPageCount(pdfData: NormalizedFileData): Promise<numb
   const pagesObjNum = pagesRefMatch[1];
   const pagesObjGen = pagesRefMatch[2];
 
-  // Find the referenced /Pages object
-  const pagesObjPattern = new RegExp(`${pagesObjNum}\\s+${pagesObjGen}\\s+obj(.*?)endobj`, 'gs');
-  const pagesObjMatch = pagesObjPattern.exec(pdfContent);
+  // Find the referenced /Pages object from our already parsed objects array
+  // This avoids using another potentially vulnerable regex
+  let pagesObjData: string | null = null;
+  for (const [objNum, genNum, objData] of objects) {
+    if (objNum === pagesObjNum && genNum === pagesObjGen) {
+      pagesObjData = objData;
+      break;
+    }
+  }
 
-  if (!pagesObjMatch) {
+  if (!pagesObjData) {
     throw new ValidationError('Could not find root /Pages object', { input: pdfData });
   }
 
-  const pagesObjData = pagesObjMatch[1];
-
   // Extract /Count
-  const countMatch = /\/Count\s+(\d+)/.exec(pagesObjData as string);
+  const countMatch = /\/Count\s+(\d+)/.exec(pagesObjData);
   if (!countMatch) {
     throw new ValidationError('Could not find /Count in root /Pages object', { input: pdfData });
   }
