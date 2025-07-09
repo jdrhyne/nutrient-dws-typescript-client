@@ -42,6 +42,8 @@ jobs:
     
     - name: Run E2E tests
       if: steps.check-api-key.outputs.has_api_key == 'true'
+      env:
+        NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
       run: npm run test:e2e
     
     - name: Skip E2E tests (no API key)
