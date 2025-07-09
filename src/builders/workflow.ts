@@ -92,6 +92,7 @@ export class WorkflowBuilder<
    */
   addHtmlPart(
     html: FileInput,
+    assets?: Exclude<FileInput, UrlInput>[],
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
     actions?: ApplicableAction[],
   ): this {
@@ -104,12 +105,25 @@ export class WorkflowBuilder<
       htmlField = this.registerAssets(html);
     }
 
+    let assetsField: string[] | undefined;
+    if (assets) {
+      assetsField = [];
+      for (const asset of assets) {
+        if (isRemoteFileInput(asset)) {
+          throw new ValidationError('Assets file input cannot be an URL', { input: asset });
+        }
+        const asset_key = this.registerAssets(asset);
+        assetsField.push(asset_key);
+      }
+    }
+
     const processedActions = actions
       ? actions.map((action) => this.processAction(action))
       : undefined;
 
     const htmlPart: components['schemas']['HTMLPart'] = {
       html: htmlField,
+      assets: assetsField,
       ...options,
       ...(processedActions && processedActions.length > 0 ? { actions: processedActions } : {}),
     };
@@ -227,26 +241,48 @@ export class WorkflowBuilder<
   /**
    * Sets PDF output
    */
-  outputPdf(options?: Omit<components['schemas']['PDFOutput'], 'type'>): WorkflowBuilder<'pdf'> {
-    this.output({ type: 'pdf', ...options });
+  outputPdf(options?: {
+    metadata?: components['schemas']['Metadata'];
+    labels?: components['schemas']['Label'][];
+    userPassword?: string;
+    ownerPassword?: string;
+    userPermissions?: components['schemas']['PDFUserPermission'][];
+    optimize?: components['schemas']['OptimizePdf'];
+  }): WorkflowBuilder<'pdf'> {
+    this.output(BuildOutputs.pdf(options));
     return this as WorkflowBuilder<'pdf'>;
   }
 
   /**
    * Sets PDF/A output
    */
-  outputPdfA(options?: Omit<components['schemas']['PDFAOutput'], 'type'>): WorkflowBuilder<'pdfa'> {
-    this.output({ type: 'pdfa', ...options });
+  outputPdfA(options?: {
+    conformance?: components['schemas']['PDFAOutput']['conformance'];
+    vectorization?: boolean;
+    rasterization?: boolean;
+    metadata?: components['schemas']['Metadata'];
+    labels?: components['schemas']['Label'][];
+    userPassword?: string;
+    ownerPassword?: string;
+    userPermissions?: components['schemas']['PDFUserPermission'][];
+    optimize?: components['schemas']['OptimizePdf'];
+  }): WorkflowBuilder<'pdfa'> {
+    this.output(BuildOutputs.pdfa(options));
     return this as WorkflowBuilder<'pdfa'>;
   }
 
   /**
    * Sets PDF/UA output
    */
-  outputPdfUa(
-    options?: Omit<components['schemas']['PDFAOutput'], 'type'>,
-  ): WorkflowBuilder<'pdfua'> {
-    this.output({ type: 'pdfua', ...options });
+  outputPdfUa(options?: {
+    metadata?: components['schemas']['Metadata'];
+    labels?: components['schemas']['Label'][];
+    userPassword?: string;
+    ownerPassword?: string;
+    userPermissions?: components['schemas']['PDFUserPermission'][];
+    optimize?: components['schemas']['OptimizePdf'];
+  }): WorkflowBuilder<'pdfua'> {
+    this.output(BuildOutputs.pdfua(options));
     return this as WorkflowBuilder<'pdfua'>;
   }
 
@@ -255,14 +291,19 @@ export class WorkflowBuilder<
    */
   outputImage<T extends 'png' | 'jpeg' | 'jpg' | 'webp'>(
     format: T,
-    options?: Omit<components['schemas']['ImageOutput'], 'type' | 'format'>,
+    options?: {
+      pages?: components['schemas']['PageRange'];
+      width?: number;
+      height?: number;
+      dpi?: number;
+    },
   ): WorkflowBuilder<T> {
     if (!options?.dpi && !options?.height && !options?.width) {
       throw new ValidationError(
         'Image output requires at least one of the following options: dpi, height, width',
       );
     }
-    this.output({ type: 'image', format: format, ...options });
+    this.output(BuildOutputs.image(format, options));
     return this as unknown as WorkflowBuilder<T>;
   }
 
@@ -270,35 +311,37 @@ export class WorkflowBuilder<
    * Sets Office format output
    */
   outputOffice<T extends 'docx' | 'xlsx' | 'pptx'>(format: T): WorkflowBuilder<T> {
-    this.output({ type: format });
+    this.output(BuildOutputs.office(format));
     return this as unknown as WorkflowBuilder<T>;
   }
 
   /**
    * Sets HTML output
    */
-  outputHtml(options?: Omit<components['schemas']['HTMLOutput'], 'type'>): WorkflowBuilder<'html'> {
-    this.output({ type: 'html', ...options });
+  outputHtml(layout: 'page' | 'reflow'): WorkflowBuilder<'html'> {
+    this.output(BuildOutputs.html(layout));
     return this as WorkflowBuilder<'html'>;
   }
 
   /**
    * Set Markdown output
    */
-  outputMarkdown(
-    options?: Omit<components['schemas']['MarkdownOutput'], 'type'>,
-  ): WorkflowBuilder<'markdown'> {
-    this.output({ type: 'markdown', ...options });
+  outputMarkdown(): WorkflowBuilder<'markdown'> {
+    this.output(BuildOutputs.markdown());
     return this as WorkflowBuilder<'markdown'>;
   }
 
   /**
    * Sets JSON content extraction output
    */
-  outputJson(
-    options?: Omit<components['schemas']['JSONContentOutput'], 'type'>,
-  ): WorkflowBuilder<'json-content'> {
-    this.output({ type: 'json-content', ...options });
+  outputJson(options?: {
+    plainText?: boolean;
+    structuredText?: boolean;
+    keyValuePairs?: boolean;
+    tables?: boolean;
+    language?: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][];
+  }): WorkflowBuilder<'json-content'> {
+    this.output(BuildOutputs.jsonContent(options));
     return this as WorkflowBuilder<'json-content'>;
   }
 
@@ -368,6 +411,7 @@ export class WorkflowBuilder<
 
     try {
       this.currentStep = 1;
+      options?.onProgress?.(this.currentStep, 3);
       this.validate();
 
       this.currentStep = 2;
@@ -394,7 +438,6 @@ export class WorkflowBuilder<
           files: files,
         },
         responseType,
-        options?.timeout,
       );
 
       this.currentStep = 3;
@@ -418,7 +461,6 @@ export class WorkflowBuilder<
         } as TOutput extends keyof OutputTypeMap ? OutputTypeMap[TOutput] : WorkflowOutput;
       } else {
         const { mimeType, filename } = BuildOutputs.getMimeTypeForOutput(outputConfig);
-        // Use standard ArrayBuffer to Uint8Array conversion for browser compatibility
         const buffer = new Uint8Array(response as unknown as ArrayBuffer);
 
         result.success = true;
@@ -443,7 +485,7 @@ export class WorkflowBuilder<
   /**
    * Performs a dry run to analyze the workflow
    */
-  async dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult> {
+  async dryRun(): Promise<WorkflowDryRunResult> {
     this.ensureNotExecuted();
 
     const result: WorkflowDryRunResult = {
@@ -460,7 +502,6 @@ export class WorkflowBuilder<
           instructions: this.buildInstructions,
         },
         'json',
-        options?.timeout,
       );
 
       result.success = true;

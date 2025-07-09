@@ -1,4 +1,4 @@
-import type { FileInput } from './inputs';
+import type { FileInput, UrlInput } from './inputs';
 import type { components } from '../generated/api-types';
 import type { ApplicableAction } from '../builders/workflow';
 
@@ -46,6 +46,7 @@ export interface WorkflowInitialStage {
   ): WorkflowWithPartsStage;
   addHtmlPart(
     html: FileInput,
+    assets?: Exclude<FileInput, UrlInput>[],
     options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
     actions?: ApplicableAction[],
   ): WorkflowWithPartsStage;
@@ -85,7 +86,7 @@ export interface WorkflowWithPartsStage extends WorkflowInitialStage {
   ): WorkflowWithOutputStage<T>;
   outputOffice<T extends 'docx' | 'xlsx' | 'pptx'>(format: T): WorkflowWithOutputStage<T>;
   outputHtml(
-    options?: Omit<components['schemas']['HTMLOutput'], 'type'>,
+    layout: components['schemas']['HTMLOutput']['layout'],
   ): WorkflowWithOutputStage<'html'>;
   outputMarkdown(
     options?: Omit<components['schemas']['MarkdownOutput'], 'type'>,
@@ -104,7 +105,7 @@ export interface WorkflowWithOutputStage<
   TOutput extends keyof OutputTypeMap | undefined = undefined,
 > {
   execute(options?: WorkflowExecuteOptions): Promise<TypedWorkflowResult<TOutput>>;
-  dryRun(options?: Pick<WorkflowExecuteOptions, 'timeout'>): Promise<WorkflowDryRunResult>;
+  dryRun(): Promise<WorkflowDryRunResult>;
 }
 
 /**
@@ -156,11 +157,6 @@ export interface WorkflowDryRunResult {
  * Options for workflow execution
  */
 export interface WorkflowExecuteOptions {
-  /**
-   * Timeout in milliseconds for the entire workflow
-   */
-  timeout?: number;
-
   /**
    * Progress callback
    */

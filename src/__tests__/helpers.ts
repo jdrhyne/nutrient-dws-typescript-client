@@ -495,11 +495,6 @@ export const samplePDF = fs.readFileSync(path.resolve(__dirname, 'data/sample.pd
 export const sampleDOCX = fs.readFileSync(path.resolve(__dirname, 'data/sample.docx'));
 
 /**
- * Example TXT file
- */
-export const sampleTXT = fs.readFileSync(path.resolve(__dirname, 'data/sample.txt'));
-
-/**
  * Example PNG
  */
 export const samplePNG = fs.readFileSync(path.resolve(__dirname, 'data/sample.png'));

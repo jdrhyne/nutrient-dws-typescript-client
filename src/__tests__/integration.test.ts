@@ -12,7 +12,7 @@ import { BuildActions } from '../build';
 import type { NutrientClientOptions, OutputTypeMap } from '../types';
 import 'dotenv/config';
 import { sampleDOCX, samplePDF, samplePNG, TestDocumentGenerator } from './helpers';
-import { getPdfPageCount } from '../inputs';
+import { getPdfPageCount, processFileInput } from '../inputs';
 
 // Skip integration tests in CI/automated environments unless explicitly enabled with valid API key
 const shouldRunIntegrationTests = Boolean(process.env['NUTRIENT_API_KEY']);
@@ -65,27 +65,27 @@ describeIntegration('Integration Tests with Live API', () => {
   });
 
   describe('Document Processing Methods', () => {
-    describe('signPdf()', () => {
+    describe('sign()', () => {
       it('should sign a PDF document', async () => {
-        const result = await client.signPdf(samplePDF);
+        const result = await client.sign(samplePDF);
 
         expect(result).toBeDefined();
         expect(result.buffer).toBeInstanceOf(Uint8Array);
         expect(result.mimeType).toBe('application/pdf');
-      }, 30000);
+      }, 60000);
 
       it('should sign a PDF with custom image', async () => {
-        const result = await client.signPdf(samplePDF, undefined, {
+        const result = await client.sign(samplePDF, undefined, {
           image: samplePNG,
         });
 
         expect(result).toBeDefined();
         expect(result.buffer).toBeInstanceOf(Uint8Array);
         expect(result.mimeType).toBe('application/pdf');
-      }, 30000);
+      }, 60000);
     });
 
-    describe('aiRedact()', () => {
+    describe('createRedactionsAI()', () => {
       it('should redact sensitive information using AI', async () => {
         const sensitiveDocument = TestDocumentGenerator.generatePdfWithSensitiveData();
         const result = await client.createRedactionsAI(sensitiveDocument, 'Redact Email');
@@ -179,7 +179,7 @@ describeIntegration('Integration Tests with Live API', () => {
           }
           expect(result.mimeType).toBe(testCase.expected);
         },
-        90000,
+        120000,
       );
     });
 
@@ -230,11 +230,13 @@ describeIntegration('Integration Tests with Live API', () => {
     describe('merge()', () => {
       it('should merge multiple PDF files', async () => {
         const result = await client.merge([samplePDF, samplePDF, samplePDF]);
-        const pageCount = await getPdfPageCount(samplePDF);
+        const normalizedPdf = await processFileInput(samplePDF);
+        const pageCount = await getPdfPageCount(normalizedPdf);
         expect(result).toBeDefined();
         expect(result.buffer).toBeInstanceOf(Uint8Array);
         expect(result.mimeType).toBe('application/pdf');
-        await expect(getPdfPageCount(result.buffer)).resolves.toBe(pageCount * 3);
+        const normalizedResult = await processFileInput(result.buffer);
+        await expect(getPdfPageCount(normalizedResult)).resolves.toBe(pageCount * 3);
       }, 60000);
     });
 
@@ -440,10 +442,10 @@ describeIntegration('Integration Tests with Live API', () => {
       const pdfFile = Buffer.from('%PDF-1.4 test');
 
       const result = await client
-        .workflow()
+        .workflow(1) // 1ms timeout should fail
         .addFilePart(pdfFile)
         .outputPdf()
-        .execute({ timeout: 1 }); // 1ms timeout should fail
+        .execute();
 
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();

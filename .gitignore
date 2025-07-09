@@ -36,6 +36,9 @@ Thumbs.db
 tmp/
 temp/
 
+# Example output
+examples/output
+
 # Test/debug files
 test-*.ts
 test-*.cjs

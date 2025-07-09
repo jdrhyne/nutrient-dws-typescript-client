@@ -39,5 +39,11 @@ export type {
 } from './types';
 
 // Utility exports
-export { validateFileInput, processFileInput, type NormalizedFileData } from './inputs';
+export {
+  validateFileInput,
+  processFileInput,
+  isRemoteFileInput,
+  processRemoteFileInput,
+  type NormalizedFileData,
+} from './inputs';
 export { type ActionWithFileInput } from './build';

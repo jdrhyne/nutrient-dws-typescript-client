@@ -28,7 +28,7 @@ jobs:
         NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
       run: |
         echo "Running scheduled E2E tests to detect API changes..."
-        npm test -- --testPathPattern="(integration|e2e-advanced)\.test\.ts$" --verbose --passWithNoTests
+        npm test -- --testPathPatterns="(integration|e2e-advanced)\.test\.ts$" --verbose --passWithNoTests
       timeout-minutes: 20
       continue-on-error: true
       id: test-run
@@ -42,7 +42,7 @@ jobs:
     - name: Generate detailed test report
       if: always()
       run: |
-        npm test -- --json --outputFile=scheduled-test-results.json --testPathPattern="(integration|e2e-advanced)\.test\.ts$" --passWithNoTests || true
+        npm test -- --json --outputFile=scheduled-test-results.json --testPathPatterns="(integration|e2e-advanced)\.test\.ts$" --passWithNoTests || true
         
         # Create summary
         echo "## E2E Test Summary" > test-summary.md

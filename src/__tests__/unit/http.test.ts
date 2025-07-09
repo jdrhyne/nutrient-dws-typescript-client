@@ -355,10 +355,9 @@ describe('HTTP Layer', () => {
         endpoint: '/account/info',
         method: 'GET',
         data: undefined,
-        timeout: 60000,
       };
 
-      await sendRequest(config, mockClientOptions, 'json');
+      await sendRequest(config, { ...mockClientOptions, timeout: 60000 }, 'json');
 
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({

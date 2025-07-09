@@ -44,7 +44,7 @@ class CoverageAnalyzer {
       'getAccountInfo',
       'createToken',
       'deleteToken',
-      'signPdf',
+      'sign',
       'createRedactionsAI',
       'passwordProtect',
       'setMetadata',
@@ -57,7 +57,7 @@ class CoverageAnalyzer {
       'applyRedactions',
       'addPage',
       'optimize',
-      'splitPdf',
+      'split',
       'duplicatePages',
       'deletePages',
     ];

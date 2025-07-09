@@ -391,21 +391,21 @@ describe('BuildOutputs', () => {
 
   describe('image()', () => {
     it('should create image output with default options', () => {
-      const output = BuildOutputs.image();
+      const output = BuildOutputs.image('png');
 
       expect(output).toEqual({
         type: 'image',
+        format: 'png',
       });
     });
 
     it('should create image output with custom options', () => {
       const options = {
-        format: 'png' as const,
         dpi: 300,
         pages: { start: 1, end: 5 },
       };
 
-      const output = BuildOutputs.image(options);
+      const output = BuildOutputs.image('png', options);
 
       expect(output).toEqual({
         type: 'image',
@@ -571,18 +571,8 @@ describe('BuildOutputs', () => {
       });
     });
 
-    it('should return correct MIME type for image output with default format', () => {
-      const output = BuildOutputs.image();
-      const result = BuildOutputs.getMimeTypeForOutput(output);
-
-      expect(result).toEqual({
-        mimeType: 'image/png',
-        filename: 'output.png',
-      });
-    });
-
     it('should return correct MIME type for image output with custom format', () => {
-      const output = BuildOutputs.image({ format: 'jpeg' });
+      const output = BuildOutputs.image('jpeg');
       const result = BuildOutputs.getMimeTypeForOutput(output);
 
       expect(result).toEqual({

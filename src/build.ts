@@ -46,6 +46,18 @@ export const BuildActions = {
    * Create a text watermark action
    * @param text - Watermark text
    * @param options - Watermark options
+   * @param options.width - Width dimension of the watermark (value and unit, e.g. {value: 100, unit: '%'})
+   * @param options.height - Height dimension of the watermark (value and unit, e.g. {value: 100, unit: '%'})
+   * @param options.top - Top position of the watermark (value and unit)
+   * @param options.right - Right position of the watermark (value and unit)
+   * @param options.bottom - Bottom position of the watermark (value and unit)
+   * @param options.left - Left position of the watermark (value and unit)
+   * @param options.rotation - Rotation of the watermark in counterclockwise degrees (default: 0)
+   * @param options.opacity - Watermark opacity (0 is fully transparent, 1 is fully opaque)
+   * @param options.fontFamily - Font family for the text (e.g. 'Helvetica')
+   * @param options.fontSize - Size of the text in points
+   * @param options.fontColor - Foreground color of the text (e.g. '#ffffff')
+   * @param options.fontStyle - Text style array ('bold', 'italic', or both)
    */
   watermarkText(
     text: string,
@@ -69,6 +81,14 @@ export const BuildActions = {
    * Create an image watermark action
    * @param image - Watermark image
    * @param options - Watermark options
+   * @param options.width - Width dimension of the watermark (value and unit, e.g. {value: 100, unit: '%'})
+   * @param options.height - Height dimension of the watermark (value and unit, e.g. {value: 100, unit: '%'})
+   * @param options.top - Top position of the watermark (value and unit)
+   * @param options.right - Right position of the watermark (value and unit)
+   * @param options.bottom - Bottom position of the watermark (value and unit)
+   * @param options.left - Left position of the watermark (value and unit)
+   * @param options.rotation - Rotation of the watermark in counterclockwise degrees (default: 0)
+   * @param options.opacity - Watermark opacity (0 is fully transparent, 1 is fully opaque)
    */
   watermarkImage(
     image: FileInput,
@@ -128,6 +148,8 @@ export const BuildActions = {
    * Create an apply XFDF action
    * @param file - XFDF file input
    * @param options - Apply Xfdf options
+   * @param options.ignorePageRotation - If true, ignores page rotation when applying XFDF data (default: false)
+   * @param options.richTextEnabled - If true, plain text annotations will be converted to rich text annotations. If false, all text annotations will be plain text annotations (default: true)
    */
   applyXfdf(
     file: FileInput,
@@ -150,7 +172,12 @@ export const BuildActions = {
    * Create redactions with text search
    * @param text - Text to search and redact
    * @param options - Redaction options
+   * @param options.content - Visual aspects of the redaction annotation (background color, overlay text, etc.)
    * @param strategyOptions - Redaction strategy options
+   * @param strategyOptions.includeAnnotations - If true, redaction annotations are created on top of annotations whose content match the provided text (default: true)
+   * @param strategyOptions.caseSensitive - If true, the search will be case sensitive (default: false)
+   * @param strategyOptions.start - The index of the page from where to start the search (default: 0)
+   * @param strategyOptions.limit - Starting from start, the number of pages to search (default: to the end of the document)
    */
   createRedactionsText(
     text: string,
@@ -175,7 +202,12 @@ export const BuildActions = {
    * Create redactions with regex pattern
    * @param regex - Regex pattern to search and redact
    * @param options - Redaction options
+   * @param options.content - Visual aspects of the redaction annotation (background color, overlay text, etc.)
    * @param strategyOptions - Redaction strategy options
+   * @param strategyOptions.includeAnnotations - If true, redaction annotations are created on top of annotations whose content match the provided regex (default: true)
+   * @param strategyOptions.caseSensitive - If true, the search will be case sensitive (default: true)
+   * @param strategyOptions.start - The index of the page from where to start the search (default: 0)
+   * @param strategyOptions.limit - Starting from start, the number of pages to search (default: to the end of the document)
    */
   createRedactionsRegex(
     regex: string,
@@ -198,9 +230,13 @@ export const BuildActions = {
 
   /**
    * Create redactions with preset pattern
-   * @param preset - Preset pattern to search and redact
+   * @param preset - Preset pattern to search and redact (e.g. 'email-address', 'credit-card-number', 'social-security-number', etc.)
    * @param options - Redaction options
+   * @param options.content - Visual aspects of the redaction annotation (background color, overlay text, etc.)
    * @param strategyOptions - Redaction strategy options
+   * @param strategyOptions.includeAnnotations - If true, redaction annotations are created on top of annotations whose content match the provided preset (default: true)
+   * @param strategyOptions.start - The index of the page from where to start the search (default: 0)
+   * @param strategyOptions.limit - Starting from start, the number of pages to search (default: to the end of the document)
    */
   createRedactionsPreset(
     preset: components['schemas']['SearchPreset'],
@@ -315,18 +351,21 @@ export const BuildOutputs = {
 
   /**
    * Image output configuration
+   * @param format - Image format type
    * @param options - Image output options
    */
-  image(options?: {
-    format?: 'png' | 'jpeg' | 'jpg' | 'webp';
-    pages?: components['schemas']['PageRange'];
-    width?: number;
-    height?: number;
-    dpi?: number;
-  }): components['schemas']['ImageOutput'] {
+  image(
+    format: 'png' | 'jpeg' | 'jpg' | 'webp',
+    options?: {
+      pages?: components['schemas']['PageRange'];
+      width?: number;
+      height?: number;
+      dpi?: number;
+    },
+  ): components['schemas']['ImageOutput'] {
     return {
       type: 'image',
-      ...(options?.format && { format: options.format }),
+      format,
       ...(options?.pages && { pages: options.pages }),
       ...(options?.width && { width: options.width }),
       ...(options?.height && { height: options.height }),

@@ -1,6 +1,6 @@
 # Contributing to Nutrient DWS TypeScript Client
 
-Thank you for your interest in contributing to the Nutrient DWS TypeScript Client! This document outlines our development standards and practices.
+Thank you for your interest in contributing to the Nutrient DWS TypeScript Client! This document provides a quick overview of our development standards and practices. For more detailed information about the library itself, please refer to the [README](./README.md), [Methods Documentation](./METHODS.md), and [Workflow Documentation](./WORKFLOW.md).
 
 ## Development Standards
 
@@ -337,6 +337,10 @@ Reviewers will check for:
 
 1. **Setup Development Environment**
    ```bash
+   # Ensure you have Node.js 18.0.0 or higher installed
+   node --version
+
+   # Install dependencies
    npm install
    npm run build  # Verify everything works
    npm test       # Ensure tests pass
@@ -374,6 +378,10 @@ Our pre-commit hooks will:
 - Run ESLint and fix auto-fixable issues
 - Format code with Prettier
 - Validate commit messages against conventional commit format
+
+### Node.js Version Requirement
+
+This project requires Node.js version 18.0.0 or higher. Make sure you have the correct version installed before setting up the development environment.
 
 ### Questions?
 

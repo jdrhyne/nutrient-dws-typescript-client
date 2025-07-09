@@ -3,6 +3,7 @@ import { isBuffer, isUint8Array, isUrl } from './types';
 import { ValidationError } from './errors';
 import fs from 'fs';
 import path from 'path';
+import { Readable } from 'stream';
 
 /**
  * Normalized file data for internal processing (Node.js only)
@@ -197,64 +198,34 @@ async function fetchFromUrl(url: string): Promise<Buffer> {
 /**
  * Zero dependency way to get the number of pages in a PDF.
  *
- * @param pdfInput - File path, URL, Buffer, or Uint8Array. Has to be of a PDF file
+ * @param pdfData - Normalized file data of a PDF file
  * @returns Number of pages in a PDF
  * @throws {ValidationError} If the input is not a valid PDF or if the page count cannot be determined
  */
-export async function getPdfPageCount(pdfInput: FileInput): Promise<number> {
+export async function getPdfPageCount(pdfData: NormalizedFileData): Promise<number> {
   let pdfBytes: Buffer;
 
-  // Handle different input types
-  if (typeof pdfInput === 'string') {
-    if (isUrl(pdfInput)) {
-      // Handle URL string
-      pdfBytes = await fetchFromUrl(pdfInput);
-    } else {
-      // Handle file path string
-      try {
-        pdfBytes = await fs.promises.readFile(pdfInput);
-      } catch (error) {
-        throw new ValidationError(`Failed to read PDF file: ${pdfInput}`, {
-          filePath: pdfInput,
-          error: error instanceof Error ? error.message : String(error),
-        });
+  // Handle different data types in NormalizedFileData
+  if (isBuffer(pdfData.data)) {
+    pdfBytes = pdfData.data;
+  } else if (isUint8Array(pdfData.data)) {
+    pdfBytes = Buffer.from(pdfData.data);
+  } else if (pdfData.data instanceof fs.ReadStream || pdfData.data instanceof Readable) {
+    // Handle ReadableStream by reading it into a buffer
+    try {
+      const chunks = [];
+      for await (const chunk of pdfData.data) {
+        chunks.push(chunk);
       }
-    }
-  } else if (isBuffer(pdfInput)) {
-    pdfBytes = pdfInput;
-  } else if (isUint8Array(pdfInput)) {
-    pdfBytes = Buffer.from(pdfInput);
-  } else if (typeof pdfInput === 'object' && pdfInput !== null && 'type' in pdfInput) {
-    switch (pdfInput.type) {
-      case 'file-path':
-        try {
-          pdfBytes = await fs.promises.readFile(pdfInput.path);
-        } catch (error) {
-          throw new ValidationError(`Failed to read PDF file: ${pdfInput.path}`, {
-            filePath: pdfInput.path,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-        break;
-      case 'buffer':
-        pdfBytes = pdfInput.buffer;
-        break;
-      case 'uint8array':
-        pdfBytes = Buffer.from(pdfInput.data);
-        break;
-      case 'url':
-        pdfBytes = await fetchFromUrl(pdfInput.url);
-        break;
-      default:
-        throw new ValidationError(
-          `Unsupported input type: ${(pdfInput as { type: string }).type}`,
-          {
-            input: pdfInput,
-          },
-        );
+      pdfBytes = Buffer.concat(chunks);
+    } catch (error) {
+      throw new ValidationError(`Failed to read PDF stream: ${pdfData.filename}`, {
+        filename: pdfData.filename,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   } else {
-    throw new ValidationError('Invalid PDF input provided', { input: pdfInput });
+    throw new ValidationError('Invalid PDF data provided', { input: pdfData });
   }
 
   // Convert to string for regex operations
@@ -272,7 +243,7 @@ export async function getPdfPageCount(pdfInput: FileInput): Promise<number> {
   }
 
   if (objects.length === 0) {
-    throw new ValidationError('Could not find any objects in PDF', { input: pdfInput });
+    throw new ValidationError('Could not find any objects in PDF', { input: pdfData });
   }
 
   // Get the Catalog Object
@@ -285,13 +256,13 @@ export async function getPdfPageCount(pdfInput: FileInput): Promise<number> {
   }
 
   if (!catalogObj) {
-    throw new ValidationError('Could not find /Catalog object in PDF', { input: pdfInput });
+    throw new ValidationError('Could not find /Catalog object in PDF', { input: pdfData });
   }
 
   // Extract /Pages reference (e.g. 3 0 R)
   const pagesRefMatch = /\/Pages\s+(\d+)\s+(\d+)\s+R/.exec(catalogObj);
   if (!pagesRefMatch) {
-    throw new ValidationError('Could not find /Pages reference in /Catalog', { input: pdfInput });
+    throw new ValidationError('Could not find /Pages reference in /Catalog', { input: pdfData });
   }
 
   const pagesObjNum = pagesRefMatch[1];
@@ -302,7 +273,7 @@ export async function getPdfPageCount(pdfInput: FileInput): Promise<number> {
   const pagesObjMatch = pagesObjPattern.exec(pdfContent);
 
   if (!pagesObjMatch) {
-    throw new ValidationError('Could not find root /Pages object', { input: pdfInput });
+    throw new ValidationError('Could not find root /Pages object', { input: pdfData });
   }
 
   const pagesObjData = pagesObjMatch[1];
@@ -310,8 +281,48 @@ export async function getPdfPageCount(pdfInput: FileInput): Promise<number> {
   // Extract /Count
   const countMatch = /\/Count\s+(\d+)/.exec(pagesObjData as string);
   if (!countMatch) {
-    throw new ValidationError('Could not find /Count in root /Pages object', { input: pdfInput });
+    throw new ValidationError('Could not find /Count in root /Pages object', { input: pdfData });
   }
 
   return parseInt(countMatch[1] as string, 10);
+}
+
+/**
+ * Zero dependency way to check if a file is a valid PDF.
+ *
+ * @param fileData - Normalized file data to check
+ * @returns Boolean indicating if the input is a valid PDF
+ */
+export async function isValidPdf(fileData: NormalizedFileData): Promise<boolean> {
+  let fileBytes: Buffer;
+
+  try {
+    // Handle different data types in NormalizedFileData
+    if (isBuffer(fileData.data)) {
+      fileBytes = fileData.data;
+    } else if (isUint8Array(fileData.data)) {
+      fileBytes = Buffer.from(fileData.data);
+    } else if (fileData.data instanceof fs.ReadStream || fileData.data instanceof Readable) {
+      // Handle ReadableStream by reading it into a buffer
+      try {
+        const chunks = [];
+        for await (const chunk of fileData.data) {
+          chunks.push(chunk);
+        }
+        fileBytes = Buffer.concat(chunks);
+      } catch {
+        return false;
+      }
+    } else {
+      return false;
+    }
+
+    // Check for PDF header
+    // PDF files start with %PDF- followed by version number (e.g., %PDF-1.4)
+    const pdfHeader = fileBytes.slice(0, 5).toString('ascii');
+    return pdfHeader === '%PDF-';
+  } catch {
+    // If any error occurs during reading or processing, it's not a valid PDF
+    return false;
+  }
 }

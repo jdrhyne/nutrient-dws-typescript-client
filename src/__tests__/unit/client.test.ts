@@ -5,6 +5,7 @@ import type {
   NutrientClientOptions,
   OutputTypeMap,
   TypedWorkflowResult,
+  UrlInput,
   WorkflowDryRunResult,
   WorkflowExecuteOptions,
   WorkflowInitialStage,
@@ -34,6 +35,7 @@ interface MockWorkflowInitialStage extends WorkflowInitialStage {
   addHtmlPart: jest.MockedFunction<
     (
       html: FileInput,
+      assets?: Exclude<FileInput, UrlInput>[],
       options?: Omit<components['schemas']['HTMLPart'], 'html' | 'actions'>,
       actions?: components['schemas']['BuildAction'][],
     ) => MockWorkflowWithPartsStage
@@ -88,7 +90,7 @@ interface MockWorkflowWithPartsStage extends MockWorkflowInitialStage {
   >;
   outputHtml: jest.MockedFunction<
     (
-      options?: Omit<components['schemas']['HTMLOutput'], 'type'>,
+      layout: 'page' | 'reflow',
     ) => MockWorkflowWithOutputStage<'html'>
   >;
   outputMarkdown: jest.MockedFunction<
@@ -108,13 +110,14 @@ interface MockWorkflowWithOutputStage<T extends keyof OutputTypeMap | undefined 
   execute: jest.MockedFunction<
     (options?: WorkflowExecuteOptions) => Promise<TypedWorkflowResult<T>>
   >;
-  dryRun: jest.MockedFunction<
-    (options?: Pick<WorkflowExecuteOptions, 'timeout'>) => Promise<WorkflowDryRunResult>
-  >;
+  dryRun: jest.MockedFunction<() => Promise<WorkflowDryRunResult>>;
 }
 
 const mockValidateFileInput = inputsModule.validateFileInput as jest.MockedFunction<
   typeof inputsModule.validateFileInput
+>;
+const mockIsValidPdf = inputsModule.isValidPdf as jest.MockedFunction<
+  typeof inputsModule.isValidPdf
 >;
 const mockGetPdfPageCount = inputsModule.getPdfPageCount as jest.MockedFunction<
   typeof inputsModule.getPdfPageCount
@@ -172,6 +175,7 @@ describe('NutrientClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockValidateFileInput.mockReturnValue(true);
+    mockIsValidPdf.mockResolvedValue(true);
     mockGetPdfPageCount.mockResolvedValue(10);
     mockSendRequest.mockResolvedValue({
       data: TestDocumentGenerator.generateSimplePdf() as never,
@@ -1098,7 +1102,7 @@ describe('NutrientClient', () => {
     });
   });
 
-  describe('splitPdf()', () => {
+  describe('split()', () => {
     let client: NutrientClient;
     let mockWorkflowInstance: MockWorkflowWithPartsStage & MockWorkflowWithOutputStage;
 
@@ -1109,12 +1113,12 @@ describe('NutrientClient', () => {
 
     it('should split a PDF into multiple documents', async () => {
       const file = 'test-file.pdf';
-      const pageRanges = [
+      const pageRanges: { start: number; end: number }[] = [
         { start: 0, end: 2 },
         { start: 3, end: 5 },
       ];
 
-      const result = await client.splitPdf(file, pageRanges);
+      const result = await client.split(file, pageRanges);
 
       expect(mockWorkflowInstance.addFilePart).toHaveBeenCalledWith(file, {
         pages: { end: 2, start: 0 },

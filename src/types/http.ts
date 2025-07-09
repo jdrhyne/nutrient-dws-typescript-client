@@ -60,7 +60,6 @@ export interface RequestConfig<Method extends Methods, Endpoint extends Endpoint
   endpoint: Endpoint;
   data: RequestTypeMap[Method][Endpoint];
   headers?: Record<string, string>;
-  timeout?: number;
 }
 
 /**

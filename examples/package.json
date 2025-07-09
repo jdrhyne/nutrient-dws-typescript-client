@@ -1,0 +1,19 @@
+{
+  "name": "nutrient-dws-typescript-client-example",
+  "version": "1.0.0",
+  "description": "Example project for nutrient-dws-typescript-client",
+  "main": "dist/index.js",
+  "scripts": {
+    "start:direct": "tsx src/direct_method.ts",
+    "start:workflow": "tsx src/workflow.ts"
+  },
+  "private": true,
+  "dependencies": {
+    "dotenv": "^17.0.0",
+    "nutrient-dws-typescript-client": "file:../nutrient-dws-typescript-client-0.1.4.tgz"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.7",
+    "typescript": "^5.8.3"
+  }
+}

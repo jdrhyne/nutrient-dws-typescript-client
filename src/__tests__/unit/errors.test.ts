@@ -182,4 +182,80 @@ describe('Error Classes', () => {
       expect(error?.details).toEqual({ foo: 'bar' });
     });
   });
+
+  describe('toString method', () => {
+    it('should format error with default code', () => {
+      const error = new NutrientError('Test error');
+      expect(error.toString()).toBe('NutrientError: Test error');
+    });
+
+    it('should include custom code when provided', () => {
+      const error = new NutrientError('Test error', 'CUSTOM_CODE');
+      expect(error.toString()).toBe('NutrientError: Test error (CUSTOM_CODE)');
+    });
+
+    it('should include status code when provided', () => {
+      const error = new NutrientError('Test error', 'CUSTOM_CODE', {}, 404);
+      expect(error.toString()).toBe('NutrientError: Test error (CUSTOM_CODE) [HTTP 404]');
+    });
+
+    it('should include status code without custom code', () => {
+      const error = new NutrientError('Test error', 'NUTRIENT_ERROR', {}, 500);
+      expect(error.toString()).toBe('NutrientError: Test error [HTTP 500]');
+    });
+  });
+
+  describe('wrap method', () => {
+    it('should return the original error if it is a NutrientError', () => {
+      const originalError = new ValidationError('Original error');
+      const wrappedError = NutrientError.wrap(originalError);
+
+      expect(wrappedError).toBe(originalError);
+    });
+
+    it('should wrap standard Error instances', () => {
+      const originalError = new Error('Standard error');
+      const wrappedError = NutrientError.wrap(originalError);
+
+      expect(wrappedError).toBeInstanceOf(NutrientError);
+      expect(wrappedError.message).toBe('Standard error');
+      expect(wrappedError.code).toBe('WRAPPED_ERROR');
+      expect(wrappedError.details).toEqual({
+        originalError: 'Error',
+        originalMessage: 'Standard error',
+        stack: originalError.stack,
+      });
+    });
+
+    it('should wrap standard Error instances with custom message', () => {
+      const originalError = new Error('Standard error');
+      const wrappedError = NutrientError.wrap(originalError, 'Custom prefix');
+
+      expect(wrappedError).toBeInstanceOf(NutrientError);
+      expect(wrappedError.message).toBe('Custom prefix: Standard error');
+      expect(wrappedError.code).toBe('WRAPPED_ERROR');
+    });
+
+    it('should handle non-Error objects', () => {
+      const wrappedError = NutrientError.wrap('String error');
+
+      expect(wrappedError).toBeInstanceOf(NutrientError);
+      expect(wrappedError.message).toBe('An unknown error occurred');
+      expect(wrappedError.code).toBe('UNKNOWN_ERROR');
+      expect(wrappedError.details).toEqual({
+        originalError: 'String error',
+      });
+    });
+
+    it('should handle non-Error objects with custom message', () => {
+      const wrappedError = NutrientError.wrap(null, 'Custom message');
+
+      expect(wrappedError).toBeInstanceOf(NutrientError);
+      expect(wrappedError.message).toBe('Custom message');
+      expect(wrappedError.code).toBe('UNKNOWN_ERROR');
+      expect(wrappedError.details).toEqual({
+        originalError: 'null',
+      });
+    });
+  });
 });

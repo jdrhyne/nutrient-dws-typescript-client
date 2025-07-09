@@ -2,11 +2,10 @@ import type {
   FileInput,
   NutrientClientOptions,
   WorkflowInitialStage,
-  WorkflowResult,
   TypedWorkflowResult,
   WorkflowWithPartsStage,
-  WorkflowOutput,
   OutputTypeMap,
+  WorkflowResult,
 } from './types';
 import { ValidationError, NutrientError } from './errors';
 import { workflow } from './workflow';
@@ -17,6 +16,7 @@ import {
   isRemoteFileInput,
   processFileInput,
   processRemoteFileInput,
+  isValidPdf,
 } from './inputs';
 import { sendRequest } from './http';
 import type { NormalizedFileData } from './inputs';
@@ -28,7 +28,7 @@ import type { ApplicableAction } from './builders/workflow';
  * - start defaults to 0 (first page)
  * - end defaults to -1 (last page)
  * - negative end values loop from the end of the document
- * 
+ *
  * @param pages - The page parameters to normalize
  * @param pageCount - The total number of pages in the document (required for negative indices)
  * @returns Normalized page parameters
@@ -36,7 +36,7 @@ import type { ApplicableAction } from './builders/workflow';
  */
 function normalizePageParams(
   pages?: { start?: number; end?: number },
-  pageCount?: number
+  pageCount?: number,
 ): { start: number; end: number } {
   let start = pages?.start ?? 0;
   let end = pages?.end ?? -1;
@@ -125,7 +125,7 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const accountInfo = await client.getAccountInfo();
-   * console.log(accountInfo.organization);
+   * console.log(accountInfo.subscriptionType);
    * ```
    */
   async getAccountInfo(): Promise<
@@ -199,36 +199,107 @@ export class NutrientClient {
   }
 
   /**
-   * Signs a PDF document
+   * Creates a new WorkflowBuilder for chaining multiple operations
    *
-   * @param file - The PDF file to sign
-   * @param data - Signature data
-   * @param options - Additional options
-   * @returns Promise resolving to the signed PDF file ID
+   * @param overrideTimeout - Set a custom timeout for the workflow (in milliseconds)
+   * @returns A new WorkflowBuilder instance
    *
    * @example
    * ```typescript
-   * const fileId = await client.signPdf('document.pdf', {
-   *   signature: {
-   *     name: 'John Doe',
-   *     location: 'San Francisco',
-   *     reason: 'Approval'
-   *   }
-   * });
+   * const result = await client
+   *   .workflow()
+   *   .addFilePart('document.docx')
+   *   .applyAction(BuildActions.ocr('english'))
+   *   .outputPdf()
+   *   .execute();
    * ```
    */
-  async signPdf(
-    file: FileInput,
+  workflow(overrideTimeout?: number): WorkflowInitialStage {
+    return workflow({
+      ...this.options,
+      timeout: overrideTimeout ?? this.options.timeout,
+    });
+  }
+
+  /**
+   * Helper function that takes a TypedWorkflowResult, throws any errors, and returns the specific output type
+   *
+   * @param result - The TypedWorkflowResult to process
+   * @returns The specific output type from the result
+   * @throws {NutrientError} If the workflow was not successful or if output is missing
+   * @private
+   */
+  private processTypedWorkflowResult<T extends keyof OutputTypeMap>(
+    result: TypedWorkflowResult<T>,
+  ): OutputTypeMap[T] {
+    if (!result.success) {
+      // If there are errors, throw the first one
+      if (result.errors?.[0]) {
+        throw result.errors[0].error;
+      }
+      // If no specific errors but operation failed
+      throw new NutrientError(
+        'Workflow operation failed without specific error details',
+        'WORKFLOW_ERROR',
+      );
+    }
+
+    // Check if output exists
+    if (!result.output) {
+      throw new NutrientError(
+        'Workflow completed successfully but no output was returned',
+        'MISSING_OUTPUT',
+      );
+    }
+
+    return result.output as OutputTypeMap[T];
+  }
+
+  /**
+   * Signs a PDF document
+   *
+   * @param pdf - The PDF file to sign
+   * @param data - Signature data
+   * @param options - Additional options
+   * @returns Promise resolving to the signed PDF file output
+   *
+   * @example
+   * ```typescript
+   * const result = await client.sign('document.pdf', {
+   *   data: {
+   *     signatureType: 'cms',
+   *     flatten: false,
+   *     cadesLevel: 'b-lt'
+   *   }
+   * });
+   *
+   * // Access the signed PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('signed-document.pdf', Buffer.from(result.buffer));
+   * ```
+   */
+  async sign(
+    pdf: FileInput,
     data?: components['schemas']['CreateDigitalSignature'],
     options?: {
       image?: FileInput;
       graphicImage?: FileInput;
     },
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
     // Normalize the file input
-    const normalizedFile = isRemoteFileInput(file)
-      ? await processRemoteFileInput(file)
-      : await processFileInput(file);
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
 
     // Prepare optional files
     let normalizedImage: NormalizedFileData | undefined;
@@ -267,199 +338,6 @@ export class NutrientClient {
   }
 
   /**
-   * Uses AI to redact sensitive information in a document
-   *
-   * @param file - The file to redact
-   * @param criteria - AI redaction criteria
-   * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional pages to redact. 
-   *                  start defaults to 0 (first page), end defaults to -1 (last page).
-   *                  Both start and end are inclusive. Negative end values count from the end of the document.
-   * @param options - Optional redaction options
-   * @returns Promise resolving to the redacted document
-   *
-   * @example
-   * ```typescript
-   * // Stage redactions
-   * const result = await client.createRedactionsAI(
-   *   'document.pdf',
-   *   'Remove all emails'
-   * );
-   *
-   * // Apply redactions immediately
-   * const result = await client.createRedactionsAI(
-   *   'document.pdf',
-   *   'Remove all PII',
-   *   'apply'
-   * );
-   *
-   * // Redact specific pages
-   * const result = await client.createRedactionsAI(
-   *   'document.pdf',
-   *   'Remove all PII',
-   *   'stage',
-   *   { start: 0, end: 2 }  // Pages 0, 1, 2
-   * );
-   * 
-   * // Redact the last 3 pages
-   * const result = await client.createRedactionsAI(
-   *   'document.pdf',
-   *   'Remove all PII',
-   *   'stage',
-   *   { start: -3, end: -1 }  // Last three pages
-   * );
-   * ```
-   */
-  async createRedactionsAI(
-    file: FileInput,
-    criteria: string,
-    redaction_state: 'stage' | 'apply' = 'stage',
-    pages?: { start?: number; end?: number },
-    options?: components['schemas']['RedactData']['options'],
-  ): Promise<WorkflowOutput> {
-    const normalizedFile = isRemoteFileInput(file)
-      ? await processRemoteFileInput(file)
-      : await processFileInput(file);
-
-    const response = await sendRequest(
-      {
-        method: 'POST',
-        endpoint: '/ai/redact',
-        data: {
-          data: {
-            documents: [
-              {
-                file: 'file',
-                pages: pages ? normalizePageParams(pages) : undefined,
-              },
-            ],
-            criteria,
-            redaction_state,
-            options,
-          },
-          file: normalizedFile,
-          fileKey: 'file',
-        },
-      },
-      this.options,
-      'arraybuffer',
-    );
-
-    const buffer = new Uint8Array(response.data as unknown as ArrayBuffer);
-
-    return { mimeType: 'application/pdf', filename: 'output.pdf', buffer };
-  }
-  /**
-   * Creates a new WorkflowBuilder for chaining multiple operations
-   *
-   * @returns A new WorkflowBuilder instance
-   *
-   * @example
-   * ```typescript
-   * const result = await client
-   *   .workflow()
-   *   .addFilePart('document.docx')
-   *   .applyAction(BuildActions.ocr('english'))
-   *   .outputPdf()
-   *   .execute();
-   * ```
-   */
-  workflow(): WorkflowInitialStage {
-    return workflow(this.options);
-  }
-
-  /**
-   * Helper function that takes a WorkflowResult, throws any errors, and returns the WorkflowOutput
-   *
-   * @param result - The WorkflowResult to process
-   * @returns The WorkflowOutput from the result
-   * @throws {NutrientError} If the workflow was not successful or if output is missing
-   * @private
-   */
-  private processWorkflowResult(result: WorkflowResult): WorkflowOutput {
-    if (!result.success) {
-      // If there are errors, throw the first one
-      if (result.errors?.[0]) {
-        throw result.errors[0].error;
-      }
-      // If no specific errors but operation failed
-      throw new NutrientError(
-        'Workflow operation failed without specific error details',
-        'WORKFLOW_ERROR',
-      );
-    }
-
-    // Check if output exists
-    if (!result.output) {
-      throw new NutrientError(
-        'Workflow completed successfully but no output was returned',
-        'MISSING_OUTPUT',
-      );
-    }
-
-    return result.output;
-  }
-
-  /**
-   * Helper function that takes a TypedWorkflowResult, throws any errors, and returns the specific output type
-   *
-   * @param result - The TypedWorkflowResult to process
-   * @returns The specific output type from the result
-   * @throws {NutrientError} If the workflow was not successful or if output is missing
-   * @private
-   */
-  private processTypedWorkflowResult<T extends keyof OutputTypeMap>(
-    result: TypedWorkflowResult<T>,
-  ): OutputTypeMap[T] {
-    if (!result.success) {
-      // If there are errors, throw the first one
-      if (result.errors?.[0]) {
-        throw result.errors[0].error;
-      }
-      // If no specific errors but operation failed
-      throw new NutrientError(
-        'Workflow operation failed without specific error details',
-        'WORKFLOW_ERROR',
-      );
-    }
-
-    // Check if output exists
-    if (!result.output) {
-      throw new NutrientError(
-        'Workflow completed successfully but no output was returned',
-        'MISSING_OUTPUT',
-      );
-    }
-
-    return result.output as OutputTypeMap[T];
-  }
-
-  /**
-   * Performs OCR (Optical Character Recognition) on a document
-   * This is a convenience method that uses the workflow builder.
-   *
-   * @param file - The input file to perform OCR on
-   * @param language - The language(s) to use for OCR
-   * @returns Promise resolving to the OCR result
-   *
-   * @example
-   * ```typescript
-   * const result = await client.ocr('scanned-document.pdf', 'english');
-   * ```
-   */
-  async ocr(
-    file: FileInput,
-    language: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][],
-  ): Promise<WorkflowOutput> {
-    const ocrAction = BuildActions.ocr(language);
-
-    const builder = this.workflow().addFilePart(file, undefined, [ocrAction]);
-
-    const result = await builder.outputPdf().execute();
-    return this.processWorkflowResult(result);
-  }
-
-  /**
    * Adds a text watermark to a document
    * This is a convenience method that uses the workflow builder.
    *
@@ -470,23 +348,33 @@ export class NutrientClient {
    *
    * @example
    * ```typescript
-   * const result = await client.watermark('document.pdf', 'CONFIDENTIAL', {
+   * const result = await client.watermarkText('document.pdf', 'CONFIDENTIAL', {
    *   opacity: 0.5,
    *   fontSize: 24
    * });
+   *
+   * // Access the watermarked PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('watermarked-document.pdf', Buffer.from(result.buffer));
    * ```
    */
   async watermarkText(
     file: FileInput,
     text: string,
     options: Partial<Omit<components['schemas']['TextWatermarkAction'], 'type' | 'text'>> = {},
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
     const watermarkAction = BuildActions.watermarkText(text, options);
 
     const builder = this.workflow().addFilePart(file, undefined, [watermarkAction]);
 
     const result = await builder.outputPdf().execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -504,19 +392,29 @@ export class NutrientClient {
    *   opacity: 0.5,
    *   scale: 0.5
    * });
+   *
+   * // Access the watermarked PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('image-watermarked-document.pdf', Buffer.from(result.buffer));
    * ```
    */
   async watermarkImage(
     file: FileInput,
     image: FileInput,
     options: Partial<Omit<components['schemas']['ImageWatermarkAction'], 'type' | 'image'>> = {},
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
     const watermarkAction = BuildActions.watermarkImage(image, options);
 
     const builder = this.workflow().addFilePart(file, undefined, [watermarkAction]);
 
     const result = await builder.outputPdf().execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -529,8 +427,36 @@ export class NutrientClient {
    *
    * @example
    * ```typescript
-   * const result = await client.convert('document.docx', 'pdf');
-   * // result will be of type OutputTypeMap['pdf']
+   * // Convert DOCX to PDF
+   * const pdfResult = await client.convert('document.docx', 'pdf');
+   *
+   * // Access the PDF buffer
+   * const pdfBuffer = pdfResult.buffer;
+   * console.log(pdfResult.mimeType); // 'application/pdf'
+   *
+   * // Save the PDF (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('converted-document.pdf', Buffer.from(pdfResult.buffer));
+   *
+   * // Convert PDF to image
+   * const imageResult = await client.convert('document.pdf', 'png');
+   *
+   * // Access the PNG buffer
+   * const pngBuffer = imageResult.buffer;
+   * console.log(imageResult.mimeType); // 'image/png'
+   *
+   * // Save the image (Node.js example)
+   * fs.writeFileSync('document-page.png', Buffer.from(imageResult.buffer));
+   *
+   * // Convert to HTML
+   * const htmlResult = await client.convert('document.pdf', 'html');
+   *
+   * // Access the HTML content
+   * const htmlContent = htmlResult.content;
+   * console.log(htmlResult.mimeType); // 'text/html'
+   *
+   * // Save the HTML (Node.js example)
+   * fs.writeFileSync('document.html', htmlContent);
    * ```
    */
   async convert<
@@ -571,7 +497,7 @@ export class NutrientClient {
         result = (await builder.outputOffice('pptx').execute()) as TypedWorkflowResult<T>;
         break;
       case 'html':
-        result = (await builder.outputHtml({ layout: 'page' }).execute()) as TypedWorkflowResult<T>;
+        result = (await builder.outputHtml('page').execute()) as TypedWorkflowResult<T>;
         break;
       case 'markdown':
         result = (await builder.outputMarkdown().execute()) as TypedWorkflowResult<T>;
@@ -604,35 +530,38 @@ export class NutrientClient {
   }
 
   /**
-   * Merges multiple documents into a single document
+   * Performs OCR (Optical Character Recognition) on a document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param files - The files to merge
-   * @returns Promise resolving to the merged document
+   * @param file - The input file to perform OCR on
+   * @param language - The language(s) to use for OCR
+   * @returns Promise resolving to the OCR result
    *
    * @example
    * ```typescript
-   * const result = await client.merge(['doc1.pdf', 'doc2.pdf', 'doc3.pdf']);
+   * const result = await client.ocr('scanned-document.pdf', 'english');
+   *
+   * // Access the OCR-processed PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('ocr-document.pdf', Buffer.from(result.buffer));
    * ```
    */
-  async merge(files: FileInput[]): Promise<WorkflowOutput> {
-    if (!files || files.length < 2) {
-      throw new ValidationError('At least 2 files are required for merge operation');
-    }
+  async ocr(
+    file: FileInput,
+    language: components['schemas']['OcrLanguage'] | components['schemas']['OcrLanguage'][],
+  ): Promise<OutputTypeMap['pdf']> {
+    const ocrAction = BuildActions.ocr(language);
 
-    const [firstFile, ...restFiles] = files;
-    if (!firstFile) {
-      throw new ValidationError('First file is required');
-    }
-
-    let builder = this.workflow().addFilePart(firstFile);
-
-    for (const file of restFiles) {
-      builder = builder.addFilePart(file);
-    }
+    const builder = this.workflow().addFilePart(file, undefined, [ocrAction]);
 
     const result = await builder.outputPdf().execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -640,7 +569,7 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param file - The file to extract text from
-   * @param pages - Optional page range to extract text from. 
+   * @param pages - Optional page range to extract text from.
    *                  start defaults to 0 (first page), end defaults to -1 (last page).
    *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @returns Promise resolving to the extracted text data
@@ -652,12 +581,24 @@ export class NutrientClient {
    *
    * // Extract text from specific pages
    * const result = await client.extractText('document.pdf', { start: 0, end: 2 }); // Pages 0, 1, 2
-   * 
+   *
    * // Extract text from the last page
    * const result = await client.extractText('document.pdf', { end: -1 }); // Last page
-   * 
+   *
    * // Extract text from the second-to-last page to the end
    * const result = await client.extractText('document.pdf', { start: -2 }); // Second-to-last and last page
+   *
+   * // Access the extracted text content
+   * const textContent = result.data.pages[0].plainText;
+   *
+   * // Process the extracted text
+   * const wordCount = textContent.split(/\s+/).length;
+   * console.log(`Document contains ${wordCount} words`);
+   *
+   * // Search for specific content
+   * if (textContent.includes('confidential')) {
+   *   console.log('Document contains confidential information');
+   * }
    * ```
    */
   async extractText(
@@ -677,7 +618,7 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param file - The file to extract table from
-   * @param pages - Optional page range to extract tables from. 
+   * @param pages - Optional page range to extract tables from.
    *                  start defaults to 0 (first page), end defaults to -1 (last page).
    *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @returns Promise resolving to the extracted table data
@@ -685,14 +626,45 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.extractTable('document.pdf');
-   * console.log(result.data);
+   *
+   * // Access the extracted tables
+   * const tables = result.data.pages[0].tables;
+   *
+   * // Process the first table if available
+   * if (tables && tables.length > 0) {
+   *   const firstTable = tables[0];
+   *
+   *   // Get table dimensions
+   *   console.log(`Table has ${firstTable.rows.length} rows and ${firstTable.columns.length} columns`);
+   *
+   *   // Access table cells
+   *   for (let i = 0; i < firstTable.rows.length; i++) {
+   *     for (let j = 0; j < firstTable.columns.length; j++) {
+   *       const cell = firstTable.cells.find(cell => cell.rowIndex === i && cell.columnIndex === j);
+   *       const cellContent = cell?.text || '';
+   *       console.log(`Cell [${i}][${j}]: ${cellContent}`);
+   *     }
+   *   }
+   *
+   *   // Convert table to CSV
+   *   let csv = '';
+   *   for (let i = 0; i < firstTable.rows.length; i++) {
+   *     const rowData = [];
+   *     for (let j = 0; j < firstTable.columns.length; j++) {
+   *       const cell = firstTable.cells.find(cell => cell.rowIndex === i && cell.columnIndex === j);
+   *       rowData.push(cell?.text || '');
+   *     }
+   *     csv += rowData.join(',') + '\n';
+   *   }
+   *   console.log(csv);
+   * }
    *
    * // Extract tables from specific pages
    * const result = await client.extractTable('document.pdf', { start: 0, end: 2 }); // Pages 0, 1, 2
-   * 
+   *
    * // Extract tables from the last page
    * const result = await client.extractTable('document.pdf', { end: -1 }); // Last page
-   * 
+   *
    * // Extract tables from the second-to-last page to the end
    * const result = await client.extractTable('document.pdf', { start: -2 }); // Second-to-last and last page
    * ```
@@ -714,7 +686,7 @@ export class NutrientClient {
    * This is a convenience method that uses the workflow builder.
    *
    * @param file - The file to extract KVPs from
-   * @param pages - Optional page range to extract KVPs from. 
+   * @param pages - Optional page range to extract KVPs from.
    *                  start defaults to 0 (first page), end defaults to -1 (last page).
    *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @returns Promise resolving to the extracted KVPs data
@@ -722,14 +694,38 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.extractKeyValuePairs('document.pdf');
-   * console.log(result.data);
+   *
+   * // Access the extracted key-value pairs
+   * const kvps = result.data.pages[0].keyValuePairs;
+   *
+   * // Process the key-value pairs
+   * if (kvps && kvps.length > 0) {
+   *   // Iterate through all key-value pairs
+   *   kvps.forEach((kvp, index) => {
+   *     console.log(`KVP ${index + 1}:`);
+   *     console.log(`  Key: ${kvp.key}`);
+   *     console.log(`  Value: ${kvp.value}`);
+   *     console.log(`  Confidence: ${kvp.confidence}`);
+   *   });
+   *
+   *   // Create a dictionary from the key-value pairs
+   *   const dictionary = {};
+   *   kvps.forEach(kvp => {
+   *     dictionary[kvp.key] = kvp.value;
+   *   });
+   *
+   *   // Look up specific values
+   *   console.log(`Invoice Number: ${dictionary['Invoice Number']}`);
+   *   console.log(`Date: ${dictionary['Date']}`);
+   *   console.log(`Total Amount: ${dictionary['Total']}`);
+   * }
    *
    * // Extract KVPs from specific pages
    * const result = await client.extractKeyValuePairs('document.pdf', { start: 0, end: 2 }); // Pages 0, 1, 2
-   * 
+   *
    * // Extract KVPs from the last page
    * const result = await client.extractKeyValuePairs('document.pdf', { end: -1 }); // Last page
-   * 
+   *
    * // Extract KVPs from the second-to-last page to the end
    * const result = await client.extractKeyValuePairs('document.pdf', { start: -2 }); // Second-to-last and last page
    * ```
@@ -747,93 +743,10 @@ export class NutrientClient {
   }
 
   /**
-   * Flattens annotations in a PDF document
-   * This is a convenience method that uses the workflow builder.
-   *
-   * @param file - The PDF file to flatten
-   * @param annotationIds - Optional specific annotation IDs to flatten
-   * @returns Promise resolving to the flattened document
-   *
-   * @example
-   * ```typescript
-   * const result = await client.flatten('annotated-document.pdf');
-   * ```
-   */
-  async flatten(file: FileInput, annotationIds?: (string | number)[]): Promise<WorkflowOutput> {
-    const flattenAction = BuildActions.flatten(annotationIds);
-
-    const result = await this.workflow()
-      .addFilePart(file, undefined, [flattenAction])
-      .outputPdf()
-      .execute();
-    return this.processWorkflowResult(result);
-  }
-
-  /**
-   * Rotates pages in a document
-   * This is a convenience method that uses the workflow builder.
-   *
-   * @param pdf - The file to rotate
-   * @param angle - Rotation angle (90, 180, or 270 degrees)
-   * @param pages - Optional page range to rotate. 
-   *                  start defaults to 0 (first page), end defaults to -1 (last page).
-   *                  Both start and end are inclusive. Negative end values count from the end of the document.
-   * @returns Promise resolving to the entire document with specified pages rotated
-   *
-   * @example
-   * ```typescript
-   * const result = await client.rotate('document.pdf', 90);
-   * 
-   * // Rotate specific pages:
-   * const result = await client.rotate('document.pdf', 90, { start: 1, end: 3 }); // Pages 1, 2, 3
-   * 
-   * // Rotate the last page:
-   * const result = await client.rotate('document.pdf', 90, { end: -1 }); // Last page
-   * 
-   * // Rotate from page 2 to the second-to-last page:
-   * const result = await client.rotate('document.pdf', 90, { start: 2, end: -2 });
-   * ```
-   */
-  async rotate(
-    pdf: FileInput,
-    angle: 90 | 180 | 270,
-    pages?: { start?: number; end?: number },
-  ): Promise<WorkflowOutput> {
-    const rotateAction = BuildActions.rotate(angle);
-    const workflow = this.workflow();
-
-    if (pages) {
-      const pageCount = await getPdfPageCount(pdf);
-      const normalizedPages = normalizePageParams(pages, pageCount);
-
-      // Add pages before the range to rotate
-      if (normalizedPages.start > 0) {
-        workflow.addFilePart(pdf, { pages: { start: 0, end: normalizedPages.start - 1 } });
-      }
-
-      // Add the specific pages with rotation action
-      workflow.addFilePart(pdf, { pages: normalizedPages }, [rotateAction]);
-
-      // Add pages after the range to rotate
-      if (normalizedPages.end < pageCount - 1) {
-        workflow.addFilePart(pdf, { pages: { start: normalizedPages.end + 1, end: pageCount - 1 } });
-      }
-    } else {
-      // If no pages specified, rotate the entire document
-      workflow.addFilePart(pdf, undefined, [rotateAction]);
-    }
-
-    const result = await (workflow as WorkflowWithPartsStage)
-      .outputPdf()
-      .execute();
-    return this.processWorkflowResult(result);
-  }
-
-  /**
    * Password protects a PDF document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to protect
+   * @param file - The file to protect
    * @param userPassword - Password required to open the document
    * @param ownerPassword - Password required to modify the document
    * @param permissions - Optional array of permissions granted when opened with user password
@@ -845,6 +758,16 @@ export class NutrientClient {
    * // Or with specific permissions:
    * const result = await client.passwordProtect('document.pdf', 'user123', 'owner456',
    *   ['printing', 'extract_accessibility']);
+   *
+   * // Access the password-protected PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('protected-document.pdf', Buffer.from(result.buffer));
    * ```
    */
   async passwordProtect(
@@ -852,7 +775,7 @@ export class NutrientClient {
     userPassword: string,
     ownerPassword: string,
     permissions?: components['schemas']['PDFUserPermission'][],
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
     const result = await this.workflow()
       .addFilePart(file)
       .outputPdf({
@@ -861,14 +784,14 @@ export class NutrientClient {
         ...(permissions && { user_permissions: permissions }),
       })
       .execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
    * Sets metadata for a PDF document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to modify
+   * @param pdf - The PDF file to modify
    * @param metadata - The metadata to set (title and/or author)
    * @returns Promise resolving to the document with updated metadata
    *
@@ -878,21 +801,39 @@ export class NutrientClient {
    *   title: 'My Document',
    *   author: 'John Doe'
    * });
+   *
+   * // Access the PDF with updated metadata
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-metadata.pdf', Buffer.from(result.buffer));
    * ```
    */
   async setMetadata(
-    file: FileInput,
+    pdf: FileInput,
     metadata: components['schemas']['Metadata'],
-  ): Promise<WorkflowOutput> {
-    const result = await this.workflow().addFilePart(file).outputPdf({ metadata }).execute();
-    return this.processWorkflowResult(result);
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
+    const result = await this.workflow().addFilePart(pdf).outputPdf({ metadata }).execute();
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
    * Sets page labels for a PDF document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to modify
+   * @param pdf - The PDF file to modify
    * @param labels - Array of label objects with pages and label properties
    * @returns Promise resolving to the document with updated page labels
    *
@@ -902,44 +843,83 @@ export class NutrientClient {
    *   { pages: [0, 1, 2], label: 'Cover' },
    *   { pages: [3, 4, 5], label: 'Chapter 1' }
    * ]);
+   *
+   * // Access the PDF with updated page labels
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-labels.pdf', Buffer.from(result.buffer));
    * ```
    */
   async setPageLabels(
-    file: FileInput,
+    pdf: FileInput,
     labels: components['schemas']['Label'][],
-  ): Promise<WorkflowOutput> {
-    const result = await this.workflow().addFilePart(file).outputPdf({ labels }).execute();
-    return this.processWorkflowResult(result);
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
+    const result = await this.workflow().addFilePart(pdf).outputPdf({ labels }).execute();
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
    * Applies Instant JSON to a document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to modify
+   * @param pdf - The PDF file to modify
    * @param instantJsonFile - The Instant JSON file to apply
    * @returns Promise resolving to the modified document
    *
    * @example
    * ```typescript
    * const result = await client.applyInstantJson('document.pdf', 'annotations.json');
+   *
+   * // Access the PDF with applied Instant JSON
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-annotations.pdf', Buffer.from(result.buffer));
    * ```
    */
-  async applyInstantJson(file: FileInput, instantJsonFile: FileInput): Promise<WorkflowOutput> {
+  async applyInstantJson(
+    pdf: FileInput,
+    instantJsonFile: FileInput,
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
     const applyJsonAction = BuildActions.applyInstantJson(instantJsonFile);
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, [applyJsonAction])
+      .addFilePart(pdf, undefined, [applyJsonAction])
       .outputPdf()
       .execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
    * Applies XFDF to a document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to modify
+   * @param pdf - The PDF file to modify
    * @param xfdfFile - The XFDF file to apply
    * @param options - Optional settings for applying XFDF
    * @returns Promise resolving to the modified document
@@ -952,23 +932,141 @@ export class NutrientClient {
    *   ignorePageRotation: true,
    *   richTextEnabled: false
    * });
+   *
+   * // Access the PDF with applied XFDF annotations
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-xfdf.pdf', Buffer.from(result.buffer));
    * ```
    */
   async applyXfdf(
-    file: FileInput,
+    pdf: FileInput,
     xfdfFile: FileInput,
     options?: {
       ignorePageRotation?: boolean;
       richTextEnabled?: boolean;
     },
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
     const applyXfdfAction = BuildActions.applyXfdf(xfdfFile, options);
 
     const result = await this.workflow()
-      .addFilePart(file, undefined, [applyXfdfAction])
+      .addFilePart(pdf, undefined, [applyXfdfAction])
       .outputPdf()
       .execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
+  }
+
+  /**
+   * Uses AI to redact sensitive information in a document
+   *
+   * @param pdf - The PDF file to redact
+   * @param criteria - AI redaction criteria
+   * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
+   * @param pages - Optional pages to redact.
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
+   * @param options - Optional redaction options
+   * @returns Promise resolving to the redacted document
+   *
+   * @example
+   * ```typescript
+   * // Stage redactions
+   * const result = await client.createRedactionsAI(
+   *   'document.pdf',
+   *   'Remove all emails'
+   * );
+   *
+   * // Apply redactions immediately
+   * const result = await client.createRedactionsAI(
+   *   'document.pdf',
+   *   'Remove all PII',
+   *   'apply'
+   * );
+   *
+   * // Redact specific pages
+   * const result = await client.createRedactionsAI(
+   *   'document.pdf',
+   *   'Remove all PII',
+   *   'stage',
+   *   { start: 0, end: 2 }  // Pages 0, 1, 2
+   * );
+   *
+   * // Redact the last 3 pages
+   * const result = await client.createRedactionsAI(
+   *   'document.pdf',
+   *   'Remove all PII',
+   *   'stage',
+   *   { start: -3, end: -1 }  // Last three pages
+   * );
+   *
+   * // Access the redacted PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('redacted-document.pdf', Buffer.from(result.buffer));
+   * ```
+   */
+  async createRedactionsAI(
+    pdf: FileInput,
+    criteria: string,
+    redaction_state: 'stage' | 'apply' = 'stage',
+    pages?: { start?: number; end?: number },
+    options?: components['schemas']['RedactData']['options'],
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
+    const pageCount = await getPdfPageCount(normalizedFile);
+
+    const response = await sendRequest(
+      {
+        method: 'POST',
+        endpoint: '/ai/redact',
+        data: {
+          data: {
+            documents: [
+              {
+                file: 'file',
+                pages: pages ? normalizePageParams(pages, pageCount) : undefined,
+              },
+            ],
+            criteria,
+            redaction_state,
+            options,
+          },
+          file: normalizedFile,
+          fileKey: 'file',
+        },
+      },
+      this.options,
+      'arraybuffer',
+    );
+
+    const buffer = new Uint8Array(response.data as unknown as ArrayBuffer);
+
+    return { mimeType: 'application/pdf', filename: 'output.pdf', buffer };
   }
 
   /**
@@ -978,7 +1076,7 @@ export class NutrientClient {
    * @param pdf - The PDF file to create redactions in
    * @param preset - The preset pattern to search for (e.g., 'email-address', 'social-security-number')
    * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional page range to create redactions in. 
+   * @param pages - Optional page range to create redactions in.
    *                  start defaults to 0 (first page), end defaults to -1 (last page).
    *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @param presetOptions - Optional settings for the preset strategy
@@ -988,7 +1086,7 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.createRedactionsPreset('document.pdf', 'email-address');
-   * 
+   *
    * // Or with options:
    * const result = await client.createRedactionsPreset(
    *   'document.pdf',
@@ -997,7 +1095,7 @@ export class NutrientClient {
    *   { start: 0, end: 4 },  // Pages 0, 1, 2, 3, 4
    *   { includeAnnotations: true }
    * );
-   * 
+   *
    * // Create redactions on the last 3 pages:
    * const result = await client.createRedactionsPreset(
    *   'document.pdf',
@@ -1005,6 +1103,16 @@ export class NutrientClient {
    *   'stage',
    *   { start: -3, end: -1 }  // Last three pages
    * );
+   *
+   * // Access the PDF with redaction annotations
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-redactions.pdf', Buffer.from(result.buffer));
    * ```
    */
   async createRedactionsPreset(
@@ -1020,9 +1128,16 @@ export class NutrientClient {
       components['schemas']['CreateRedactionsAction'],
       'type' | 'strategyOptions' | 'strategy'
     >,
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
     // Get page count for handling negative indices
-    const pageCount = pages?.end && pages.end < 0 ? await getPdfPageCount(pdf) : undefined;
+    const pageCount = await getPdfPageCount(normalizedFile);
     const normalizedPages = normalizePageParams(pages, pageCount);
 
     const createRedactionsAction = BuildActions.createRedactionsPreset(preset, options, {
@@ -1036,11 +1151,8 @@ export class NutrientClient {
       actions.push(BuildActions.applyRedactions());
     }
 
-    const result = await this.workflow()
-      .addFilePart(pdf, undefined, actions)
-      .outputPdf()
-      .execute();
-    return this.processWorkflowResult(result);
+    const result = await this.workflow().addFilePart(pdf, undefined, actions).outputPdf().execute();
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -1050,7 +1162,7 @@ export class NutrientClient {
    * @param pdf - The PDF file to create redactions in
    * @param regex - The regular expression to search for
    * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional page range to create redactions in. 
+   * @param pages - Optional page range to create redactions in.
    *                  start defaults to 0 (first page), end defaults to -1 (last page).
    *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @param regrexOptions - Optional settings for the regex strategy
@@ -1060,7 +1172,7 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.createRedactionsRegex('document.pdf', 'Account:\\s*\\d{8,12}');
-   * 
+   *
    * // Or with options:
    * const result = await client.createRedactionsRegex(
    *   'document.pdf',
@@ -1069,7 +1181,7 @@ export class NutrientClient {
    *   { start: 0, end: 4 },  // Pages 0, 1, 2, 3, 4
    *   { caseSensitive: false, includeAnnotations: true }
    * );
-   * 
+   *
    * // Create redactions on the last 3 pages:
    * const result = await client.createRedactionsRegex(
    *   'document.pdf',
@@ -1077,6 +1189,16 @@ export class NutrientClient {
    *   'stage',
    *   { start: -3, end: -1 }  // Last three pages
    * );
+   *
+   * // Access the PDF with redaction annotations
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-regex-redactions.pdf', Buffer.from(result.buffer));
    * ```
    */
   async createRedactionsRegex(
@@ -1092,9 +1214,17 @@ export class NutrientClient {
       components['schemas']['CreateRedactionsAction'],
       'type' | 'strategyOptions' | 'strategy'
     >,
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
     // Get page count for handling negative indices
-    const pageCount = pages?.end && pages.end < 0 ? await getPdfPageCount(pdf) : undefined;
+    const pageCount = await getPdfPageCount(normalizedFile);
     const normalizedPages = normalizePageParams(pages, pageCount);
 
     const createRedactionsAction = BuildActions.createRedactionsRegex(regex, options, {
@@ -1108,11 +1238,8 @@ export class NutrientClient {
       actions.push(BuildActions.applyRedactions());
     }
 
-    const result = await this.workflow()
-      .addFilePart(pdf, undefined, actions)
-      .outputPdf()
-      .execute();
-    return this.processWorkflowResult(result);
+    const result = await this.workflow().addFilePart(pdf, undefined, actions).outputPdf().execute();
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -1122,7 +1249,7 @@ export class NutrientClient {
    * @param pdf - The PDF file to create redactions in
    * @param text - The text to search for
    * @param redaction_state - Whether to stage or apply redactions (default: 'stage')
-   * @param pages - Optional page range to create redactions in. 
+   * @param pages - Optional page range to create redactions in.
    *                  start defaults to 0 (first page), end defaults to -1 (last page).
    *                  Both start and end are inclusive. Negative end values count from the end of the document.
    * @param textOptions - Optional settings for the text strategy
@@ -1132,7 +1259,7 @@ export class NutrientClient {
    * @example
    * ```typescript
    * const result = await client.createRedactionsText('document.pdf', 'email@example.com');
-   * 
+   *
    * // Or with options:
    * const result = await client.createRedactionsText(
    *   'document.pdf',
@@ -1141,7 +1268,7 @@ export class NutrientClient {
    *   { start: 0, end: 4 },  // Pages 0, 1, 2, 3, 4
    *   { caseSensitive: false, includeAnnotations: true }
    * );
-   * 
+   *
    * // Create redactions on the last 3 pages:
    * const result = await client.createRedactionsText(
    *   'document.pdf',
@@ -1149,6 +1276,16 @@ export class NutrientClient {
    *   'stage',
    *   { start: -3, end: -1 }  // Last three pages
    * );
+   *
+   * // Access the PDF with redaction annotations
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-text-redactions.pdf', Buffer.from(result.buffer));
    * ```
    */
   async createRedactionsText(
@@ -1164,9 +1301,16 @@ export class NutrientClient {
       components['schemas']['CreateRedactionsAction'],
       'type' | 'strategyOptions' | 'strategy'
     >,
-  ): Promise<WorkflowOutput> {
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
     // Get page count for handling negative indices
-    const pageCount = pages?.end && pages.end < 0 ? await getPdfPageCount(pdf) : undefined;
+    const pageCount = await getPdfPageCount(normalizedFile);
     const normalizedPages = normalizePageParams(pages, pageCount);
 
     const createRedactionsAction = BuildActions.createRedactionsText(text, options, {
@@ -1180,33 +1324,181 @@ export class NutrientClient {
       actions.push(BuildActions.applyRedactions());
     }
 
-    const result = await this.workflow()
-      .addFilePart(pdf, undefined, actions)
-      .outputPdf()
-      .execute();
-    return this.processWorkflowResult(result);
+    const result = await this.workflow().addFilePart(pdf, undefined, actions).outputPdf().execute();
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
-   * Applies redaction annotations in a document
-   * This is a convenience method that uses the workflow builder.
+   * Apply staged redaction into the PDF
    *
-   * @param file - The PDF file with redaction annotations to apply
+   * @param pdf - The PDF file with redaction annotations to apply
    * @returns Promise resolving to the document with applied redactions
    *
    * @example
    * ```typescript
-   * const result = await client.applyRedactions('document-with-redactions.pdf');
+   * // Stage redactions from a createRedaction Method:
+   * const staged_result = await client.createRedactionsText(
+   *   'document.pdf',
+   *   'email@example.com',
+   *   'stage',
+   *   { start: -3, end: -1 }  // Last three pages
+   * );
+   *
+   * const result = await client.applyRedactions(staged_result.buffer);
+   *
+   * // Access the PDF with applied redactions
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-applied-redactions.pdf', Buffer.from(result.buffer));
    * ```
    */
-  async applyRedactions(file: FileInput): Promise<WorkflowOutput> {
+  async applyRedactions(pdf: FileInput): Promise<OutputTypeMap['pdf']> {
     const applyRedactionsAction = BuildActions.applyRedactions();
 
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
     const result = await this.workflow()
-      .addFilePart(file, undefined, [applyRedactionsAction])
+      .addFilePart(pdf, undefined, [applyRedactionsAction])
       .outputPdf()
       .execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
+  }
+
+  /**
+   * Flattens annotations in a PDF document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param pdf - The PDF file to flatten
+   * @param annotationIds - Optional specific annotation IDs to flatten
+   * @returns Promise resolving to the flattened document
+   *
+   * @example
+   * ```typescript
+   * // Flatten all annotations
+   * const result = await client.flatten('annotated-document.pdf');
+   *
+   * // Flatten specific annotations by ID
+   * const result = await client.flatten('annotated-document.pdf', ['annotation1', 'annotation2']);
+   *
+   * // Access the flattened PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('flattened-document.pdf', Buffer.from(result.buffer));
+   * ```
+   */
+  async flatten(
+    pdf: FileInput,
+    annotationIds?: (string | number)[],
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
+    const flattenAction = BuildActions.flatten(annotationIds);
+
+    const result = await this.workflow()
+      .addFilePart(pdf, undefined, [flattenAction])
+      .outputPdf()
+      .execute();
+    return this.processTypedWorkflowResult(result);
+  }
+
+  /**
+   * Rotates pages in a document
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param pdf - The PDF file to rotate
+   * @param angle - Rotation angle (90, 180, or 270 degrees)
+   * @param pages - Optional page range to rotate.
+   *                  start defaults to 0 (first page), end defaults to -1 (last page).
+   *                  Both start and end are inclusive. Negative end values count from the end of the document.
+   * @returns Promise resolving to the entire document with specified pages rotated
+   *
+   * @example
+   * ```typescript
+   * const result = await client.rotate('document.pdf', 90);
+   *
+   * // Rotate specific pages:
+   * const result = await client.rotate('document.pdf', 90, { start: 1, end: 3 }); // Pages 1, 2, 3
+   *
+   * // Rotate the last page:
+   * const result = await client.rotate('document.pdf', 90, { end: -1 }); // Last page
+   *
+   * // Rotate from page 2 to the second-to-last page:
+   * const result = await client.rotate('document.pdf', 90, { start: 2, end: -2 });
+   *
+   * // Access the rotated PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('rotated-document.pdf', Buffer.from(result.buffer));
+   * ```
+   */
+  async rotate(
+    pdf: FileInput,
+    angle: 90 | 180 | 270,
+    pages?: { start?: number; end?: number },
+  ): Promise<OutputTypeMap['pdf']> {
+    const rotateAction = BuildActions.rotate(angle);
+    const workflow = this.workflow();
+
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
+    if (pages) {
+      const pageCount = await getPdfPageCount(normalizedFile);
+      const normalizedPages = normalizePageParams(pages, pageCount);
+
+      // Add pages before the range to rotate
+      if (normalizedPages.start > 0) {
+        workflow.addFilePart(pdf, { pages: { start: 0, end: normalizedPages.start - 1 } });
+      }
+
+      // Add the specific pages with rotation action
+      workflow.addFilePart(pdf, { pages: normalizedPages }, [rotateAction]);
+
+      // Add pages after the range to rotate
+      if (normalizedPages.end < pageCount - 1) {
+        workflow.addFilePart(pdf, {
+          pages: { start: normalizedPages.end + 1, end: pageCount - 1 },
+        });
+      }
+    } else {
+      // If no pages specified, rotate the entire document
+      workflow.addFilePart(pdf, undefined, [rotateAction]);
+    }
+
+    const result = await (workflow as WorkflowWithPartsStage).outputPdf().execute();
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -1225,10 +1517,28 @@ export class NutrientClient {
    *
    * // Add 1 blank page after the first page (at index 1)
    * const result = await client.addPage('document.pdf', 1, 1);
+   *
+   * // Access the PDF with added pages
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('document-with-added-pages.pdf', Buffer.from(result.buffer));
    * ```
    */
-  async addPage(pdf: FileInput, count: number = 1, index?: number): Promise<WorkflowOutput> {
+  async addPage(pdf: FileInput, count: number = 1, index?: number): Promise<OutputTypeMap['pdf']> {
     let result: WorkflowResult;
+
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
 
     // If no index is provided or it's the end of the document, simply add pages at the end
     if (index === undefined) {
@@ -1240,10 +1550,11 @@ export class NutrientClient {
       result = await builder.outputPdf().execute();
     } else {
       // Get the actual page count of the PDF
-      const pageCount = await getPdfPageCount(pdf);
+
+      const pageCount = await getPdfPageCount(normalizedFile);
 
       // Validate that the index is within range
-      if (index < -pageCount || index > pageCount) {
+      if (index < 0 || index > pageCount) {
         throw new ValidationError(
           `Index ${index} is out of range (document has ${pageCount} pages)`,
         );
@@ -1269,35 +1580,44 @@ export class NutrientClient {
       result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
     }
 
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result as TypedWorkflowResult<'pdf'>);
   }
 
   /**
-   * Optimizes a PDF document for size reduction
+   * Merges multiple documents into a single document
    * This is a convenience method that uses the workflow builder.
    *
-   * @param file - The PDF file to optimize
-   * @param options - Optimization options
-   * @returns Promise resolving to the optimized document
+   * @param files - The files to merge
+   * @returns Promise resolving to the merged document
    *
    * @example
    * ```typescript
-   * const result = await client.optimize('large-document.pdf', {
-   *   grayscaleImages: true,
-   *   mrcCompression: true,
-   *   imageOptimizationQuality: 2
-   * });
+   * const result = await client.merge(['doc1.pdf', 'doc2.pdf', 'doc3.pdf']);
+   *
+   * // Access the merged PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('merged-document.pdf', Buffer.from(result.buffer));
    * ```
    */
-  async optimize(
-    file: FileInput,
-    options: components['schemas']['OptimizePdf'] = { imageOptimizationQuality: 2 },
-  ): Promise<WorkflowOutput> {
-    const result = await this.workflow()
-      .addFilePart(file)
-      .outputPdf({ optimize: options })
-      .execute();
-    return this.processWorkflowResult(result);
+  async merge(files: FileInput[]): Promise<OutputTypeMap['pdf']> {
+    if (!files || files.length < 2) {
+      throw new ValidationError('At least 2 files are required for merge operation');
+    }
+
+    let builder = this.workflow();
+
+    for (const file of files) {
+      builder = builder.addFilePart(file);
+    }
+
+    const result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -1312,13 +1632,13 @@ export class NutrientClient {
    *
    * @example
    * ```typescript
-   * const results = await client.splitPdf('document.pdf', [
+   * const results = await client.split('document.pdf', [
    *   { start: 0, end: 2 },  // Pages 0, 1, 2
    *   { start: 3, end: 5 }   // Pages 3, 4, 5
    * ]);
-   * 
+   *
    * // Split using negative indices
-   * const results = await client.splitPdf('document.pdf', [
+   * const results = await client.split('document.pdf', [
    *   { start: 0, end: 2 },     // First three pages
    *   { start: 3, end: -3 },    // Middle pages
    *   { start: -2, end: -1 }    // Last two pages
@@ -1331,26 +1651,32 @@ export class NutrientClient {
    * }
    * ```
    */
-  async splitPdf(
+  async split(
     pdf: FileInput,
     pageRanges: { start?: number; end?: number }[],
-  ): Promise<WorkflowOutput[]> {
+  ): Promise<OutputTypeMap['pdf'][]> {
     if (!pageRanges || pageRanges.length === 0) {
       throw new ValidationError('At least one page range is required for splitting');
     }
 
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
     // Get the actual page count of the PDF
-    const pageCount = await getPdfPageCount(pdf);
+    const pageCount = await getPdfPageCount(normalizedFile);
 
     // Normalize and validate all page ranges
-    const normalizedRanges = pageRanges.map(range => normalizePageParams(range, pageCount));
+    const normalizedRanges = pageRanges.map((range) => normalizePageParams(range, pageCount));
 
     // Validate that all page ranges are within bounds
     for (const range of normalizedRanges) {
       if (range.start > range.end) {
-        throw new ValidationError(
-          `Page range ${JSON.stringify(range)} is invalid (start > end)`,
-        );
+        throw new ValidationError(`Page range ${JSON.stringify(range)} is invalid (start > end)`);
       }
     }
 
@@ -1365,7 +1691,9 @@ export class NutrientClient {
 
     // Execute all workflows in parallel and process the results
     const results = await Promise.all(workflows);
-    return results.map((result) => this.processWorkflowResult(result));
+    return results.map((result) =>
+      this.processTypedWorkflowResult(result as TypedWorkflowResult<'pdf'>),
+    );
   }
 
   /**
@@ -1387,24 +1715,32 @@ export class NutrientClient {
    *
    * // Create a new PDF with duplicated pages
    * const result = await client.duplicatePages('document.pdf', [0, 0, 1, 1, 0]);
-   * 
+   *
    * // Create a new PDF with the first and last pages
    * const result = await client.duplicatePages('document.pdf', [0, -1]);
-   * 
+   *
    * // Create a new PDF with the last three pages in reverse order
    * const result = await client.duplicatePages('document.pdf', [-1, -2, -3]);
    * ```
    */
-  async duplicatePages(pdf: FileInput, pageIndices: number[]): Promise<WorkflowOutput> {
+  async duplicatePages(pdf: FileInput, pageIndices: number[]): Promise<OutputTypeMap['pdf']> {
     if (!pageIndices || pageIndices.length === 0) {
       throw new ValidationError('At least one page index is required for duplication');
     }
 
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
     // Get the actual page count of the PDF
-    const pageCount = await getPdfPageCount(pdf);
+    const pageCount = await getPdfPageCount(normalizedFile);
 
     // Normalize negative indices
-    const normalizedIndices = pageIndices.map(index => {
+    const normalizedIndices = pageIndices.map((index) => {
       if (index < 0) {
         // Handle negative indices (e.g., -1 is the last page)
         return pageCount + index;
@@ -1429,7 +1765,7 @@ export class NutrientClient {
     }
 
     const result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
   }
 
   /**
@@ -1445,24 +1781,42 @@ export class NutrientClient {
    * ```typescript
    * // Delete second and fourth pages
    * const result = await client.deletePages('document.pdf', [1, 3]);
-   * 
+   *
    * // Delete the last page
    * const result = await client.deletePages('document.pdf', [-1]);
-   * 
+   *
    * // Delete the first and last two pages
    * const result = await client.deletePages('document.pdf', [0, -1, -2]);
+   *
+   * // Access the modified PDF buffer
+   * const pdfBuffer = result.buffer;
+   *
+   * // Get the MIME type of the output
+   * console.log(result.mimeType); // 'application/pdf'
+   *
+   * // Save the buffer to a file (Node.js example)
+   * const fs = require('fs');
+   * fs.writeFileSync('modified-document.pdf', Buffer.from(result.buffer));
    * ```
    */
-  async deletePages(pdf: FileInput, pageIndices: number[]): Promise<WorkflowOutput> {
+  async deletePages(pdf: FileInput, pageIndices: number[]): Promise<OutputTypeMap['pdf']> {
     if (!pageIndices || pageIndices.length === 0) {
       throw new ValidationError('At least one page index is required for deletion');
     }
 
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
     // Get the actual page count of the PDF
-    const pageCount = await getPdfPageCount(pdf);
+    const pageCount = await getPdfPageCount(normalizedFile);
 
     // Normalize negative indices
-    const normalizedIndices = pageIndices.map(index => {
+    const normalizedIndices = pageIndices.map((index) => {
       if (index < 0) {
         // Handle negative indices (e.g., -1 is the last page)
         return pageCount + index;
@@ -1509,6 +1863,42 @@ export class NutrientClient {
     });
 
     const result = await (builder as WorkflowWithPartsStage).outputPdf().execute();
-    return this.processWorkflowResult(result);
+    return this.processTypedWorkflowResult(result);
+  }
+
+  /**
+   * Optimizes a PDF document for size reduction
+   * This is a convenience method that uses the workflow builder.
+   *
+   * @param pdf - The PDF file to optimize
+   * @param options - Optimization options
+   * @returns Promise resolving to the optimized document
+   *
+   * @example
+   * ```typescript
+   * const result = await client.optimize('large-document.pdf', {
+   *   grayscaleImages: true,
+   *   mrcCompression: true,
+   *   imageOptimizationQuality: 2
+   * });
+   * ```
+   */
+  async optimize(
+    pdf: FileInput,
+    options: components['schemas']['OptimizePdf'] = { imageOptimizationQuality: 2 },
+  ): Promise<OutputTypeMap['pdf']> {
+    const normalizedFile = isRemoteFileInput(pdf)
+      ? await processRemoteFileInput(pdf)
+      : await processFileInput(pdf);
+
+    if (!(await isValidPdf(normalizedFile))) {
+      throw new ValidationError('Invalid pdf file', { input: pdf });
+    }
+
+    const result = await this.workflow()
+      .addFilePart(pdf)
+      .outputPdf({ optimize: options })
+      .execute();
+    return this.processTypedWorkflowResult(result);
   }
 }

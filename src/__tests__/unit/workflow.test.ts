@@ -163,7 +163,8 @@ describe('WorkflowBuilder', () => {
     it('should add HTML part with options and actions', () => {
       const result = workflow.addHtmlPart(
         Buffer.from('<html><body>Hello</body></html>'),
-        { assets: ['style.css'] },
+        [Buffer.from('p {color: red;}')],
+        undefined,
         [BuildActions.rotate(90)],
       );
 
@@ -302,7 +303,7 @@ describe('WorkflowBuilder', () => {
     });
 
     it('should set HTML output', () => {
-      const result = workflow.outputHtml();
+      const result = workflow.outputHtml('page');
       expect(result).toBe(workflow);
     });
 
@@ -539,9 +540,10 @@ describe('WorkflowBuilder', () => {
 
       await workflow.execute(options);
 
-      expect(onProgress).toHaveBeenCalledTimes(2);
-      expect(onProgress).toHaveBeenNthCalledWith(1, 2, 3);
-      expect(onProgress).toHaveBeenNthCalledWith(2, 3, 3);
+      expect(onProgress).toHaveBeenCalledTimes(3);
+      expect(onProgress).toHaveBeenNthCalledWith(1, 1, 3);
+      expect(onProgress).toHaveBeenNthCalledWith(2, 2, 3);
+      expect(onProgress).toHaveBeenNthCalledWith(3, 3, 3);
     });
 
     it('should store output with default name', async () => {
@@ -599,19 +601,6 @@ describe('WorkflowBuilder', () => {
       expect(result.errors).toHaveLength(1);
       expect(result.errors?.[0]?.error).toBeInstanceOf(NutrientError);
       expect(result.errors?.[0]?.error.message).toContain(error.message);
-    });
-
-    it('should handle timeout option', async () => {
-      const timeout = 60000;
-      await workflow.execute({ timeout });
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          timeout: 60000,
-        }),
-        mockClientOptions,
-        'arraybuffer',
-      );
     });
   });
 
@@ -819,28 +808,6 @@ describe('WorkflowBuilder', () => {
               ]),
             }),
           }),
-        }),
-        mockClientOptions,
-        'json',
-      );
-    });
-
-    it('should handle timeout option', async () => {
-      const timeout = 60000;
-      const mockAnalysisResponse = { cost: 1.5 };
-
-      mockSendRequest.mockResolvedValueOnce({
-        data: mockAnalysisResponse as never,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
-
-      await workflow.dryRun({ timeout });
-
-      expect(mockSendRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          timeout,
         }),
         mockClientOptions,
         'json',

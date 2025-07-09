@@ -20,7 +20,6 @@ export abstract class BaseBuilder<TResult = unknown> {
     path: T,
     options: RequestTypeMap['POST'][T],
     responseType: ResponseType,
-    timeout?: number,
   ): Promise<ResponseTypeMap['POST'][T]> {
     const config = {
       endpoint: path,
@@ -29,7 +28,6 @@ export abstract class BaseBuilder<TResult = unknown> {
         instructions: options.instructions,
         files: 'files' in options ? options.files : undefined,
       },
-      timeout,
     };
 
     const response = await sendRequest(config, this.clientOptions, responseType);
