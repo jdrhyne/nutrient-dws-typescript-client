@@ -36,7 +36,7 @@ export async function sendRequest<Method extends Methods, Endpoint extends Endpo
         Authorization: `Bearer ${apiKey}`,
         ...config.headers,
       },
-      timeout: clientOptions.timeout ?? 30000, // 30 second default timeout
+      timeout: clientOptions.timeout ?? 0, // No default timeout
       validateStatus: () => true, // Handle all status codes manually
       responseType,
     };

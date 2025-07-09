@@ -282,9 +282,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
       }, 30000);
     });
 
-    // FIXME: API network issue with optimizing PDFs
-    // eslint-disable-next-line jest/no-disabled-tests
-    describe.skip('PDF Optimization', () => {
+    describe('PDF Optimization', () => {
       it('should optimize PDF with advanced settings', async () => {
         const result = await client
           .workflow()
@@ -299,7 +297,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
           .execute();
 
         expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
-      }, 30000);
+      }, 240000);
     });
 
     describe('PDF/A Advanced Options', () => {
@@ -420,9 +418,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
     }, 30000);
   });
 
-  // TODO: Network issue when running optimization
-  // eslint-disable-next-line jest/no-disabled-tests
-  describe.skip('Complex Multi-Format Workflows', () => {
+  describe('Complex Multi-Format Workflows', () => {
     it('should combine HTML, PDF, and images with various actions', async () => {
       const result = await client
         .workflow()
@@ -449,7 +445,7 @@ describeE2E('Advanced E2E Tests with Live API', () => {
         .execute();
 
       expect(() => ResultValidator.validatePdfOutput(result)).not.toThrow();
-    }, 60000);
+    }, 120000);
 
     it('should perform document assembly with redactions', async () => {
       const pdf1 = TestDocumentGenerator.generateSimplePdf('SSN: 123-45-6789');

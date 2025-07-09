@@ -89,9 +89,7 @@ interface MockWorkflowWithPartsStage extends MockWorkflowInitialStage {
     <T extends 'docx' | 'xlsx' | 'pptx'>(format: T) => MockWorkflowWithOutputStage<T>
   >;
   outputHtml: jest.MockedFunction<
-    (
-      layout: 'page' | 'reflow',
-    ) => MockWorkflowWithOutputStage<'html'>
+    (layout: 'page' | 'reflow') => MockWorkflowWithOutputStage<'html'>
   >;
   outputMarkdown: jest.MockedFunction<
     (

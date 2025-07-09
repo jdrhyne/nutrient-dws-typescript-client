@@ -117,7 +117,6 @@ describe('HTTP Layer', () => {
           headers: {
             Authorization: 'Bearer test-api-key',
           },
-          timeout: 30000,
         }),
       );
 
@@ -386,7 +385,7 @@ describe('HTTP Layer', () => {
 
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({
-          timeout: 30000, // Default timeout
+          timeout: 0, // Default timeout
         }),
       );
     });

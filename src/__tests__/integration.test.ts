@@ -154,7 +154,7 @@ describeIntegration('Integration Tests with Live API', () => {
         { input: sampleDOCX, inputType: 'docx', outputType: 'pdf', expected: 'application/pdf' },
         { input: samplePDF, inputType: 'pdf', outputType: 'png', expected: 'image/png' },
         { input: samplePDF, inputType: 'pdf', outputType: 'jpeg', expected: 'image/jpeg' },
-        // {input: samplePDF, inputType: 'pdf', outputType: 'jpg', expected: 'image/jpeg'}, // FIXME: Upstream return image/jpg which is not a real type
+        { input: samplePDF, inputType: 'pdf', outputType: 'jpg', expected: 'image/jpeg' },
         { input: samplePDF, inputType: 'pdf', outputType: 'webp', expected: 'image/webp' },
         // {input: samplePDF, inputType: 'pdf', outputType: 'html', expected: 'text/html'}, // FIXME: 500 error upstream
         { input: samplePDF, inputType: 'pdf', outputType: 'markdown', expected: 'text/markdown' },
@@ -240,9 +240,7 @@ describeIntegration('Integration Tests with Live API', () => {
       }, 60000);
     });
 
-    // TODO: Investigate axios connection timeout
-    // eslint-disable-next-line jest/no-disabled-tests
-    describe.skip('optimize()', () => {
+    describe('optimize()', () => {
       it('should optimize PDF with different options', async () => {
         // Test different optimization options
         const options = [
@@ -259,7 +257,7 @@ describeIntegration('Integration Tests with Live API', () => {
           expect(result.buffer).toBeInstanceOf(Uint8Array);
           expect(result.mimeType).toBe('application/pdf');
         }
-      }, 60000);
+      }, 240000);
     });
 
     describe('extractText()', () => {

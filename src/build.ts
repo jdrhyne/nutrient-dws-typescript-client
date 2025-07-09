@@ -443,7 +443,10 @@ export const BuildOutputs = {
       case 'image': {
         const imageOutput = output as components['schemas']['BuildOutput'] & { format?: string };
         const format = imageOutput.format ?? 'png';
-        return { mimeType: `image/${format}`, filename: `output.${format}` };
+        return {
+          mimeType: format === 'jpg' ? 'image/jpeg' : `image/${format}`,
+          filename: `output.${format}`,
+        };
       }
       case 'docx':
         return {
