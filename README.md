@@ -13,6 +13,7 @@ A Node.js TypeScript client library for [Nutrient Document Web Services (DWS) AP
 ## Features
 
 - 📄 **Powerful document processing**: Convert, OCR, edit, compress, watermark, redact, and digitally sign documents
+- 🤖 **LLM friendly**: Built-in support for popular Coding Agents (Claude Code, GitHub Copilot, Cursor, Windsurf) and documentation on Context7
 - 🔄 **100% mapping with DWS API**: Complete coverage of all Nutrient DWS API capabilities
 - 🛠️ **Convenient functions with sane defaults**: Simple interfaces for common operations with smart default settings
 - ⛓️ **Chainable operations**: Build complex document workflows with intuitive method chaining
@@ -32,6 +33,26 @@ or
 ```bash
 yarn add nutrient-dws-typescript-client
 ```
+
+## Integration with Coding Agents
+
+This package has built-in support with popular coding agents like Claude Code, GitHub Copilot, Cursor, and Windsurf by exposing scripts that will inject rules instructing the coding agents on how to use the package. This ensures that the coding agent doesn't hallucinate documentation, as well as making full use of all the features offered in Nutrient DWS TypeScript Client.
+
+```bash
+# Adding code rule to Claude Code
+npx dws-add-claude-code-rule
+
+# Adding code rule to GitHub Copilot
+npx dws-add-github-copilot-rule
+
+# Adding code rule to Cursor
+npx dws-add-cursor-rule
+
+# Adding code rule to Windsurf
+npx dws-add-windsurf-rule
+```
+
+The documentation for Nutrient DWS TypeScript Client is also available on [Context7](https://context7.com/pspdfkit/nutrient-dws-client-typescript)
 
 ## Quick Start
 

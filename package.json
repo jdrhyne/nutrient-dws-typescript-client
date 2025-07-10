@@ -25,7 +25,14 @@
     "api",
     "client",
     "typescript",
-    "nodejs"
+    "nodejs",
+    "ai",
+    "agent",
+    "claude code",
+    "github copilot",
+    "cursor",
+    "windsurf",
+    "context7"
   ],
   "homepage": "https://github.com/jdrhyne/nutrient-dws-typescript-client#readme",
   "bugs": {
@@ -48,13 +55,21 @@
       "require": "./dist/cjs/index.js"
     }
   },
+  "bin": {
+    "dws-add-claude-code-rule": "./scripts/add_claude_code_rule.js",
+    "dws-add-cursor-rule": "./scripts/add_cursor_rule.js",
+    "dws-add-github-copilot-rule": "./scripts/add_github_copliot_rule.js",
+    "dws-add-windsurf-rule": "./scripts/add_windsurf_rule.js"
+  },
   "files": [
     "dist",
+    "scripts",
     "README.md",
     "CONTRIBUTING.md",
     "WORKFLOW.md",
     "METHODS.md",
     "README.md",
+    "LLM_DOC.md",
     "LICENSE"
   ],
   "scripts": {
