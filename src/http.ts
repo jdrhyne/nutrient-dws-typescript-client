@@ -9,10 +9,10 @@ import {
   ValidationError,
 } from './errors';
 import type { NutrientClientOptions } from './types';
-import type { Methods, Endpoints, RequestConfig, ApiResponse, ResponseTypeMap } from './types/http';
+import type { Methods, Endpoints, RequestConfig, ApiResponse, ResponseTypeMap } from './types';
 
 /**
- * Sends HTTP request to Nutrient DWS API
+ * Sends HTTP request to Nutrient DWS Processor API
  * Handles authentication, file uploads, and error conversion
  */
 export async function sendRequest<Method extends Methods, Endpoint extends Endpoints<Method>>(
@@ -320,21 +320,32 @@ function convertError<Method extends Methods, Endpoint extends Endpoints<Method>
     }
 
     if (request) {
+      const sanitizedHeaders = config.headers;
+      if (sanitizedHeaders) {
+        delete sanitizedHeaders['Authorization']
+      }
       // Network error (request made but no response)
       return new NetworkError('Network request failed', {
         message,
         endpoint: config.endpoint,
         method: config.method,
+        headers: sanitizedHeaders,
       });
     }
 
     // Request setup error
-    return new ValidationError('Request configuration error', { message, config });
+    return new ValidationError('Request configuration error', { message,
+      endpoint: config.endpoint,
+      method: config.method,
+      data: config.data,
+    });
   }
 
   // Unknown error
   return new NutrientError('Unexpected error occurred', 'UNKNOWN_ERROR', {
     error: error instanceof Error ? error.message : String(error),
     endpoint: config.endpoint,
+    method: config.method,
+    data: config.data,
   });
 }

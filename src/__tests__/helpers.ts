@@ -1,5 +1,5 @@
 /**
- * E2E Test Helper Utilities
+ * Test Helper Utilities
  * Provides utilities for creating test fixtures and validating results
  */
 import fs from 'fs';
@@ -316,7 +316,7 @@ Widget C | 60 | 70 | 80 | 90`;
 }
 
 /**
- * Result validators for E2E tests
+ * Result validators for Workflow tests
  */
 export class ResultValidator {
   /**

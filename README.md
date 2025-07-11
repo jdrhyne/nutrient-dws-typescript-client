@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/nutrient-dws-typescript-client.svg)](https://badge.fury.io/js/nutrient-dws-typescript-client)
 [![CI](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/ci.yml)
-[![E2E Tests](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/e2e-tests.yml)
+[![Integration Tests](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/integration-tests.yml)
 [![Security](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml/badge.svg)](https://github.com/jdrhyne/nutrient-dws-typescript-client/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -14,7 +14,7 @@ A Node.js TypeScript client library for [Nutrient Document Web Services (DWS) AP
 
 - 📄 **Powerful document processing**: Convert, OCR, edit, compress, watermark, redact, and digitally sign documents
 - 🤖 **LLM friendly**: Built-in support for popular Coding Agents (Claude Code, GitHub Copilot, Cursor, Windsurf) and documentation on Context7
-- 🔄 **100% mapping with DWS API**: Complete coverage of all Nutrient DWS API capabilities
+- 🔄 **100% mapping with DWS Processor API**: Complete coverage of all Nutrient DWS Processor API capabilities
 - 🛠️ **Convenient functions with sane defaults**: Simple interfaces for common operations with smart default settings
 - ⛓️ **Chainable operations**: Build complex document workflows with intuitive method chaining
 - 🔐 **Flexible authentication and security**: Support for API keys and async token providers with secure handling
@@ -167,7 +167,7 @@ try {
 
 ## Testing
 
-The library includes comprehensive unit, integration, and E2E tests:
+The library includes comprehensive unit and integration tests:
 
 ```bash
 # Run all tests
@@ -181,15 +181,11 @@ npm run test:unit
 
 # Run integration tests (requires API key)
 NUTRIENT_API_KEY=your_key npm run test:integration
-
-# Run E2E tests (requires API key)
-NUTRIENT_API_KEY=your_key npm run test:e2e
 ```
 
 The library maintains high test coverage across all API methods, including:
 - Unit tests for all public methods
 - Integration tests for real API interactions
-- E2E tests for comprehensive feature testing
 
 ## Contributing
 
@@ -226,11 +222,11 @@ src/
 This project uses GitHub Actions for continuous integration and deployment:
 
 - **CI**: Runs linting, type checking, and tests on every push and PR
-- **E2E Tests**: Tests against the real Nutrient API
-- **Scheduled E2E**: Daily API compatibility check
+- **Integration Tests**: Tests against the real Nutrient API
+- **Scheduled Integration Tests**: Daily API compatibility check
 - **Security**: Automated security scanning
 
-For security reasons, API keys are stored as GitHub Secrets and E2E tests only run on trusted sources.
+For security reasons, API keys are stored as GitHub Secrets and Integration tests only run on trusted sources.
 
 ## License
 
@@ -240,4 +236,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For issues and feature requests, please use the [GitHub issue tracker](https://github.com/jdrhyne/nutrient-dws-typescript-client/issues).
 
-For questions about the Nutrient DWS API, refer to the [official documentation](https://nutrient.io/docs/).
+For questions about the Nutrient DWS Processor API, refer to the [official documentation](https://nutrient.io/docs/).

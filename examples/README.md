@@ -13,7 +13,7 @@ This example project demonstrates how to use the Nutrient DWS TypeScript Client 
 
 ## Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js (v18 or higher)
 - npm or yarn
 
 ## Setup
@@ -54,7 +54,7 @@ This example project demonstrates how to use the Nutrient DWS TypeScript Client 
    cp .env.example .env
    ```
 
-8. Edit the `.env` file and add your Nutrient DWS API key:
+8. Edit the `.env` file and add your Nutrient DWS Processor API key. You can sign up for a free API key by visiting [Nutrient](https://www.nutrient.io/api/):
    ```
    NUTRIENT_API_KEY=your_api_key_here
    ```

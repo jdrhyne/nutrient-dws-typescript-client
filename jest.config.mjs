@@ -12,8 +12,6 @@ export default {
     '!src/**/*.d.ts',
     '!src/**/index.ts',
     '!src/**/__tests__/**',
-    '!src/**/*e2e*',
-    '!src/**/coverage-report.ts',
   ],
   coverageThreshold: {
     global: {

@@ -386,11 +386,11 @@ export const BuildOutputs = {
   }): components['schemas']['JSONContentOutput'] {
     return {
       type: 'json-content',
-      plainText: options?.plainText ?? true,
-      structuredText: options?.structuredText ?? false,
-      keyValuePairs: options?.keyValuePairs ?? false,
-      tables: options?.tables ?? true,
-      language: options?.language,
+      ...(options?.plainText !== undefined && { plainText: options.plainText }),
+      ...(options?.structuredText !== undefined && { structuredText: options.structuredText }),
+      ...(options?.keyValuePairs !== undefined && { keyValuePairs: options.keyValuePairs }),
+      ...(options?.tables !== undefined && { tables: options.tables }),
+      ...(options?.language && { language: options.language }),
     };
   },
 

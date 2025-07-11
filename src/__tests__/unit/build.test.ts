@@ -455,10 +455,6 @@ describe('BuildOutputs', () => {
 
       expect(output).toEqual({
         type: 'json-content',
-        plainText: true,
-        structuredText: false,
-        keyValuePairs: false,
-        tables: true,
       });
     });
 

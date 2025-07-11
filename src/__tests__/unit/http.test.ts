@@ -3,7 +3,7 @@ import axios from 'axios';
 import { sendRequest } from '../../http';
 import type { NutrientClientOptions, RequestConfig } from '../../types';
 import type { NormalizedFileData } from '../../inputs';
-import { AuthenticationError } from '../../errors';
+import { AuthenticationError, type NetworkError } from '../../errors';
 
 // Mock axios
 jest.mock('axios');
@@ -338,6 +338,56 @@ describe('HTTP Layer', () => {
         message: 'Network request failed',
         code: 'NETWORK_ERROR',
       });
+    });
+
+    it('should not leak API key in network error details', async () => {
+      const networkError = {
+        isAxiosError: true,
+        request: {},
+        message: 'Network Error',
+      };
+
+      mockedAxios.mockRejectedValueOnce(networkError);
+      (mockedAxios.isAxiosError as unknown as jest.Mock).mockReturnValue(true);
+
+      const config: RequestConfig<'GET', '/account/info'> = {
+        endpoint: '/account/info',
+        method: 'GET',
+        data: undefined,
+        headers: {
+          // The vulnerability exists when the user overrides the Authorization in the Request Config
+          // apiKey is properly sanitized if the user only uses the clientOption to set the API key
+          Authorization: 'Bearer secret-api-key-that-should-not-leak',
+          'Content-Type': 'application/json',
+          'X-Custom-Header': 'custom-value',
+        },
+      };
+
+      const errorPromise = sendRequest(config, mockClientOptions, 'json');
+
+      // Verify the promise rejects with the expected error
+      await expect(errorPromise).rejects.toHaveProperty('name', 'NetworkError');
+      await expect(errorPromise).rejects.toHaveProperty('message', 'Network request failed');
+      await expect(errorPromise).rejects.toHaveProperty('code', 'NETWORK_ERROR');
+
+      // Capture the error to verify its details
+      let thrownError: NetworkError | undefined;
+      try {
+        await errorPromise;
+      } catch (error) {
+        console.error(error)
+        thrownError = error as NetworkError;
+      }
+
+      // Now we can safely check the error details
+      expect(thrownError).toBeDefined();
+      expect(thrownError?.details).toHaveProperty('headers');
+      expect(thrownError?.details?.['headers']).toHaveProperty('X-Custom-Header', 'custom-value');
+      expect(thrownError?.details?.['headers']).not.toHaveProperty('Authorization');
+
+      // Verify the API key is not present in the stringified error
+      const errorString = JSON.stringify(thrownError);
+      expect(errorString).not.toContain('secret-api-key-that-should-not-leak');
     });
 
     it('should use custom timeout', async () => {

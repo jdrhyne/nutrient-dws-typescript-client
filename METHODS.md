@@ -6,7 +6,7 @@ This document provides detailed information about all the methods available in t
 
 ### NutrientClient
 
-The main client for interacting with the Nutrient DWS API.
+The main client for interacting with the Nutrient DWS Processor API.
 
 #### Constructor
 

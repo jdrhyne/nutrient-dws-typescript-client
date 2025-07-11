@@ -30,7 +30,7 @@ const client = new NutrientClient({
 
 ## NutrientClient
 
-The main client for interacting with the Nutrient DWS API.
+The main client for interacting with the Nutrient DWS Processor API.
 
 ### Constructor
 

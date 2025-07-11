@@ -1,4 +1,4 @@
-# Setting Up GitHub Secrets for E2E Tests
+# Setting Up GitHub Secrets for Integration Tests
 
 ## ⚠️ IMPORTANT SECURITY NOTICE
 
@@ -6,10 +6,10 @@
 
 ## Required Secrets
 
-To run the E2E tests in GitHub Actions, you need to configure the following secrets:
+To run the Integration tests in GitHub Actions, you need to configure the following secrets:
 
 ### 1. NUTRIENT_API_KEY (Required)
-Your Nutrient DWS API key for running E2E tests.
+Your Nutrient DWS Processor API key for running integration tests.
 
 ### 2. NPM_TOKEN (Optional)
 Required only if you want to automatically publish to NPM.
@@ -45,7 +45,7 @@ Required only if you want to run Snyk security scans.
 ### 4. Restrict Secret Access
 - GitHub secrets are only available to workflows running on your repository
 - They are not exposed to pull requests from forks
-- E2E tests only run on:
+- Integration tests only run on:
   - Pushes to main branch
   - Pull requests from the same repository
 
@@ -65,7 +65,7 @@ Our GitHub Actions workflows include several security features:
 1. **Secret Scanning**: Automatically checks for hardcoded secrets
 2. **Dependency Scanning**: Checks for vulnerable dependencies
 3. **Code Scanning**: Uses CodeQL to find security vulnerabilities
-4. **Limited E2E Execution**: E2E tests only run on trusted sources
+4. **Limited Integration Execution**: Integration tests only run on trusted sources
 
 ## Local Development
 
@@ -75,14 +75,14 @@ For local development, use environment variables:
 # Create a .env file (already in .gitignore)
 echo "NUTRIENT_API_KEY=your_api_key_here" > .env
 
-# Run E2E tests locally
+# Run integration tests locally
 source .env
-npm test -- e2e
+npm run test:integration
 ```
 
 ## Troubleshooting
 
-### E2E Tests Not Running
+### Integration Tests Not Running
 - Check that the secret is properly set in GitHub
 - Verify the secret name matches exactly: `NUTRIENT_API_KEY`
 - Check the workflow logs for authentication errors
