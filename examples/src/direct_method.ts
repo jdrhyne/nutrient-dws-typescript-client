@@ -83,8 +83,9 @@ async function addWatermark(filePath: string) {
   try {
     const result = await client.watermarkText(filePath, 'CONFIDENTIAL', {
       opacity: 0.5,
-      fontSize: 36,
-      fontColor: '#FF0000'
+      fontColor: '#FF0000',
+      rotation: 45,
+      width: { value: 50, unit: "%" }
     });
 
     // Save the watermarked document to the output directory

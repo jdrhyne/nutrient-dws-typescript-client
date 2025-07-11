@@ -7,7 +7,8 @@ const typePath = path.join(__dirname, '../dist', 'index.d.ts');
 
 // Use process.cwd() as the actual root of the user's project
 const userProjectRoot = process.cwd();
-const outputFile = path.join(userProjectRoot, 'CLAUDE.md');
+const outputDirectory = path.join(userProjectRoot, '.junie');
+const outputFile = path.join(outputDirectory, 'guidelines.md');
 
 // Relative path from user project to the README file
 const relativeDocPath = path.relative(userProjectRoot, docPath);
@@ -20,8 +21,11 @@ try {
 - Package Documentation and Examples can be found at: ${relativeDocPath}
 - TypeScript Type Definitions can be found at: ${relativeTypePath}
 `
+  if (!fs.existsSync(outputDirectory)) {
+    fs.mkdirSync(outputDirectory, { recursive: true });
+  }
   fs.appendFileSync(outputFile, `${rule}`);
-  console.log(`📄 Updated Claude Code Rules to point to Nutrient DWS documentation at ${relativeDocPath} and ${relativeTypePath}.`);
+  console.log(`📄 Updated Junie Code Rules to point to Nutrient DWS documentation at ${relativeDocPath} and ${relativeTypePath}.`);
 } catch (err) {
-  console.error('Failed to update CLAUDE.md file:', err.message);
+  console.error('Failed to update .junie/guidelines.md file:', err.message);
 }

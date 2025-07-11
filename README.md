@@ -13,7 +13,7 @@ A Node.js TypeScript client library for [Nutrient Document Web Services (DWS) AP
 ## Features
 
 - 📄 **Powerful document processing**: Convert, OCR, edit, compress, watermark, redact, and digitally sign documents
-- 🤖 **LLM friendly**: Built-in support for popular Coding Agents (Claude Code, GitHub Copilot, Cursor, Windsurf) and documentation on Context7
+- 🤖 **LLM friendly**: Built-in support for popular Coding Agents (Claude Code, GitHub Copilot, JetBrains Junie, Cursor, Windsurf) and documentation on Context7
 - 🔄 **100% mapping with DWS Processor API**: Complete coverage of all Nutrient DWS Processor API capabilities
 - 🛠️ **Convenient functions with sane defaults**: Simple interfaces for common operations with smart default settings
 - ⛓️ **Chainable operations**: Build complex document workflows with intuitive method chaining
@@ -44,6 +44,9 @@ npx dws-add-claude-code-rule
 
 # Adding code rule to GitHub Copilot
 npx dws-add-github-copilot-rule
+
+# Adding code rule to Junie (Jetbrains)
+npx dws-add-junie-rule
 
 # Adding code rule to Cursor
 npx dws-add-cursor-rule
