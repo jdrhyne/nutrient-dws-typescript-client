@@ -44,7 +44,7 @@ jobs:
       if: steps.check-api-key.outputs.has_api_key == 'true'
       env:
         NUTRIENT_API_KEY: ${{ secrets.NUTRIENT_API_KEY }}
-      run: npm run integration
+      run: npm run test:integration
     
     - name: Skip integration tests (no API key)
       if: steps.check-api-key.outputs.has_api_key == 'false'
