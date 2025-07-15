@@ -1,5 +1,6 @@
-import type { NutrientClientOptions } from '../types';
+import type { NutrientClientOptions, RequestTypeMap, ResponseTypeMap } from '../types';
 import { sendRequest } from '../http';
+import type { ResponseType } from 'axios';
 
 /**
  * Base builder class that all builders extend from.
@@ -15,24 +16,21 @@ export abstract class BaseBuilder<TResult = unknown> {
   /**
    * Sends a request to the API
    */
-  protected async sendRequest<T>(
-    path: string,
-    options: {
-      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-      data?: unknown;
-      files?: Map<string, unknown>;
-      timeout?: number;
-    } = {},
-  ): Promise<T> {
+  protected async sendRequest<T extends '/build' | '/analyze_build'>(
+    path: T,
+    options: RequestTypeMap['POST'][T],
+    responseType: ResponseType,
+  ): Promise<ResponseTypeMap['POST'][T]> {
     const config = {
       endpoint: path,
-      method: options.method ?? 'POST',
-      data: options.data,
-      files: options.files,
-      timeout: options.timeout,
+      method: 'POST' as const,
+      data: {
+        instructions: options.instructions,
+        files: 'files' in options ? options.files : undefined,
+      },
     };
-    
-    const response = await sendRequest<T>(config, this.clientOptions);
+
+    const response = await sendRequest(config, this.clientOptions, responseType);
     return response.data;
   }
 

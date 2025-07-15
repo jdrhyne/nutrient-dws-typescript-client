@@ -3,7 +3,7 @@ export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  testMatch: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
@@ -12,8 +12,6 @@ export default {
     '!src/**/*.d.ts',
     '!src/**/index.ts',
     '!src/**/__tests__/**',
-    '!src/**/*e2e*',
-    '!src/**/coverage-report.ts',
   ],
   coverageThreshold: {
     global: {
@@ -28,9 +26,8 @@ export default {
   },
   testPathIgnorePatterns: [
     '/node_modules/', 
-    '/dist/', 
-    '.*/test-utils\\.ts',
-    '.*/e2e-test-helpers\\.ts',
+    '/dist/',
+    '.*/helpers\\.ts',
     '.*/coverage-report\\.ts'
   ],
   verbose: true,

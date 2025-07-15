@@ -1,129 +1,102 @@
-# Nutrient DWS Client Examples
+# Nutrient DWS TypeScript Client Example
 
-This directory contains example scripts demonstrating how to use the Nutrient DWS TypeScript Client in various scenarios.
+This example project demonstrates how to use the Nutrient DWS TypeScript Client for document processing operations.
 
-## Examples
+## Project Structure
 
-### 1. Basic Usage (`basic-usage.ts`)
-Demonstrates fundamental operations:
-- Converting documents between formats
-- Extracting text from PDFs
-- Compressing files
-- Adding watermarks
-- Merging multiple PDFs
+- `assets/` - Contains sample files for processing (PDF, DOCX, PNG)
+- `src/` - Contains TypeScript source files
+  - `direct_method.ts` - Examples using direct method calls
+  - `workflow.ts` - Examples using the workflow builder pattern
+- `output/` - Directory where processed files will be saved
+- `.env.example` - Example environment variables file
 
-### 2. Workflow Builder (`workflow-builder.ts`)
-Shows advanced workflow capabilities:
-- Chaining multiple operations
-- Creating named outputs
-- Progress tracking
-- Error handling
+## Prerequisites
 
-### 3. Browser Usage (`browser-usage.html`)
-Interactive web interface demonstrating:
-- File upload handling (click or drag-and-drop)
-- Client-side token authentication
-- All document operations in the browser
-- Download processed files
+- Node.js (v18 or higher)
+- npm or yarn
 
-## Running the Examples
+## Setup
 
-### Prerequisites
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/jdrhyne/nutrient-dws-typescript-client.git
+   cd nutrient-dws-typescript-client
+   ```
 
-1. Install dependencies:
+2. Install dependencies for the main package:
    ```bash
    npm install
    ```
 
-2. Set your API key using a `.env` file (recommended):
+3. Build the main package:
    ```bash
-   # Copy the example environment file
+   npm run build
+   ```
+   
+4. Pack the package:
+   ```bash
+   npm pack
+   ```
+
+5. Navigate to the examples directory:
+   ```bash
+   cd examples
+   ```
+
+6. Install dependencies for the example project:
+   ```bash
+   npm install
+   ```
+
+7. Create a `.env` file from the example:
+   ```bash
    cp .env.example .env
-
-   # Edit .env and set your API key
-   # NUTRIENT_API_KEY=your-api-key-here
    ```
 
-   Alternatively, you can set it as an environment variable:
-   ```bash
-   export NUTRIENT_API_KEY="your-api-key-here"
+8. Edit the `.env` file and add your Nutrient DWS Processor API key. You can sign up for a free API key by visiting [Nutrient](https://www.nutrient.io/api/):
+   ```
+   NUTRIENT_API_KEY=your_api_key_here
    ```
 
-### Node.js Examples
+## Running the Examples
 
-Run the basic usage example:
+### Direct Method Examples
+
+To run the direct method examples:
+
 ```bash
-npx ts-node examples/basic-usage.ts
+npm run start:direct
 ```
 
-Run the workflow builder example:
+This will:
+1. Convert a DOCX file to PDF
+2. Extract text from the PDF
+3. Add a watermark to the PDF
+4. Merge multiple documents
+
+### Workflow Examples
+
+To run the workflow examples:
+
 ```bash
-npx ts-node examples/workflow-builder.ts
+npm run start:workflow
 ```
 
-### Browser Example
-
-1. Open `browser-usage.html` in a web browser
-2. The example includes a mock client for demonstration
-3. In production, replace the mock with the actual client import
-
-## Input Files
-
-The examples expect certain input files to exist. You'll need to update the file paths or create test files:
-
-- `path/to/document.docx` - A Word document
-- `path/to/document.pdf` - A PDF file
-- `path/to/large-document.pdf` - A large PDF for compression testing
-- `path/to/document1.pdf`, `document2.pdf`, `document3.pdf` - PDFs for merging
-- `path/to/chapter1.pdf`, `chapter2.pdf`, `chapter3.pdf` - PDFs for workflow example
+This will:
+1. Perform a basic document conversion workflow
+2. Create a document merging with watermark workflow
+3. Extract text with JSON output
+4. Execute a complex multi-step workflow
 
 ## Output
 
-All examples save their output files to an `output/` directory, which is created automatically.
+All processed files will be saved to the `output/` directory. You can examine these files to see the results of the document processing operations.
 
-## Authentication
+## Documentation
 
-### Server-side (Node.js)
-The Node.js examples use an API key from the environment variable:
-```typescript
-const client = new NutrientClient({
-  apiKey: process.env.NUTRIENT_API_KEY || 'your-api-key-here'
-});
-```
+For more information about the Nutrient DWS TypeScript Client, refer to:
 
-### Client-side (Browser)
-The browser example demonstrates using a token provider:
-```typescript
-const client = new NutrientClient({
-  apiKey: async () => {
-    const response = await fetch('/api/get-nutrient-token');
-    const { token } = await response.json();
-    return token;
-  }
-});
-```
-
-## Error Handling
-
-All examples include error handling to demonstrate how to catch and handle different types of errors:
-
-```typescript
-try {
-  const result = await client.convert('file.docx', 'pdf');
-} catch (error) {
-  if (error instanceof ValidationError) {
-    console.error('Invalid input:', error.message);
-  } else if (error instanceof APIError) {
-    console.error('API error:', error.statusCode, error.message);
-  }
-  // ... handle other error types
-}
-```
-
-## Customization
-
-Feel free to modify these examples to suit your needs:
-- Change file paths to your actual documents
-- Adjust conversion options and parameters
-- Add additional operations or workflows
-- Integrate with your application's authentication system
+- [README.md](../README.md) - Main documentation
+- [METHODS.md](../METHODS.md) - Direct methods documentation
+- [WORKFLOW.md](../WORKFLOW.md) - Workflow system documentation

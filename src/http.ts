@@ -1,49 +1,32 @@
-import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import axios, { type AxiosRequestConfig, type AxiosResponse, type ResponseType } from 'axios';
 import FormData from 'form-data';
-import { type NormalizedFileData, processFileInput } from './inputs';
-import { isNode } from './utils/environment';
-import { APIError, AuthenticationError, NetworkError, NutrientError, ValidationError } from './errors';
-import type { NutrientClientOptions } from './types/common';
-import type { components } from './generated/api-types';
+import { type NormalizedFileData } from './inputs';
+import {
+  APIError,
+  AuthenticationError,
+  NetworkError,
+  NutrientError,
+  ValidationError,
+} from './errors';
+import type { NutrientClientOptions } from './types';
+import type { Methods, Endpoints, RequestConfig, ApiResponse, ResponseTypeMap } from './types';
 
 /**
- * HTTP request configuration for API calls
- */
-export interface RequestConfig {
-  endpoint: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  data?: unknown;
-  instructions?: components['schemas']['BuildInstructions'];
-  files?: Map<string, unknown>;
-  headers?: Record<string, string>;
-  timeout?: number;
-}
-
-/**
- * Response from API call
- */
-export interface ApiResponse<T = unknown> {
-  data: T;
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-}
-
-/**
- * Sends HTTP request to Nutrient DWS API
+ * Sends HTTP request to Nutrient DWS Processor API
  * Handles authentication, file uploads, and error conversion
  */
-export async function sendRequest<T = unknown>(
-  config: RequestConfig,
+export async function sendRequest<Method extends Methods, Endpoint extends Endpoints<Method>>(
+  config: RequestConfig<Method, Endpoint>,
   clientOptions: NutrientClientOptions,
-): Promise<ApiResponse<T>> {
+  responseType: ResponseType,
+): Promise<ApiResponse<Method, Endpoint>> {
   try {
     // Resolve API key (string or async function)
     const apiKey = await resolveApiKey(clientOptions.apiKey);
 
     // Build full URL
-    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io/v1';
-    const url = `${baseUrl.replace(/\/$/, '')}/${config.endpoint.replace(/^\//, '')}`;
+    const baseUrl = clientOptions.baseUrl ?? 'https://api.nutrient.io';
+    const url = `${baseUrl.replace(/\/$/, '')}${config.endpoint.toString()}`;
 
     // Prepare request configuration
     const axiosConfig: AxiosRequestConfig = {
@@ -53,22 +36,18 @@ export async function sendRequest<T = unknown>(
         Authorization: `Bearer ${apiKey}`,
         ...config.headers,
       },
-      timeout: config.timeout ?? 30000, // 30 second default timeout
+      timeout: clientOptions.timeout ?? 0, // No default timeout
       validateStatus: () => true, // Handle all status codes manually
+      responseType,
     };
 
-    // Set responseType for binary endpoints
-    if (config.endpoint === 'build') {
-      axiosConfig.responseType = 'arraybuffer';
-    }
-
-    await prepareRequestBody(axiosConfig, config);
+    prepareRequestBody<Method, Endpoint>(axiosConfig, config);
 
     // Make request
     const response: AxiosResponse = await axios(axiosConfig);
 
     // Handle response
-    return handleResponse<T>(response);
+    return handleResponse<Method, Endpoint>(response);
   } catch (error) {
     throw convertError(error, config);
   }
@@ -103,140 +82,137 @@ async function resolveApiKey(apiKey: string | (() => Promise<string>)): Promise<
 /**
  * Prepares request body with files and data
  */
-async function prepareRequestBody(
+function prepareRequestBody<Method extends Methods, Endpoint extends Endpoints<Method>>(
   axiosConfig: AxiosRequestConfig,
-  config: RequestConfig,
-): Promise<void> {
-  if (config.files && config.files.size > 0) {
-    // For file uploads, we need either instructions or data
-    const payload = config.instructions ?? config.data;
-    if (!payload) {
-      throw new ValidationError('File uploads require instructions or data', {
-        files: config.files,
-      });
-    }
-    // Use FormData for file uploads
-    const formData = await createFormData(config.files, payload);
-    axiosConfig.data = formData;
+  config: RequestConfig<Method, Endpoint>,
+): AxiosRequestConfig {
+  if (config.method === 'POST') {
+    if (['/build', '/analyze_build'].includes(config.endpoint as string)) {
+      const typedConfig = config as RequestConfig<'POST', '/build'>;
 
-    // Set appropriate headers for FormData
-    if (isNode() && formData instanceof FormData) {
-      // Node.js FormData sets its own headers
-      axiosConfig.headers = {
-        ...axiosConfig.headers,
-        ...formData.getHeaders(),
-      };
-    }
-    // Browser FormData sets boundary automatically
-  } else {
-    // JSON only request - prefer instructions for Build API, fallback to data
-    const payload = config.instructions ?? config.data;
-    if (payload) {
-      axiosConfig.data = payload;
-      axiosConfig.headers = {
-        ...axiosConfig.headers,
-        'Content-Type': 'application/json',
-      };
+      if (typedConfig.data.files && typedConfig.data.files.size > 0) {
+        // Use FormData for file uploads
+        const formData = new FormData();
+        for (const [key, value] of typedConfig.data.files) {
+          appendFileToFormData(formData, key, value);
+        }
+        formData.append('instructions', JSON.stringify(typedConfig.data.instructions));
+        axiosConfig.data = formData;
+
+        // Node.js FormData sets its own headers
+        axiosConfig.headers = {
+          ...axiosConfig.headers,
+          ...formData.getHeaders(),
+        };
+      } else {
+        // JSON only request
+        axiosConfig.data = typedConfig.data.instructions;
+        axiosConfig.headers = {
+          ...axiosConfig.headers,
+          'Content-Type': 'application/json',
+        };
+      }
+
+      return axiosConfig;
+    } else if (config.endpoint === '/sign') {
+      const typedConfig = config as RequestConfig<'POST', '/sign'>;
+
+      const formData = new FormData();
+      appendFileToFormData(formData, 'file', typedConfig.data.file);
+      if (typedConfig.data.image) {
+        appendFileToFormData(formData, 'image', typedConfig.data.image);
+      }
+      if (typedConfig.data.graphicImage) {
+        appendFileToFormData(formData, 'graphicImage', typedConfig.data.graphicImage);
+      }
+      if (typedConfig.data.data) {
+        formData.append('data', JSON.stringify(typedConfig.data.data));
+      } else {
+        formData.append(
+          'data',
+          JSON.stringify({
+            signatureType: 'cades',
+            cadesLevel: 'b-lt',
+          }),
+        );
+      }
+      axiosConfig.data = formData;
+
+      return axiosConfig;
+    } else if (config.endpoint === '/ai/redact') {
+      const typedConfig = config as RequestConfig<'POST', '/ai/redact'>;
+
+      if (typedConfig.data.file && typedConfig.data.fileKey) {
+        const formData = new FormData();
+        appendFileToFormData(formData, typedConfig.data.fileKey, typedConfig.data.file);
+        formData.append('data', JSON.stringify(typedConfig.data.data));
+        axiosConfig.data = formData;
+      } else {
+        // JSON only request
+        axiosConfig.data = typedConfig.data.data;
+        axiosConfig.headers = {
+          ...axiosConfig.headers,
+          'Content-Type': 'application/json',
+        };
+      }
+
+      return axiosConfig;
     }
   }
+  // Fallback, passing data as JSON
+  if (config.data) {
+    axiosConfig.data = config.data;
+    axiosConfig.headers = {
+      ...axiosConfig.headers,
+      'Content-Type': 'application/json',
+    };
+  }
+  return axiosConfig;
 }
 
 /**
- * Creates FormData with files and additional data
+ * Appends file to FormData with proper format (Node.js only)
  */
-async function createFormData(
-  files: Map<string, unknown>,
-  payload: unknown,
-): Promise<FormData | globalThis.FormData> {
-  const FormDataImpl = isNode() ? FormData : globalThis.FormData;
-  const formData = new FormDataImpl();
-
-  for (const [key, value] of files) {
-    const normalizedFile = await processFileInput(value as never);
-    appendFileToFormData(formData, key, normalizedFile);
-  }
-
-  // For Build API, use 'instructions'; for other APIs, use 'data'
-  if (payload && typeof payload === 'object' && 'parts' in payload) {
-    formData.append('instructions', JSON.stringify(payload));
+function appendFileToFormData(formData: FormData, key: string, file: NormalizedFileData): void {
+  if (Buffer.isBuffer(file.data)) {
+    formData.append(key, file.data, {
+      filename: file.filename,
+      contentType: file.contentType,
+    });
+  } else if (file.data instanceof Uint8Array) {
+    formData.append(key, Buffer.from(file.data), {
+      filename: file.filename,
+      contentType: file.contentType,
+    });
+  } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
+    // Handle ReadableStream (including fs.ReadStream)
+    formData.append(key, file.data, {
+      filename: file.filename,
+      contentType: file.contentType,
+    });
   } else {
-    formData.append('data', JSON.stringify(payload));
-  }
-
-  return formData;
-}
-
-/**
- * Appends file to FormData with proper format
- */
-function appendFileToFormData(
-  formData: FormData | globalThis.FormData,
-  key: string,
-  file: NormalizedFileData,
-): void {
-  if (isNode() && formData instanceof FormData) {
-    // Node.js FormData
-    if (Buffer.isBuffer(file.data)) {
-      formData.append(key, file.data, {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
-    } else if (file.data instanceof Uint8Array) {
-      formData.append(key, Buffer.from(file.data), {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
-    } else if (file.data && typeof file.data === 'object' && 'pipe' in file.data) {
-      // Handle ReadableStream (including fs.ReadStream)
-      formData.append(key, file.data, {
-        filename: file.filename,
-        contentType: file.contentType,
-      });
-    } else {
-      throw new ValidationError('Node.js environment expects Buffer, Uint8Array, or ReadableStream for file data', {
-        dataType: typeof file.data,
-      });
-    }
-  } else {
-    // Browser FormData
-    if (file.data instanceof Blob) {
-      (formData as globalThis.FormData).append(key, file.data, file.filename);
-    } else if (file.data instanceof Uint8Array) {
-      const blob = new Blob([file.data], { type: file.contentType });
-      (formData as globalThis.FormData).append(key, blob, file.filename);
-    } else {
-      throw new ValidationError('Browser environment expects Blob or Uint8Array for file data', {
-        dataType: typeof file.data,
-      });
-    }
+    throw new ValidationError('Expected Buffer, Uint8Array, or ReadableStream for file data', {
+      dataType: typeof file.data,
+    });
   }
 }
 
 /**
  * Handles HTTP response and converts to standardized format
  */
-function handleResponse<T>(response: AxiosResponse): ApiResponse<T> {
+function handleResponse<Method extends Methods, Endpoint extends Endpoints<Method>>(
+  response: AxiosResponse,
+): ApiResponse<Method, Endpoint> {
   const { status, statusText, headers } = response;
-  const data = response.data as unknown;
+  const data = response.data as ResponseTypeMap[Method][Endpoint];
 
   // Check for error status codes
   if (status >= 400) {
     throw createHttpError(status, statusText, data);
   }
 
-  // Handle different response types
-  let responseData: T;
-
-  const contentType = response.headers['content-type'] as string;
-  if (contentType?.includes('application/json')) {
-    responseData = data as T;
-  } else {
-    // Handle binary responses (files)
-    responseData = data as T;
-  }
-
   return {
-    data: responseData,
+    data,
     status,
     statusText,
     headers: headers as Record<string, string>,
@@ -265,11 +241,19 @@ function createHttpError(status: number, statusText: string, data: unknown): Nut
 }
 
 /**
- * Extracts error message from response data
+ * Extracts error message from response data with comprehensive DWS error handling
  */
 function extractErrorMessage(data: unknown): string | null {
   if (typeof data === 'object' && data !== null) {
     const errorData = data as Record<string, unknown>;
+
+    // DWS-specific error fields (prioritized)
+    if (typeof errorData['error_description'] === 'string') {
+      return errorData['error_description'];
+    }
+    if (typeof errorData['error_message'] === 'string') {
+      return errorData['error_message'];
+    }
 
     // Common error message fields
     if (typeof errorData['message'] === 'string') {
@@ -281,6 +265,34 @@ function extractErrorMessage(data: unknown): string | null {
     if (typeof errorData['detail'] === 'string') {
       return errorData['detail'];
     }
+    if (typeof errorData['details'] === 'string') {
+      return errorData['details'];
+    }
+
+    // Handle nested error objects
+    if (typeof errorData['error'] === 'object' && errorData['error'] !== null) {
+      const nestedError = errorData['error'] as Record<string, unknown>;
+      if (typeof nestedError['message'] === 'string') {
+        return nestedError['message'];
+      }
+      if (typeof nestedError['description'] === 'string') {
+        return nestedError['description'];
+      }
+    }
+
+    // Handle errors array (common in validation responses)
+    if (Array.isArray(errorData['errors']) && errorData['errors'].length > 0) {
+      const firstError = errorData['errors'][0] as unknown;
+      if (typeof firstError === 'string') {
+        return firstError;
+      }
+      if (typeof firstError === 'object' && firstError !== null) {
+        const errorObj = firstError as Record<string, unknown>;
+        if (typeof errorObj['message'] === 'string') {
+          return errorObj['message'];
+        }
+      }
+    }
   }
 
   return null;
@@ -289,7 +301,10 @@ function extractErrorMessage(data: unknown): string | null {
 /**
  * Converts various error types to NutrientError
  */
-function convertError(error: unknown, config: RequestConfig): NutrientError {
+function convertError<Method extends Methods, Endpoint extends Endpoints<Method>>(
+  error: unknown,
+  config: RequestConfig<Method, Endpoint>,
+): NutrientError {
   if (error instanceof NutrientError) {
     return error;
   }
@@ -305,21 +320,32 @@ function convertError(error: unknown, config: RequestConfig): NutrientError {
     }
 
     if (request) {
+      const sanitizedHeaders = config.headers;
+      if (sanitizedHeaders) {
+        delete sanitizedHeaders['Authorization']
+      }
       // Network error (request made but no response)
       return new NetworkError('Network request failed', {
         message,
         endpoint: config.endpoint,
         method: config.method,
+        headers: sanitizedHeaders,
       });
     }
 
     // Request setup error
-    return new ValidationError('Request configuration error', { message, config });
+    return new ValidationError('Request configuration error', { message,
+      endpoint: config.endpoint,
+      method: config.method,
+      data: config.data,
+    });
   }
 
   // Unknown error
   return new NutrientError('Unexpected error occurred', 'UNKNOWN_ERROR', {
     error: error instanceof Error ? error.message : String(error),
     endpoint: config.endpoint,
+    method: config.method,
+    data: config.data,
   });
 }

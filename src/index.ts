@@ -3,10 +3,7 @@ export { NutrientClient } from './client';
 export { BuildActions, BuildOutputs } from './build';
 
 // Builder exports
-export {
-  WorkflowBuilder,
-  StagedWorkflowBuilder,
-} from './builders';
+export { WorkflowBuilder, StagedWorkflowBuilder } from './builders';
 
 // Error exports
 export {
@@ -24,31 +21,12 @@ export type {
 
   // Input types
   FileInput,
-  BrowserFileInput,
-  BlobInput,
   FilePathInput,
   BufferInput,
   Uint8ArrayInput,
   UrlInput,
 
-  // Operation types
-  Operation,
-  OperationType,
-  ConvertOperation,
-  MergeOperation,
-  CompressOperation,
-  ExtractOperation,
-  WatermarkOperation,
-
-  // Response types
-  BaseResponse,
-  ErrorResponse,
-  ExtractTextResponse,
-  FileResponse,
-
   // Workflow types
-  WorkflowStep,
-  WorkflowConfig,
   WorkflowResult,
   WorkflowExecuteOptions,
   WorkflowInitialStage,
@@ -60,6 +38,12 @@ export type {
   WorkflowDryRunResult,
 } from './types';
 
-
 // Utility exports
-export { validateFileInput, processFileInput, type NormalizedFileData } from './inputs';
+export {
+  validateFileInput,
+  processFileInput,
+  isRemoteFileInput,
+  processRemoteFileInput,
+  type NormalizedFileData,
+} from './inputs';
+export { type ActionWithFileInput } from './build';

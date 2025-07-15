@@ -8,6 +8,8 @@ pnpm-debug.log*
 # Build outputs
 dist/
 *.tsbuildinfo
+*.tgz
+*.tar.gz
 
 # Test coverage
 coverage/
@@ -33,6 +35,9 @@ Thumbs.db
 *.log
 tmp/
 temp/
+
+# Example output
+examples/output
 
 # Test/debug files
 test-*.ts

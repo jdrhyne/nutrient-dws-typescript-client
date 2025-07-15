@@ -77,23 +77,15 @@ export class NutrientError extends Error {
 
     if (error instanceof Error) {
       const wrappedMessage = message ? `${message}: ${error.message}` : error.message;
-      return new NutrientError(
-        wrappedMessage,
-        'WRAPPED_ERROR',
-        { 
-          originalError: error.name,
-          originalMessage: error.message,
-          stack: error.stack 
-        }
-      );
+      return new NutrientError(wrappedMessage, 'WRAPPED_ERROR', {
+        originalError: error.name,
+        originalMessage: error.message,
+        stack: error.stack,
+      });
     }
 
     const errorMessage = message ?? 'An unknown error occurred';
-    return new NutrientError(
-      errorMessage,
-      'UNKNOWN_ERROR',
-      { originalError: String(error) }
-    );
+    return new NutrientError(errorMessage, 'UNKNOWN_ERROR', { originalError: String(error) });
   }
 }
 

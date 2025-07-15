@@ -5,8 +5,8 @@ export interface NutrientClientOptions {
   /**
    * The API key for authentication.
    *
-   * - For server-side (Node.js) use, this can be your long-lived API key string.
-   * - For client-side (browser) use, this MUST be an async function that
+   * - This can be your long-lived API key string.
+   * - This MUST be an async function that
    * returns a short-lived access token to avoid exposing your secret key.
    *
    * @example
@@ -21,10 +21,15 @@ export interface NutrientClientOptions {
    * };
    */
   apiKey: string | (() => Promise<string>);
-  
+
   /**
-   * The base URL for the Nutrient DWS API.
-   * @default 'https://api.nutrient.io/v1'
+   * The base URL for the Nutrient DWS Processor API.
+   * @default 'https://api.nutrient.io'
    */
   baseUrl?: string;
+
+  /**
+   * Timeout in milliseconds
+   */
+  timeout?: number;
 }

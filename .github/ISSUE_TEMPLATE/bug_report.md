@@ -36,7 +36,6 @@ Paste the full error message and stack trace here
 **Environment:**
 - Library version: [e.g. 1.0.0]
 - Node.js version: [e.g. 18.0.0]
-- Browser: [if applicable, e.g. Chrome 91]
 - OS: [e.g. macOS 12.0]
 
 **Additional context**
